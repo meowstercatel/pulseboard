@@ -1,0 +1,250 @@
+---
+// Area chart for a 0-100% series with a hover/keyboard crosshair tooltip.
+interface Props {
+    title: string;
+    series: number[];
+    // Minutes between samples; the last sample is "now".
+    interval?: number;
+}
+
+const { title, series, interval = 5 } = Astro.props;
+
+const W = 300;
+const H = 100;
+const x = (i: number) => (i / (series.length - 1)) * W;
+const y = (v: number) => H - v;
+const line = series.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+const area = `0,${H} ${line} ${W},${H}`;
+const ticks = [0, 25, 50, 75, 100];
+const xTicks = [0, Math.round((series.length - 1) / 2), series.length - 1];
+const ago = (i: number) => {
+    const m = (series.length - 1 - i) * interval;
+    if (m === 0) return "now";
+    const h = Math.floor(m / 60);
+    return `${h ? `${h}h ` : ""}${m % 60 ? `${m % 60}m ` : ""}ago`;
+};
+const last = series[series.length - 1];
+---
+
+<div class="usage-chart" data-series={JSON.stringify(series)} data-interval={interval}>
+    <p class="title">{title}</p>
+    <div class="body">
+        <div class="y-axis" aria-hidden="true">
+            {ticks.map((t) => <span style={`top: ${100 - t}%`}>{t}%</span>)}
+        </div>
+        <div
+            class="plot"
+            tabindex="0"
+            role="img"
+            aria-label={`${title}. Use left and right arrow keys to inspect values.`}
+        >
+            <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+                {ticks.map((t) => <line class="grid" x1="0" x2={W} y1={y(t)} y2={y(t)} />)}
+                <polygon class="area" points={area} />
+                <polyline class="line" points={line} />
+            </svg>
+            <span class="end-label" style={`top: ${100 - last}%`}>{last}%</span>
+            <div class="crosshair" hidden></div>
+            <div class="dot" hidden></div>
+            <div class="tooltip" role="status" hidden>
+                <strong class="tooltip-value"></strong>
+                <span class="tooltip-label"></span>
+            </div>
+        </div>
+    </div>
+    <div class="x-axis" aria-hidden="true">
+        {xTicks.map((i) => <span style={`left: ${(i / (series.length - 1)) * 100}%`}>{ago(i)}</span>)}
+    </div>
+    <table class="sr-only">
+        <caption>{title}</caption>
+        <tr><th>Time</th><th>Usage</th></tr>
+        {series.map((v, i) => <tr><td>{ago(i)}</td><td>{v}%</td></tr>)}
+    </table>
+</div>
+
+<style>
+    .usage-chart {
+        --series: #0f62fe;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .title {
+        font-weight: 600;
+    }
+    .body {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .y-axis {
+        position: relative;
+        width: 2.25rem;
+        flex-shrink: 0;
+    }
+    .y-axis span,
+    .x-axis span {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+    }
+    .y-axis span {
+        position: absolute;
+        right: 0;
+        transform: translateY(-50%);
+    }
+    .plot {
+        position: relative;
+        flex: 1;
+        height: 10rem;
+        margin-inline-end: 2.5rem;
+        cursor: crosshair;
+        outline-offset: 4px;
+    }
+    svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+    .grid {
+        stroke: var(--cds-border-subtle, #e0e0e0);
+        stroke-width: 1;
+        vector-effect: non-scaling-stroke;
+    }
+    .area {
+        fill: var(--series);
+        opacity: 0.1;
+    }
+    .line {
+        fill: none;
+        stroke: var(--series);
+        stroke-width: 2;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+    }
+    .end-label {
+        position: absolute;
+        left: calc(100% + 0.5rem);
+        transform: translateY(-50%);
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--cds-text-primary, #161616);
+    }
+    .crosshair {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--cds-text-secondary, #525252);
+        pointer-events: none;
+    }
+    .dot {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--series);
+        box-shadow: 0 0 0 2px var(--cds-layer-01, #f4f4f4);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+    .tooltip {
+        position: absolute;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 0.375rem 0.625rem;
+        background: var(--cds-background-inverse, #393939);
+        color: var(--cds-text-inverse, #fff);
+        font-size: 0.75rem;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 1;
+    }
+    .tooltip-value {
+        font-size: 0.875rem;
+    }
+    [hidden] {
+        display: none !important;
+    }
+    .x-axis {
+        position: relative;
+        height: 1rem;
+        margin-inline: 2.75rem 2.5rem;
+    }
+    .x-axis span {
+        position: absolute;
+        transform: translateX(-50%);
+    }
+    .x-axis span:first-child {
+        transform: none;
+    }
+    .x-axis span:last-child {
+        transform: translateX(-100%);
+    }
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+</style>
+
+<script>
+    const ago = (minutes: number) => {
+        if (minutes === 0) return "now";
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${h ? `${h}h ` : ""}${m ? `${m}m ` : ""}ago`;
+    };
+
+    document.querySelectorAll<HTMLElement>(".usage-chart").forEach((chart) => {
+        const series: number[] = JSON.parse(chart.dataset.series ?? "[]");
+        const interval = Number(chart.dataset.interval ?? 5);
+        const plot = chart.querySelector<HTMLElement>(".plot")!;
+        const crosshair = chart.querySelector<HTMLElement>(".crosshair")!;
+        const dot = chart.querySelector<HTMLElement>(".dot")!;
+        const tooltip = chart.querySelector<HTMLElement>(".tooltip")!;
+        const value = chart.querySelector<HTMLElement>(".tooltip-value")!;
+        const label = chart.querySelector<HTMLElement>(".tooltip-label")!;
+        let index = series.length - 1;
+
+        const show = (i: number) => {
+            index = Math.max(0, Math.min(series.length - 1, i));
+            const xPct = (index / (series.length - 1)) * 100;
+            const v = series[index];
+            crosshair.style.left = `${xPct}%`;
+            dot.style.left = `${xPct}%`;
+            dot.style.top = `${100 - v}%`;
+            value.textContent = `${v}%`;
+            label.textContent = ago((series.length - 1 - index) * interval);
+            // Keep the tooltip inside the plot: flip to the left past the midpoint.
+            tooltip.style.left = xPct > 50 ? "" : `calc(${xPct}% + 8px)`;
+            tooltip.style.right = xPct > 50 ? `calc(${100 - xPct}% + 8px)` : "";
+            crosshair.hidden = dot.hidden = tooltip.hidden = false;
+        };
+        const hide = () => {
+            crosshair.hidden = dot.hidden = tooltip.hidden = true;
+        };
+
+        plot.addEventListener("pointermove", (e) => {
+            const rect = plot.getBoundingClientRect();
+            const ratio = (e.clientX - rect.left) / rect.width;
+            show(Math.round(ratio * (series.length - 1)));
+        });
+        plot.addEventListener("pointerleave", () => {
+            if (document.activeElement !== plot) hide();
+        });
+        plot.addEventListener("focus", () => show(index));
+        plot.addEventListener("blur", hide);
+        plot.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") show(index - 1);
+            else if (e.key === "ArrowRight") show(index + 1);
+            else return;
+            e.preventDefault();
+        });
+    });
+</script>
