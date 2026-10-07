@@ -10,7 +10,11 @@ const plans = [
         price: "19 zł",
         period: "/ miesiąc",
         note: "Odnawiana co miesiąc, możesz anulować w każdej chwili.",
-        features: ["Wszystkie funkcje PulseBoard", "Aktualizacje na bieżąco", "Wsparcie e-mail"],
+        features: [
+            "Wszystkie funkcje PulseBoard",
+            "Aktualizacje na bieżąco",
+            "Wsparcie e-mail",
+        ],
         cta: "Subskrybuj",
         kind: "secondary",
     },
@@ -20,7 +24,11 @@ const plans = [
         price: "199 zł",
         period: "jednorazowo",
         note: "Płacisz raz, korzystasz bez ograniczeń czasowych.",
-        features: ["Wszystkie funkcje PulseBoard", "Dożywotnie aktualizacje", "Priorytetowe wsparcie"],
+        features: [
+            "Wszystkie funkcje PulseBoard",
+            "Dożywotnie aktualizacje",
+            "Priorytetowe wsparcie",
+        ],
         cta: "Kup licencję",
         kind: "primary",
         badge: "Najlepsza wartość",
@@ -34,35 +42,35 @@ const plans = [
             <h1>PulseBoard</h1>
             <p class="status">
                 Licencja:
-                <cds-tag type="red" size="md">nieopłacona</cds-tag>
+                <cds-tag type="red" size="md">
+                    nieopłacona
+                </cds-tag>
             </p>
         </header>
         <h3>Wybierz plan</h3>
         <div class="licenses">
-            {
-                plans.map((plan) => (
-                    <section class:list={["license", { featured: plan.badge }]}>
-                        {plan.badge && (
-                            <cds-tag class="badge" type="blue" size="sm">
-                                {plan.badge}
-                            </cds-tag>
-                        )}
-                        <h4>{plan.name}</h4>
-                        <p class="price">
-                            {plan.price} <span class="period">{plan.period}</span>
-                        </p>
-                        <p class="note">{plan.note}</p>
-                        <ul>
-                            {plan.features.map((f) => (
-                                <li>{f}</li>
-                            ))}
-                        </ul>
-                        <cds-button size="md" kind={plan.kind} data-plan={plan.id}>
-                            {plan.cta}
-                        </cds-button>
-                    </section>
-                ))
-            }
+            {plans.map((plan) => (
+                <section class:list={["license", { featured: plan.badge }]}>
+                    {plan.badge && (
+                        <cds-tag class="badge" type="blue" size="sm">
+                            {plan.badge}
+                        </cds-tag>
+                    )}
+                    <h4>{plan.name}</h4>
+                    <p class="price">
+                        {plan.price} <span class="period">{plan.period}</span>
+                    </p>
+                    <p class="note">{plan.note}</p>
+                    <ul>
+                        {plan.features.map((f) => (
+                            <li>{f}</li>
+                        ))}
+                    </ul>
+                    <cds-button size="md" kind={plan.kind} data-plan={plan.id}>
+                        {plan.cta}
+                    </cds-button>
+                </section>
+            ))}
         </div>
     </main>
 </HtmlTemplate>

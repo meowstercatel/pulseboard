@@ -1,0 +1,10 @@
+{
+  "tabWidth": 4,
+  "plugins": ["prettier-plugin-astro"],
+  "overrides": [
+    {
+      "files": ["*.json", "*.yaml", "*.yml", "*.md"],
+      "options": { "tabWidth": 2 }
+    }
+  ]
+}

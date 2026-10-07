@@ -26,11 +26,17 @@ const ago = (i: number) => {
 const last = series[series.length - 1];
 ---
 
-<div class="usage-chart" data-series={JSON.stringify(series)} data-interval={interval}>
+<div
+    class="usage-chart"
+    data-series={JSON.stringify(series)}
+    data-interval={interval}
+>
     <p class="title">{title}</p>
     <div class="body">
         <div class="y-axis" aria-hidden="true">
-            {ticks.map((t) => <span style={`top: ${100 - t}%`}>{t}%</span>)}
+            {ticks.map((t) => (
+                <span style={`top: ${100 - t}%`}>{t}%</span>
+            ))}
         </div>
         <div
             class="plot"
@@ -38,12 +44,20 @@ const last = series[series.length - 1];
             role="img"
             aria-label={`${title}. Use left and right arrow keys to inspect values.`}
         >
-            <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-                {ticks.map((t) => <line class="grid" x1="0" x2={W} y1={y(t)} y2={y(t)} />)}
+            <svg
+                viewBox={`0 0 ${W} ${H}`}
+                preserveAspectRatio="none"
+                aria-hidden="true"
+            >
+                {ticks.map((t) => (
+                    <line class="grid" x1="0" x2={W} y1={y(t)} y2={y(t)} />
+                ))}
                 <polygon class="area" points={area} />
                 <polyline class="line" points={line} />
             </svg>
-            <span class="end-label" style={`top: ${100 - last}%`}>{last}%</span>
+            <span class="end-label" style={`top: ${100 - last}%`}>
+                {last}%
+            </span>
             <div class="crosshair" hidden></div>
             <div class="dot" hidden></div>
             <div class="tooltip" role="status" hidden>
@@ -53,12 +67,24 @@ const last = series[series.length - 1];
         </div>
     </div>
     <div class="x-axis" aria-hidden="true">
-        {xTicks.map((i) => <span style={`left: ${(i / (series.length - 1)) * 100}%`}>{ago(i)}</span>)}
+        {xTicks.map((i) => (
+            <span style={`left: ${(i / (series.length - 1)) * 100}%`}>
+                {ago(i)}
+            </span>
+        ))}
     </div>
     <table class="sr-only">
         <caption>{title}</caption>
-        <tr><th>Time</th><th>Usage</th></tr>
-        {series.map((v, i) => <tr><td>{ago(i)}</td><td>{v}%</td></tr>)}
+        <tr>
+            <th>Time</th>
+            <th>Usage</th>
+        </tr>
+        {series.map((v, i) => (
+            <tr>
+                <td>{ago(i)}</td>
+                <td>{v}%</td>
+            </tr>
+        ))}
     </table>
 </div>
 
