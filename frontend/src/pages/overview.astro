@@ -19,21 +19,39 @@ const swap = { used: 0.3, total: 2 };
 const load = [1.82, 1.64, 1.41];
 
 const cpuHistory = [
-    31, 35, 28, 40, 44, 39, 52, 61, 58, 47, 43, 38, 41, 49, 55, 50, 46, 42, 37, 40,
-    45, 48, 44, 42,
+    31, 35, 28, 40, 44, 39, 52, 61, 58, 47, 43, 38, 41, 49, 55, 50, 46, 42, 37,
+    40, 45, 48, 44, 42,
 ];
 const memHistory = [
-    64, 65, 65, 66, 68, 67, 69, 71, 72, 70, 70, 69, 70, 71, 72, 73, 72, 71, 71, 70,
-    71, 72, 71, 71,
+    64, 65, 65, 66, 68, 67, 69, 71, 72, 70, 70, 69, 70, 71, 72, 73, 72, 71, 71,
+    70, 71, 72, 71, 71,
 ];
 
 const disks = [
     { mount: "/", device: "/dev/nvme0n1p2", fs: "ext4", used: 38.2, total: 98 },
-    { mount: "/var", device: "/dev/nvme0n1p3", fs: "ext4", used: 171.5, total: 196 },
-    { mount: "/boot", device: "/dev/nvme0n1p1", fs: "vfat", used: 0.12, total: 0.5 },
+    {
+        mount: "/var",
+        device: "/dev/nvme0n1p3",
+        fs: "ext4",
+        used: 171.5,
+        total: 196,
+    },
+    {
+        mount: "/boot",
+        device: "/dev/nvme0n1p1",
+        fs: "vfat",
+        used: 0.12,
+        total: 0.5,
+    },
 ];
 
-const network = { iface: "eth0", rx: "12.4 MB/s", tx: "3.1 MB/s", rxTotal: "1.82 TB", txTotal: "412 GB" };
+const network = {
+    iface: "eth0",
+    rx: "12.4 MB/s",
+    tx: "3.1 MB/s",
+    rxTotal: "1.82 TB",
+    txTotal: "412 GB",
+};
 
 const processes = [
     { pid: 1423, user: "postgres", name: "postgres", cpu: 18.2, mem: 12.4 },
@@ -51,59 +69,31 @@ const services = [
     { name: "app-worker.service", active: false },
 ];
 
-const percent = (used: number, total: number) => Math.round((used / total) * 100);
+const percent = (used: number, total: number) =>
+    Math.round((used / total) * 100);
 const status = (p: number) => (p >= 90 ? "error" : "active");
-
 ---
 
 <HtmlTemplate>
     <main>
-        <style>
-            cds-header ~ cds-side-nav {
-                block-size: calc(100% - 3rem);
-                margin-block-start: 3rem;
-            }
-        </style>
         <cds-header aria-label="PulseBoard">
-            <cds-header-menu-button
-                button-label-active="Close menu"
-                button-label-inactive="Open menu"
-            ></cds-header-menu-button>
             <cds-header-name href="/overview">PulseBoard</cds-header-name>
             <cds-header-nav menu-bar-label="PulseBoard">
-                <cds-header-nav-item href="/overview">Overview</cds-header-nav-item>
-                <cds-header-nav-item href="javascript:void 0">Alerts</cds-header-nav-item>
+                <cds-header-nav-item href="/overview">
+                    Overview
+                </cds-header-nav-item>
+                <cds-header-nav-item href="javascript:void 0">
+                    Alerts
+                </cds-header-nav-item>
                 <cds-header-menu menu-label="Account" trigger-content="Account">
-                    <cds-header-menu-item href="/buy">License</cds-header-menu-item>
-                    <cds-header-menu-item href="/">Log out</cds-header-menu-item>
+                    <cds-header-menu-item href="/buy">
+                        License
+                    </cds-header-menu-item>
+                    <cds-header-menu-item href="/">
+                        Log out
+                    </cds-header-menu-item>
                 </cds-header-menu>
             </cds-header-nav>
-            <cds-side-nav
-                aria-label="Side navigation"
-                collapse-mode="responsive"
-            >
-                <cds-side-nav-items>
-                    <cds-side-nav-link href="javascript:void(0)" active="">
-                        Overview
-                    </cds-side-nav-link>
-                    <cds-side-nav-link href="javascript:void(0)">CPU</cds-side-nav-link>
-                    <cds-side-nav-link href="javascript:void(0)">Memory</cds-side-nav-link>
-                    <cds-side-nav-link href="javascript:void(0)">Storage</cds-side-nav-link>
-                    <cds-side-nav-link href="javascript:void(0)">Network</cds-side-nav-link>
-                    <cds-side-nav-link href="javascript:void(0)">Processes</cds-side-nav-link>
-                    <cds-side-nav-menu title="Servers">
-                        <cds-side-nav-menu-item href="javascript:void(0)" active="">
-                            web-01
-                        </cds-side-nav-menu-item>
-                        <cds-side-nav-menu-item href="javascript:void(0)">
-                            web-02
-                        </cds-side-nav-menu-item>
-                        <cds-side-nav-menu-item href="javascript:void(0)">
-                            db-01
-                        </cds-side-nav-menu-item>
-                    </cds-side-nav-menu>
-                </cds-side-nav-items>
-            </cds-side-nav>
         </cds-header>
 
         <div class="cds-ce-demo-devenv--container">
@@ -112,33 +102,45 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                     <div>
                         <h1>
                             {server.hostname}
-                            <cds-tag type={server.online ? "green" : "red"} size="md">
+                            <cds-tag
+                                type={server.online ? "green" : "red"}
+                                size="md"
+                            >
                                 {server.online ? "Online" : "Offline"}
                             </cds-tag>
                         </h1>
                         <p class="meta">
-                            {server.ip} · {server.os} · kernel {server.kernel} · up {server.uptime}
+                            {server.ip} · {server.os} · kernel {server.kernel} ·
+                            up {server.uptime}
                         </p>
                     </div>
-                    <p class="meta">Last updated: <span id="last-updated">just now</span></p>
+                    <p class="meta">
+                        Last updated: <span id="last-updated">just now</span>
+                    </p>
                 </div>
 
                 <div class="grid kpis">
                     <cds-tile>
                         <p class="label">CPU</p>
-                        <p class="value">{cpu.usage}<span class="unit">%</span></p>
+                        <p class="value">
+                            {cpu.usage}
+                            <span class="unit">%</span>
+                        </p>
                         <cds-progress-bar
                             label="CPU usage"
                             hide-label=""
                             value={cpu.usage}
                             status={status(cpu.usage)}
                         ></cds-progress-bar>
-                        <p class="meta">{cpu.cores} cores · {cpu.model} · {cpu.temp}°C</p>
+                        <p class="meta">
+                            {cpu.cores} cores · {cpu.model} · {cpu.temp}°C
+                        </p>
                     </cds-tile>
                     <cds-tile>
                         <p class="label">Memory</p>
                         <p class="value">
-                            {percent(memory.used, memory.total)}<span class="unit">%</span>
+                            {percent(memory.used, memory.total)}
+                            <span class="unit">%</span>
                         </p>
                         <cds-progress-bar
                             label="Memory usage"
@@ -147,14 +149,16 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                             status={status(percent(memory.used, memory.total))}
                         ></cds-progress-bar>
                         <p class="meta">
-                            {memory.used} / {memory.total} GiB · swap {swap.used} / {swap.total} GiB
+                            {memory.used} / {memory.total} GiB · swap{" "}
+                            {swap.used} / {swap.total} GiB
                         </p>
                     </cds-tile>
                     <cds-tile>
                         <p class="label">Load average</p>
                         <p class="value">{load[0].toFixed(2)}</p>
                         <p class="meta">
-                            1m {load[0].toFixed(2)} · 5m {load[1].toFixed(2)} · 15m {load[2].toFixed(2)}
+                            1m {load[0].toFixed(2)} · 5m {load[1].toFixed(2)} ·
+                            15m {load[2].toFixed(2)}
                         </p>
                     </cds-tile>
                     <cds-tile>
@@ -164,17 +168,24 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                             <span>↑ {network.tx}</span>
                         </p>
                         <p class="meta">
-                            Total received {network.rxTotal} · sent {network.txTotal}
+                            Total received {network.rxTotal} · sent{" "}
+                            {network.txTotal}
                         </p>
                     </cds-tile>
                 </div>
 
                 <div class="grid charts">
                     <cds-tile>
-                        <UsageChart title="CPU usage · last 2 hours" series={cpuHistory} />
+                        <UsageChart
+                            title="CPU usage · last 2 hours"
+                            series={cpuHistory}
+                        />
                     </cds-tile>
                     <cds-tile>
-                        <UsageChart title="Memory usage · last 2 hours" series={memHistory} />
+                        <UsageChart
+                            title="Memory usage · last 2 hours"
+                            series={memHistory}
+                        />
                     </cds-tile>
                 </div>
 
@@ -182,39 +193,42 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                     <cds-tile>
                         <p class="label">Storage</p>
                         <div class="disks">
-                            {
-                                disks.map((d) => (
-                                    <div class="disk">
-                                        <cds-progress-bar
-                                            label={`${d.mount}  (${d.device}, ${d.fs})`}
-                                            helper-text={`${d.used} / ${d.total} GiB · ${percent(d.used, d.total)}%`}
-                                            value={percent(d.used, d.total)}
-                                            status={status(percent(d.used, d.total))}
-                                        />
-                                    </div>
-                                ))
-                            }
+                            {disks.map((d) => (
+                                <div class="disk">
+                                    <cds-progress-bar
+                                        label={`${d.mount}  (${d.device}, ${d.fs})`}
+                                        helper-text={`${d.used} / ${d.total} GiB · ${percent(d.used, d.total)}%`}
+                                        value={percent(d.used, d.total)}
+                                        status={status(
+                                            percent(d.used, d.total),
+                                        )}
+                                    />
+                                </div>
+                            ))}
                         </div>
                     </cds-tile>
                     <cds-tile>
                         <p class="label">Services</p>
                         <ul class="services">
-                            {
-                                services.map((s) => (
-                                    <li>
-                                        <span>{s.name}</span>
-                                        <cds-tag type={s.active ? "green" : "red"} size="sm">
-                                            {s.active ? "active" : "failed"}
-                                        </cds-tag>
-                                    </li>
-                                ))
-                            }
+                            {services.map((s) => (
+                                <li>
+                                    <span>{s.name}</span>
+                                    <cds-tag
+                                        type={s.active ? "green" : "red"}
+                                        size="sm"
+                                    >
+                                        {s.active ? "active" : "failed"}
+                                    </cds-tag>
+                                </li>
+                            ))}
                         </ul>
                     </cds-tile>
                 </div>
 
                 <cds-table>
-                    <cds-table-header-title slot="title">Top processes</cds-table-header-title>
+                    <cds-table-header-title slot="title">
+                        Top processes
+                    </cds-table-header-title>
                     <cds-table-header-description slot="description">
                         Sorted by CPU usage
                     </cds-table-header-description>
@@ -222,23 +236,27 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                         <cds-table-header-row>
                             <cds-table-header-cell>PID</cds-table-header-cell>
                             <cds-table-header-cell>User</cds-table-header-cell>
-                            <cds-table-header-cell>Command</cds-table-header-cell>
+                            <cds-table-header-cell>
+                                Command
+                            </cds-table-header-cell>
                             <cds-table-header-cell>CPU %</cds-table-header-cell>
                             <cds-table-header-cell>MEM %</cds-table-header-cell>
                         </cds-table-header-row>
                     </cds-table-head>
                     <cds-table-body>
-                        {
-                            processes.map((p) => (
-                                <cds-table-row>
-                                    <cds-table-cell>{p.pid}</cds-table-cell>
-                                    <cds-table-cell>{p.user}</cds-table-cell>
-                                    <cds-table-cell>{p.name}</cds-table-cell>
-                                    <cds-table-cell>{p.cpu.toFixed(1)}</cds-table-cell>
-                                    <cds-table-cell>{p.mem.toFixed(1)}</cds-table-cell>
-                                </cds-table-row>
-                            ))
-                        }
+                        {processes.map((p) => (
+                            <cds-table-row>
+                                <cds-table-cell>{p.pid}</cds-table-cell>
+                                <cds-table-cell>{p.user}</cds-table-cell>
+                                <cds-table-cell>{p.name}</cds-table-cell>
+                                <cds-table-cell>
+                                    {p.cpu.toFixed(1)}
+                                </cds-table-cell>
+                                <cds-table-cell>
+                                    {p.mem.toFixed(1)}
+                                </cds-table-cell>
+                            </cds-table-row>
+                        ))}
                     </cds-table-body>
                 </cds-table>
             </section>
