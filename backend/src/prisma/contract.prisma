@@ -1,16 +1,42 @@
 // use prisma-8
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  username  String?
+  id           Int      @id @default(autoincrement())
+  // always store lowercased; the unique constraint is case-sensitive
+  email        String   @unique
+  username     String?
+  passwordHash String
+  createdAt    TimestamptzString @default(now())
+  updatedAt    temporal.updatedAtString()
+
+  servers  Server[]
+  sessions Session[]
+}
+
+model Session {
+  // sha256 of the session token; the raw token only lives in the cookie
+  id        String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt TimestamptzString
   createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
+
+  @@index([userId])
 }
 
 model Server {
-  id        Int      @id @default(autoincrement())
-  name      String
-  os        String?
-  createdAt TimestamptzString @default(now())
+  id         Int      @id @default(autoincrement())
+  ownerId    Int
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  hostname   String
+  ip         String?
+  os         String?
+  kernel     String?
+  // online = lastSeenAt within the last N seconds
+  lastSeenAt TimestamptzString?
+  createdAt  TimestamptzString @default(now())
+  updatedAt  temporal.updatedAtString()
+
+  @@index([ownerId])
 }
