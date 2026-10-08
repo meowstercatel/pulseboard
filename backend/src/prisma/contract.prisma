@@ -14,7 +14,7 @@ model User {
 }
 
 model Session {
-  // sha256 of the session token; the raw token only lives in the cookie
+  // the session token, same value as the cookie
   id        String   @id
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

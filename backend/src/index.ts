@@ -1,8 +1,14 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { auth } from "./routes/auth.js";
 
 const app = new Hono();
+
+app.route("/api/auth", auth);
+app.get("/health", (c) => {
+    return c.json({ ok: true });
+});
 
 // In the Docker image the built frontend is served from STATIC_DIR
 const staticDir = process.env["STATIC_DIR"];
@@ -12,9 +18,6 @@ if (staticDir) {
 
 app.get("/", (c) => {
     return c.text("Hello Hono!");
-});
-app.get("/health", (c) => {
-    return c.json({ ok: true });
 });
 
 serve(

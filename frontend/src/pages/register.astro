@@ -1,0 +1,68 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+---
+
+<AuthLayout>
+    <form id="register-form">
+        <cds-text-input
+            label="Email"
+            name="email"
+            type="email"
+            autocomplete="email"
+        ></cds-text-input>
+        <cds-text-input
+            label="Username (optional)"
+            name="username"
+            autocomplete="username"
+        ></cds-text-input>
+        <cds-text-input
+            label="Password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            helper-text="At least 8 characters"
+        ></cds-text-input>
+        <cds-text-input
+            label="Repeat password"
+            name="confirm"
+            type="password"
+            autocomplete="new-password"
+        ></cds-text-input>
+        <cds-inline-notification
+            kind="error"
+            title="Couldn't register"
+            hide-close-button
+            hidden
+        ></cds-inline-notification>
+        <cds-button>register</cds-button>
+    </form>
+    <p>
+        Already have an account? <cds-link href="/">Log in</cds-link>
+    </p>
+</AuthLayout>
+
+<script>
+    import { currentUser, register } from "../lib/auth";
+    import { bindForm } from "../lib/form";
+
+    currentUser().then((user) => {
+        if (user) location.replace("/overview");
+    });
+
+    bindForm(
+        document.getElementById("register-form") as HTMLFormElement,
+        async (field) => {
+            if (field("password") !== field("confirm")) {
+                return "Passwords don't match";
+            }
+            const result = await register(
+                field("email"),
+                field("password"),
+                field("username"),
+            );
+            if ("error" in result) return result.error;
+            location.href = "/overview";
+            return null;
+        },
+    );
+</script>

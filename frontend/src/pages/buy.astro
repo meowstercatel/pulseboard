@@ -168,4 +168,7 @@ const plans = [
 <script>
     import "@carbon/web-components/es/components/button/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
+    import { requireUser } from "../lib/auth";
+
+    requireUser();
 </script>

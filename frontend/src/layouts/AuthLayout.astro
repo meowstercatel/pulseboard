@@ -1,0 +1,42 @@
+---
+import "../styles/carbon.scss";
+import HtmlTemplate from "./HtmlTemplate.astro";
+---
+
+<HtmlTemplate>
+    <main>
+        <h1>PulseBoard</h1>
+        <slot />
+    </main>
+</HtmlTemplate>
+
+<style>
+    :global(body) {
+        display: grid;
+        place-items: center;
+    }
+    main {
+        width: 100%;
+        max-width: 600px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 10px 10px;
+        box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
+    }
+    main :global(cds-inline-notification[hidden]) {
+        display: none;
+    }
+    main :global(form) {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+</style>
+
+<script>
+    import "@carbon/web-components/es/components/button/index.js";
+    import "@carbon/web-components/es/components/text-input/index.js";
+    import "@carbon/web-components/es/components/notification/index.js";
+    import "@carbon/web-components/es/components/link/index.js";
+</script>

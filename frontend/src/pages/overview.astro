@@ -89,7 +89,7 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                     <cds-header-menu-item href="/buy">
                         License
                     </cds-header-menu-item>
-                    <cds-header-menu-item href="/">
+                    <cds-header-menu-item href="javascript:void 0" id="logout">
                         Log out
                     </cds-header-menu-item>
                 </cds-header-menu>
@@ -350,6 +350,10 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
     import "@carbon/web-components/es/components/tag/index.js";
     import "@carbon/web-components/es/components/progress-bar/index.js";
     import "@carbon/web-components/es/components/data-table/index.js";
+    import { logout, requireUser } from "../lib/auth";
+
+    requireUser();
+    document.getElementById("logout")?.addEventListener("click", logout);
 
     const lastUpdated = document.getElementById("last-updated");
     const loadedAt = Date.now();
