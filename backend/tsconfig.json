@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "NodeNext",
+    "module": "preserve",
     "strict": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
@@ -9,7 +9,10 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
     "rootDir": "./src",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true
   },
+  "include": ["src"],
   "exclude": ["node_modules"]
 }

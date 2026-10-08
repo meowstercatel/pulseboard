@@ -1,0 +1,16 @@
+// use prisma-8
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  username  String?
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+}
+
+model Server {
+  id        Int      @id @default(autoincrement())
+  name      String
+  os        String?
+  createdAt TimestamptzString @default(now())
+}
