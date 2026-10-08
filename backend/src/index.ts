@@ -2,10 +2,12 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { auth } from "./routes/auth.js";
+import { billing } from "./routes/billing.js";
 
 const app = new Hono();
 
 app.route("/api/auth", auth);
+app.route("/api/billing", billing);
 app.get("/health", (c) => {
     return c.json({ ok: true });
 });

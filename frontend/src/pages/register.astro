@@ -61,7 +61,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
                 field("username"),
             );
             if ("error" in result) return result.error;
-            location.href = "/overview";
+            location.href = "/buy";
             return null;
         },
     );

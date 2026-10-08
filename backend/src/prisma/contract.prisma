@@ -6,6 +6,8 @@ model User {
   email        String   @unique
   username     String?
   passwordHash String
+  licensePlan  String?
+  licensedAt   TimestamptzString?
   createdAt    TimestamptzString @default(now())
   updatedAt    temporal.updatedAtString()
 

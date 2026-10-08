@@ -240,6 +240,20 @@
                   "kind": "scalar"
                 }
               },
+              "licensePlan": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "licensedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
               "passwordHash": {
                 "nullable": false,
                 "type": {
@@ -304,6 +318,12 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "licensePlan": {
+                  "column": "licensePlan"
+                },
+                "licensedAt": {
+                  "column": "licensedAt"
                 },
                 "passwordHash": {
                   "column": "passwordHash"
@@ -513,6 +533,16 @@
                   },
                   "nullable": false
                 },
+                "licensePlan": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "licensedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true
+                },
                 "passwordHash": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -550,7 +580,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8b6afa4917157d7c6b88746cafd8dde1bf0615561aa1400eaf930f8f937a16b1"
+    "storageHash": "c0939ca841eba011518f12da285ce9740aab1da33c97b239a846304d39df6d2e"
   },
   "execution": {
     "executionHash": "119d702a5453a08e6b1e65d19c08889c027ac8a705bef6a005b34d58c9279d45",

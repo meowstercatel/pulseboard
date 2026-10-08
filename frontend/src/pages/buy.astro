@@ -42,7 +42,7 @@ const plans = [
             <h1>PulseBoard</h1>
             <p class="status">
                 Licencja:
-                <cds-tag type="red" size="md">
+                <cds-tag id="license-status" type="red" size="md">
                     nieopłacona
                 </cds-tag>
             </p>
@@ -168,7 +168,33 @@ const plans = [
 <script>
     import "@carbon/web-components/es/components/button/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
-    import { requireUser } from "../lib/auth";
+    import { purchase, requireUser } from "../lib/auth";
 
-    requireUser();
+    const status = document.getElementById("license-status") as HTMLElement & {
+        type: string;
+    };
+
+    requireUser().then((user) => {
+        if (user?.licensePlan) {
+            status.type = "green";
+            status.textContent = "opłacona";
+        }
+    });
+
+    const buttons = document.querySelectorAll<
+        HTMLElement & { disabled: boolean }
+    >("cds-button[data-plan]");
+    for (const button of buttons) {
+        button.addEventListener("click", async () => {
+            const plan = button.dataset["plan"] as "subscription" | "lifetime";
+            buttons.forEach((b) => (b.disabled = true));
+            const result = await purchase(plan);
+            if ("error" in result) {
+                buttons.forEach((b) => (b.disabled = false));
+                alert(result.error);
+                return;
+            }
+            location.href = "/overview";
+        });
+    }
 </script>

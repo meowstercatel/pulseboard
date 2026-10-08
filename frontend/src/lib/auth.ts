@@ -2,6 +2,7 @@ export type User = {
     id: number;
     email: string;
     username: string | null;
+    licensePlan: string | null;
 };
 
 type AuthResult = { user: User } | { error: string };
@@ -29,6 +30,10 @@ export function register(email: string, password: string, username: string) {
     return post("auth/register", { email, password, username });
 }
 
+export function purchase(plan: "subscription" | "lifetime") {
+    return post("billing/purchase", { plan });
+}
+
 export async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     location.href = "/";
@@ -48,4 +53,10 @@ export async function requireUser(): Promise<User | null> {
     const user = await currentUser();
     if (!user) location.replace("/");
     return user;
+}
+
+export async function requireLicense(): Promise<User | null> {
+    const user = await requireUser();
+    if (user && !user.licensePlan) location.replace("/buy");
+    return user?.licensePlan ? user : null;
 }

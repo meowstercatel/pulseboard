@@ -10,6 +10,7 @@ export type AuthUser = {
     id: number;
     email: string;
     username: string | null;
+    licensePlan: string | null;
 };
 
 export function toAuthUser(user: AuthUser): AuthUser {
@@ -17,6 +18,7 @@ export function toAuthUser(user: AuthUser): AuthUser {
         id: user.id,
         email: user.email,
         username: user.username,
+        licensePlan: user.licensePlan,
     };
 }
 
@@ -71,5 +73,12 @@ export const requireAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const user = await getSessionUser(c);
     if (!user) return c.json({ error: "Not logged in" }, 401);
     c.set("user", user);
+    await next();
+};
+
+export const requireLicense: MiddlewareHandler<AuthEnv> = async (c, next) => {
+    if (!c.get("user").licensePlan) {
+        return c.json({ error: "No active license" }, 402);
+    }
     await next();
 };
