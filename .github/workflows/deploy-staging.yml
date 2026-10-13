@@ -1,0 +1,21 @@
+name: deploy-staging
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+# Separate compose project so staging gets its own containers, network and db volume
+# instead of replacing production on the shared runner.
+env:
+  COMPOSE_PROJECT_NAME: pulseboard-staging
+  PORT: 3001
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          docker compose up -d --build --remove-orphans
+          docker image prune -f
