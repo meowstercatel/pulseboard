@@ -32,11 +32,8 @@ model Dataset {
   ownerId   Int
   owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
-  // original upload name, shown in the UI
   fileName  String?
-  // cached so listing datasets doesn't count every metric row
   rowCount  Int      @default(0)
-  // time range covered by the rows, null until the import finishes
   startsAt  TimestamptzString?
   endsAt    TimestamptzString?
   createdAt TimestamptzString @default(now())
