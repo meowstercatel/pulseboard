@@ -11,7 +11,7 @@ model User {
   createdAt    TimestamptzString @default(now())
   updatedAt    temporal.updatedAtString()
 
-  servers  Server[]
+  datasets Dataset[]
   sessions Session[]
 }
 
@@ -26,19 +26,37 @@ model Session {
   @@index([userId])
 }
 
-model Server {
-  id         Int      @id @default(autoincrement())
-  ownerId    Int
-  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name       String
-  hostname   String
-  ip         String?
-  os         String?
-  kernel     String?
-  // online = lastSeenAt within the last N seconds
-  lastSeenAt TimestamptzString?
-  createdAt  TimestamptzString @default(now())
-  updatedAt  temporal.updatedAtString()
+// one imported CSV file; its rows live in Metric
+model Dataset {
+  id        Int      @id @default(autoincrement())
+  ownerId   Int
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  fileName  String?
+  rowCount  Int      @default(0)
+  startsAt  TimestamptzString?
+  endsAt    TimestamptzString?
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  metrics Metric[]
 
   @@index([ownerId])
+}
+
+// one CSV row: timestamp, host, cpu_percent, ram_percent, disk_percent, net_in_mbps, net_out_mbps
+model Metric {
+  id          BigInt   @id @default(autoincrement())
+  datasetId   Int
+  dataset     Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  timestamp   TimestamptzString
+  host        String
+  cpuPercent  Float
+  ramPercent  Float
+  diskPercent Float
+  netInMbps   Float
+  netOutMbps  Float
+
+  @@index([datasetId, timestamp])
+  @@index([datasetId, host, timestamp])
 }
