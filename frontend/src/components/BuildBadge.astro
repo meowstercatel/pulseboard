@@ -1,0 +1,26 @@
+---
+// set at docker build time by the deploy workflows, empty in local dev
+const branch = import.meta.env.PUBLIC_GIT_BRANCH;
+const commit = import.meta.env.PUBLIC_GIT_COMMIT;
+---
+
+{
+    branch && branch !== "main" && (
+        <div class="build-badge">
+            {branch}
+            {commit && ` (${commit})`}
+        </div>
+    )
+}
+
+<style>
+    .build-badge {
+        position: fixed;
+        right: 8px;
+        bottom: 6px;
+        z-index: 9999;
+        font-family: monospace;
+        font-size: 12px;
+        color: #8d8d8d;
+    }
+</style>
