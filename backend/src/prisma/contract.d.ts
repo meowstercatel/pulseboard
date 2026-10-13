@@ -18,9 +18,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'c0939ca841eba011518f12da285ce9740aab1da33c97b239a846304d39df6d2e'>;
+  StorageHashBase<'1e31649fd39c08a0ca47a736b453efeb783ab6e896a78c0629376beab71eb421'>;
 export type ExecutionHash =
-  ExecutionHashBase<'119d702a5453a08e6b1e65d19c08889c027ac8a705bef6a005b34d58c9279d45'>;
+  ExecutionHashBase<'98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -234,17 +234,27 @@ type DefaultLiteralValue<CodecId extends string, Encoded> = CodecId extends keyo
 
 export type FieldOutputTypes = {
   readonly public: {
-    readonly Server: {
+    readonly Dataset: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
-      readonly hostname: CodecTypes['pg/text@1']['output'];
+      readonly endsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly fileName: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
-      readonly ip: CodecTypes['pg/text@1']['output'] | null;
-      readonly kernel: CodecTypes['pg/text@1']['output'] | null;
-      readonly lastSeenAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly name: CodecTypes['pg/text@1']['output'];
-      readonly os: CodecTypes['pg/text@1']['output'] | null;
       readonly ownerId: CodecTypes['pg/int4@1']['output'];
+      readonly rowCount: CodecTypes['pg/int4@1']['output'];
+      readonly startsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
+    readonly Metric: {
+      readonly cpuPercent: CodecTypes['pg/float8@1']['output'];
+      readonly datasetId: CodecTypes['pg/int4@1']['output'];
+      readonly diskPercent: CodecTypes['pg/float8@1']['output'];
+      readonly host: CodecTypes['pg/text@1']['output'];
+      readonly id: CodecTypes['pg/int8@1']['output'];
+      readonly netInMbps: CodecTypes['pg/float8@1']['output'];
+      readonly netOutMbps: CodecTypes['pg/float8@1']['output'];
+      readonly ramPercent: CodecTypes['pg/float8@1']['output'];
+      readonly timestamp: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -266,17 +276,27 @@ export type FieldOutputTypes = {
 };
 export type FieldInputTypes = {
   readonly public: {
-    readonly Server: {
+    readonly Dataset: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
-      readonly hostname: CodecTypes['pg/text@1']['input'];
+      readonly endsAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly fileName: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
-      readonly ip: CodecTypes['pg/text@1']['input'] | null;
-      readonly kernel: CodecTypes['pg/text@1']['input'] | null;
-      readonly lastSeenAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly name: CodecTypes['pg/text@1']['input'];
-      readonly os: CodecTypes['pg/text@1']['input'] | null;
       readonly ownerId: CodecTypes['pg/int4@1']['input'];
+      readonly rowCount: CodecTypes['pg/int4@1']['input'];
+      readonly startsAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
+    readonly Metric: {
+      readonly cpuPercent: CodecTypes['pg/float8@1']['input'];
+      readonly datasetId: CodecTypes['pg/int4@1']['input'];
+      readonly diskPercent: CodecTypes['pg/float8@1']['input'];
+      readonly host: CodecTypes['pg/text@1']['input'];
+      readonly id: CodecTypes['pg/int8@1']['input'];
+      readonly netInMbps: CodecTypes['pg/float8@1']['input'];
+      readonly netOutMbps: CodecTypes['pg/float8@1']['input'];
+      readonly ramPercent: CodecTypes['pg/float8@1']['input'];
+      readonly timestamp: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -298,17 +318,27 @@ export type FieldInputTypes = {
 };
 export type StorageColumnTypes = {
   readonly public: {
-    readonly Server: {
+    readonly Dataset: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
-      readonly hostname: CodecTypes['pg/text@1']['output'];
+      readonly endsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly fileName: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
-      readonly ip: CodecTypes['pg/text@1']['output'] | null;
-      readonly kernel: CodecTypes['pg/text@1']['output'] | null;
-      readonly lastSeenAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly name: CodecTypes['pg/text@1']['output'];
-      readonly os: CodecTypes['pg/text@1']['output'] | null;
       readonly ownerId: CodecTypes['pg/int4@1']['output'];
+      readonly rowCount: CodecTypes['pg/int4@1']['output'];
+      readonly startsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
+    readonly Metric: {
+      readonly cpuPercent: CodecTypes['pg/float8@1']['output'];
+      readonly datasetId: CodecTypes['pg/int4@1']['output'];
+      readonly diskPercent: CodecTypes['pg/float8@1']['output'];
+      readonly host: CodecTypes['pg/text@1']['output'];
+      readonly id: CodecTypes['pg/int8@1']['output'];
+      readonly netInMbps: CodecTypes['pg/float8@1']['output'];
+      readonly netOutMbps: CodecTypes['pg/float8@1']['output'];
+      readonly ramPercent: CodecTypes['pg/float8@1']['output'];
+      readonly timestamp: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -330,17 +360,27 @@ export type StorageColumnTypes = {
 };
 export type StorageColumnInputTypes = {
   readonly public: {
-    readonly Server: {
+    readonly Dataset: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
-      readonly hostname: CodecTypes['pg/text@1']['input'];
+      readonly endsAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly fileName: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
-      readonly ip: CodecTypes['pg/text@1']['input'] | null;
-      readonly kernel: CodecTypes['pg/text@1']['input'] | null;
-      readonly lastSeenAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly name: CodecTypes['pg/text@1']['input'];
-      readonly os: CodecTypes['pg/text@1']['input'] | null;
       readonly ownerId: CodecTypes['pg/int4@1']['input'];
+      readonly rowCount: CodecTypes['pg/int4@1']['input'];
+      readonly startsAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
+    readonly Metric: {
+      readonly cpuPercent: CodecTypes['pg/float8@1']['input'];
+      readonly datasetId: CodecTypes['pg/int4@1']['input'];
+      readonly diskPercent: CodecTypes['pg/float8@1']['input'];
+      readonly host: CodecTypes['pg/text@1']['input'];
+      readonly id: CodecTypes['pg/int8@1']['input'];
+      readonly netInMbps: CodecTypes['pg/float8@1']['input'];
+      readonly netOutMbps: CodecTypes['pg/float8@1']['input'];
+      readonly ramPercent: CodecTypes['pg/float8@1']['input'];
+      readonly timestamp: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -362,19 +402,32 @@ export type StorageColumnInputTypes = {
 };
 
 export namespace Models {
-  export type public_Server = {
+  export type public_Dataset = {
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
-    hostname: CodecTypes['pg/text@1']['output'];
+    endsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    fileName: CodecTypes['pg/text@1']['output'] | null;
     id: CodecTypes['pg/int4@1']['output'];
-    ip: CodecTypes['pg/text@1']['output'] | null;
-    kernel: CodecTypes['pg/text@1']['output'] | null;
-    lastSeenAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     name: CodecTypes['pg/text@1']['output'];
-    os: CodecTypes['pg/text@1']['output'] | null;
     ownerId: CodecTypes['pg/int4@1']['output'];
+    rowCount: CodecTypes['pg/int4@1']['output'];
+    startsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    metrics: public_Metric[];
     owner: public_User;
-    readonly [RelationKeys]?: 'owner';
+    readonly [RelationKeys]?: 'metrics' | 'owner';
+  };
+  export type public_Metric = {
+    cpuPercent: CodecTypes['pg/float8@1']['output'];
+    datasetId: CodecTypes['pg/int4@1']['output'];
+    diskPercent: CodecTypes['pg/float8@1']['output'];
+    host: CodecTypes['pg/text@1']['output'];
+    id: CodecTypes['pg/int8@1']['output'];
+    netInMbps: CodecTypes['pg/float8@1']['output'];
+    netOutMbps: CodecTypes['pg/float8@1']['output'];
+    ramPercent: CodecTypes['pg/float8@1']['output'];
+    timestamp: CodecTypes['pg/timestamptz-string@1']['output'];
+    dataset: public_Dataset;
+    readonly [RelationKeys]?: 'dataset';
   };
   export type public_Session = {
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -393,15 +446,16 @@ export namespace Models {
     passwordHash: CodecTypes['pg/text@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     username: CodecTypes['pg/text@1']['output'] | null;
-    servers: public_Server[];
+    datasets: public_Dataset[];
     sessions: public_Session[];
-    readonly [RelationKeys]?: 'servers' | 'sessions';
+    readonly [RelationKeys]?: 'datasets' | 'sessions';
   };
 }
 
 export declare const models: {
   public: {
-    Server: Models.public_Server;
+    Dataset: Models.public_Dataset;
+    Metric: Models.public_Metric;
     Session: Models.public_Session;
     User: Models.public_User;
   };
@@ -425,7 +479,7 @@ type ContractBase = Omit<
         readonly kind: 'postgres-schema';
         readonly entries: {
           readonly table: {
-            readonly Server: {
+            readonly Dataset: {
               columns: {
                 readonly createdAt: {
                   readonly dataType: 'pg/timestamptz';
@@ -434,10 +488,16 @@ type ContractBase = Omit<
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                   readonly many: false;
                 };
-                readonly hostname: {
+                readonly endsAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly fileName: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly id: {
@@ -450,40 +510,32 @@ type ContractBase = Omit<
                   };
                   readonly many: false;
                 };
-                readonly ip: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
-                  readonly many: false;
-                };
-                readonly kernel: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
-                  readonly many: false;
-                };
-                readonly lastSeenAt: {
-                  readonly dataType: 'pg/timestamptz';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                  readonly nullable: true;
-                  readonly many: false;
-                };
                 readonly name: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                   readonly many: false;
                 };
-                readonly os: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
-                  readonly many: false;
-                };
                 readonly ownerId: {
                   readonly dataType: 'pg/int4';
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly rowCount: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                  readonly many: false;
+                };
+                readonly startsAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly updatedAt: {
@@ -497,8 +549,8 @@ type ContractBase = Omit<
               uniques: readonly [];
               indexes: readonly [
                 {
-                  readonly name: 'Server_ownerId_idx_e2d0c1ef';
-                  readonly prefix: 'Server_ownerId_idx';
+                  readonly name: 'Dataset_ownerId_idx_e2d0c1ef';
+                  readonly prefix: 'Dataset_ownerId_idx';
                   readonly columns: readonly ['ownerId'];
                   readonly unique: false;
                 },
@@ -507,12 +559,110 @@ type ContractBase = Omit<
                 {
                   readonly source: {
                     readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'Server';
+                    readonly tableName: 'Dataset';
                     readonly columns: readonly ['ownerId'];
                   };
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
                     readonly tableName: 'User';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly Metric: {
+              columns: {
+                readonly cpuPercent: {
+                  readonly dataType: 'pg/float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly datasetId: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly diskPercent: {
+                  readonly dataType: 'pg/float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly host: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'pg/int8';
+                  readonly codecId: 'pg/int8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                  readonly many: false;
+                };
+                readonly netInMbps: {
+                  readonly dataType: 'pg/float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly netOutMbps: {
+                  readonly dataType: 'pg/float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly ramPercent: {
+                  readonly dataType: 'pg/float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly timestamp: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'Metric_datasetId_host_timestamp_idx_212b6df2';
+                  readonly prefix: 'Metric_datasetId_host_timestamp_idx';
+                  readonly columns: readonly ['datasetId', 'host', 'timestamp'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'Metric_datasetId_idx_086b843b';
+                  readonly prefix: 'Metric_datasetId_idx';
+                  readonly columns: readonly ['datasetId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'Metric_datasetId_timestamp_idx_11a2fef8';
+                  readonly prefix: 'Metric_datasetId_timestamp_idx';
+                  readonly columns: readonly ['datasetId', 'timestamp'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'Metric';
+                    readonly columns: readonly ['datasetId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'Dataset';
                     readonly columns: readonly ['id'];
                   };
                 },
@@ -643,7 +793,8 @@ type ContractBase = Omit<
   readonly target: 'postgres';
   readonly targetFamily: 'sql';
   readonly roots: {
-    readonly Server: { readonly namespace: 'public' & NamespaceId; readonly model: 'Server' };
+    readonly Dataset: { readonly namespace: 'public' & NamespaceId; readonly model: 'Dataset' };
+    readonly Metric: { readonly namespace: 'public' & NamespaceId; readonly model: 'Metric' };
     readonly Session: { readonly namespace: 'public' & NamespaceId; readonly model: 'Session' };
     readonly User: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
   };
@@ -651,7 +802,7 @@ type ContractBase = Omit<
     readonly namespaces: {
       readonly public: {
         readonly models: {
-          readonly Server: {
+          readonly Dataset: {
             readonly fields: {
               readonly createdAt: {
                 readonly nullable: false;
@@ -660,40 +811,39 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
-              readonly hostname: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly id: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly ip: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly kernel: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly lastSeenAt: {
+              readonly endsAt: {
                 readonly nullable: true;
                 readonly type: {
                   readonly kind: 'scalar';
                   readonly codecId: 'pg/timestamptz-string@1';
                 };
               };
-              readonly name: {
-                readonly nullable: false;
+              readonly fileName: {
+                readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
-              readonly os: {
-                readonly nullable: true;
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly ownerId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly rowCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly startsAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
               };
               readonly updatedAt: {
                 readonly nullable: false;
@@ -704,6 +854,17 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly metrics: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Metric';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['datasetId'];
+                };
+              };
               readonly owner: {
                 readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
                 readonly cardinality: 'N:1';
@@ -715,19 +876,90 @@ type ContractBase = Omit<
               };
             };
             readonly storage: {
-              readonly table: 'Server';
+              readonly table: 'Dataset';
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly createdAt: { readonly column: 'createdAt' };
-                readonly hostname: { readonly column: 'hostname' };
+                readonly endsAt: { readonly column: 'endsAt' };
+                readonly fileName: { readonly column: 'fileName' };
                 readonly id: { readonly column: 'id' };
-                readonly ip: { readonly column: 'ip' };
-                readonly kernel: { readonly column: 'kernel' };
-                readonly lastSeenAt: { readonly column: 'lastSeenAt' };
                 readonly name: { readonly column: 'name' };
-                readonly os: { readonly column: 'os' };
                 readonly ownerId: { readonly column: 'ownerId' };
+                readonly rowCount: { readonly column: 'rowCount' };
+                readonly startsAt: { readonly column: 'startsAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly Metric: {
+            readonly fields: {
+              readonly cpuPercent: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly datasetId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly diskPercent: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly host: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int8@1' };
+              };
+              readonly netInMbps: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly netOutMbps: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly ramPercent: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly timestamp: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly dataset: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Dataset';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['datasetId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'Metric';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly cpuPercent: { readonly column: 'cpuPercent' };
+                readonly datasetId: { readonly column: 'datasetId' };
+                readonly diskPercent: { readonly column: 'diskPercent' };
+                readonly host: { readonly column: 'host' };
+                readonly id: { readonly column: 'id' };
+                readonly netInMbps: { readonly column: 'netInMbps' };
+                readonly netOutMbps: { readonly column: 'netOutMbps' };
+                readonly ramPercent: { readonly column: 'ramPercent' };
+                readonly timestamp: { readonly column: 'timestamp' };
               };
             };
           };
@@ -823,10 +1055,10 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
-              readonly servers: {
+              readonly datasets: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
-                  readonly model: 'Server';
+                  readonly model: 'Dataset';
                 };
                 readonly cardinality: '1:N';
                 readonly on: {
@@ -901,7 +1133,7 @@ type ContractBase = Omit<
           readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
           readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
           readonly ref: {
-            readonly entry: 'Server';
+            readonly entry: 'Dataset';
             readonly field: 'updatedAt';
             readonly namespace: 'public';
           };
