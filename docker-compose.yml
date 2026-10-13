@@ -30,6 +30,9 @@ services:
     build:
       context: .
       target: runtime
+      args:
+        GIT_BRANCH: ${GIT_BRANCH:-}
+        GIT_COMMIT: ${GIT_COMMIT:-}
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
