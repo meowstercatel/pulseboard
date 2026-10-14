@@ -6,10 +6,17 @@ on:
 
 jobs:
   deploy:
+    environment: production
     runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v4
       - name: Deploy
+        env:
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+          FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
         run: |
           export GIT_BRANCH="$GITHUB_REF_NAME" GIT_COMMIT="${GITHUB_SHA::7}"
           docker compose up -d --build --remove-orphans

@@ -1,5 +1,6 @@
 ---
 import AuthLayout from "../layouts/AuthLayout.astro";
+import OAuthButtons from "../components/OAuthButtons.astro";
 ---
 
 <AuthLayout>
@@ -36,6 +37,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         ></cds-inline-notification>
         <cds-button>register</cds-button>
     </form>
+    <OAuthButtons />
     <p>
         Already have an account? <cds-link href="/">Log in</cds-link>
     </p>
