@@ -146,25 +146,12 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     </p>
                     <form id="delete-form">
                         <cds-text-input
-                            label="Type your account email to confirm"
-                            name="confirmEmail"
-                            type="email"
+                            label='Type "delete my account" to confirm'
+                            name="confirmation"
                             autocomplete="off"
+                            spellcheck="false"
                             required
                         ></cds-text-input>
-                        <cds-text-input
-                            id="delete-password"
-                            label="Current password"
-                            name="currentPassword"
-                            type="password"
-                            autocomplete="current-password"
-                            required
-                        ></cds-text-input>
-                        <p id="delete-social-hint" class="hint" hidden>
-                            For social sign-in, you must have signed in within
-                            the last 10 minutes. Sign out and sign in again if
-                            needed.
-                        </p>
                         <cds-inline-notification
                             kind="error"
                             title="Couldn't delete account"
@@ -356,7 +343,6 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     const input = (form: HTMLFormElement, name: string) =>
         form.querySelector<Input>(`[name="${name}"]`)!;
     let savedEmail = "";
-    let hasPassword = true;
     const deleteForm = document.getElementById(
         "delete-form",
     ) as HTMLFormElement;
@@ -373,7 +359,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     let deleting = false;
     openDelete.addEventListener("click", () => {
         deleteDialog.showModal();
-        input(deleteForm, "confirmEmail")
+        input(deleteForm, "confirmation")
             .shadowRoot?.querySelector("input")
             ?.focus();
     });
@@ -386,8 +372,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         if (deleting) event.preventDefault();
     });
     deleteDialog.addEventListener("close", () => {
-        input(deleteForm, "confirmEmail").value = "";
-        input(deleteForm, "currentPassword").value = "";
+        input(deleteForm, "confirmation").value = "";
         deleteForm.querySelector<HTMLElement>(
             "cds-inline-notification",
         )!.hidden = true;
@@ -405,9 +390,6 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     requireUser().then((user) => {
         if (!user) return;
         savedEmail = user.email;
-        hasPassword = user.hasPassword;
-        document.getElementById("delete-password")!.hidden = !hasPassword;
-        document.getElementById("delete-social-hint")!.hidden = hasPassword;
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
         if (!user.licensePlan) {
@@ -464,15 +446,13 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     });
 
     bindForm(deleteForm, async (field) => {
-        const email = field("confirmEmail").trim().toLowerCase();
-        if (email !== savedEmail)
-            return "Type your account email to confirm deletion";
-        if (hasPassword && !field("currentPassword"))
-            return "Enter your current password";
+        const confirmation = field("confirmation").trim();
+        if (confirmation !== "delete my account")
+            return 'Type "delete my account" to confirm deletion';
         deleting = true;
         cancelDelete.disabled = true;
         closeDelete.disabled = true;
-        const result = await deleteAccount(email, field("currentPassword"));
+        const result = await deleteAccount(confirmation);
         if ("error" in result) {
             deleting = false;
             cancelDelete.disabled = false;

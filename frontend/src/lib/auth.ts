@@ -3,7 +3,6 @@ export type User = {
     email: string;
     username: string | null;
     licensePlan: string | null;
-    hasPassword: boolean;
 };
 
 type AuthResult = { user: User } | { error: string; status?: number };
@@ -55,14 +54,13 @@ export function changePassword(currentPassword: string, newPassword: string) {
 }
 
 export async function deleteAccount(
-    confirmEmail: string,
-    currentPassword: string,
+    confirmation: string,
 ): Promise<{ deleted: true } | { error: string }> {
     try {
         const res = await fetch("/api/auth/delete-account", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ confirmEmail, currentPassword }),
+            body: JSON.stringify({ confirmation }),
         });
         if (res.status === 204) return { deleted: true };
         if (res.status === 401) location.replace("/");

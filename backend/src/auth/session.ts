@@ -11,18 +11,14 @@ export type AuthUser = {
     email: string;
     username: string | null;
     licensePlan: string | null;
-    hasPassword: boolean;
 };
 
-export function toAuthUser(
-    user: Omit<AuthUser, "hasPassword"> & { passwordHash: string | null },
-): AuthUser {
+export function toAuthUser(user: AuthUser): AuthUser {
     return {
         id: user.id,
         email: user.email,
         username: user.username,
         licensePlan: user.licensePlan,
-        hasPassword: user.passwordHash !== null,
     };
 }
 
