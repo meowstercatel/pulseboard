@@ -39,6 +39,16 @@ export async function logout() {
     location.href = "/";
 }
 
+export async function oauthProviders(): Promise<string[]> {
+    try {
+        const res = await fetch("/api/auth/oauth/providers");
+        if (!res.ok) return [];
+        return (await res.json()).providers;
+    } catch {
+        return [];
+    }
+}
+
 export async function currentUser(): Promise<User | null> {
     try {
         const res = await fetch("/api/auth/me");

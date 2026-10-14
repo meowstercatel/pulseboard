@@ -1,0 +1,49 @@
+---
+// Shown only for providers the server has credentials for
+---
+
+<div class="oauth" hidden>
+    <cds-button
+        kind="tertiary"
+        href="/api/auth/oauth/google"
+        data-provider="google"
+        hidden
+    >
+        continue with Google
+    </cds-button>
+    <cds-button
+        kind="tertiary"
+        href="/api/auth/oauth/facebook"
+        data-provider="facebook"
+        hidden
+    >
+        continue with Facebook
+    </cds-button>
+</div>
+
+<style>
+    .oauth {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .oauth[hidden],
+    .oauth [hidden] {
+        display: none;
+    }
+</style>
+
+<script>
+    import { oauthProviders } from "../lib/auth";
+
+    oauthProviders().then((providers) => {
+        const box = document.querySelector<HTMLElement>(".oauth");
+        if (!box || !providers.length) return;
+        for (const button of box.querySelectorAll<HTMLElement>(
+            "[data-provider]",
+        )) {
+            button.hidden = !providers.includes(button.dataset["provider"]!);
+        }
+        box.hidden = false;
+    });
+</script>

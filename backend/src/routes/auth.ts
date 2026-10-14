@@ -9,6 +9,7 @@ import {
 } from "../auth/session.js";
 import { RateLimiter, limitByIp, tooManyRequests } from "../auth/rateLimit.js";
 import { db } from "../prisma/db.js";
+import { isUniqueViolation } from "../prisma/errors.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
@@ -43,13 +44,6 @@ async function readCredentials(req: Request): Promise<Credentials | null> {
                 ? username.trim()
                 : undefined,
     };
-}
-
-function isUniqueViolation(err: unknown): boolean {
-    for (let e = err; e && typeof e === "object"; e = (e as any).cause) {
-        if ((e as { sqlState?: string }).sqlState === "23505") return true;
-    }
-    return false;
 }
 
 export const auth = new Hono<AuthEnv>();
