@@ -53,6 +53,26 @@ export function changePassword(currentPassword: string, newPassword: string) {
     return updateAccount("auth/password", { currentPassword, newPassword });
 }
 
+export async function deleteAccount(
+    confirmation: string,
+): Promise<{ deleted: true } | { error: string }> {
+    try {
+        const res = await fetch("/api/auth/delete-account", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ confirmation }),
+        });
+        if (res.status === 204) return { deleted: true };
+        if (res.status === 401) location.replace("/");
+        const data = await res.json().catch(() => null);
+        return {
+            error: data?.error ?? `Couldn't delete account (${res.status})`,
+        };
+    } catch {
+        return { error: "Can't reach the server" };
+    }
+}
+
 export function purchase(plan: "subscription" | "lifetime") {
     return post("billing/purchase", { plan });
 }

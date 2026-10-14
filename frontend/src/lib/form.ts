@@ -3,6 +3,7 @@ type Field = HTMLElement & { value: string };
 export function bindForm(
     form: HTMLFormElement,
     onSubmit: (field: (name: string) => string) => Promise<string | null>,
+    canSubmit: () => boolean = () => true,
 ) {
     const button = form.querySelector("cds-button") as HTMLElement & {
         disabled: boolean;
@@ -16,8 +17,11 @@ export function bindForm(
         (form.querySelector(`[name="${name}"]`) as Field | null)?.value ?? "";
 
     let busy = false;
+    const updateButton = () => {
+        button.disabled = busy || !canSubmit();
+    };
     const submit = async () => {
-        if (busy) return;
+        if (busy || !canSubmit()) return;
         busy = true;
         button.disabled = true;
         error.hidden = true;
@@ -25,7 +29,7 @@ export function bindForm(
         const message = await onSubmit(field);
 
         busy = false;
-        button.disabled = false;
+        updateButton();
         if (message) {
             error.subtitle = message;
             error.hidden = false;
@@ -33,8 +37,18 @@ export function bindForm(
     };
 
     form.addEventListener("submit", (e) => e.preventDefault());
+    form.addEventListener("input", updateButton);
+    form.addEventListener("change", updateButton);
     button.addEventListener("click", submit);
     form.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") submit();
+        if (
+            e.key === "Enter" &&
+            (e.target as Element).closest("cds-text-input")
+        ) {
+            e.preventDefault();
+            submit();
+        }
     });
+    updateButton();
+    return updateButton;
 }

@@ -157,6 +157,38 @@ auth.get("/me", requireAuth, (c) => {
     return c.json({ user: c.get("user") });
 });
 
+auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    const current = await db.orm.public.User.where({
+        id: c.get("user").id,
+    }).first();
+    if (!current) return c.json({ error: "Not logged in" }, 401);
+    if (
+        !body ||
+        typeof body.confirmation !== "string" ||
+        body.confirmation.trim().toLowerCase() !== "delete my account"
+    ) {
+        return c.json(
+            { error: 'Type "delete my account" to confirm deletion' },
+            400,
+        );
+    }
+
+    // Foreign keys atomically cascade to sessions, OAuth links, datasets, and metrics.
+    const deleted = await db.orm.public.User.where({
+        id: current.id,
+        email: current.email,
+        passwordHash: current.passwordHash,
+    }).delete();
+    if (!deleted)
+        return c.json(
+            { error: "Your account changed. Reload and try again" },
+            409,
+        );
+    await destroySession(c);
+    return c.body(null, 204);
+});
+
 auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     const body = await readAccountBody(c.req.raw);
     if (
