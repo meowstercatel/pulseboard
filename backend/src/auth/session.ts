@@ -22,7 +22,7 @@ export function toAuthUser(user: AuthUser): AuthUser {
     };
 }
 
-export type AuthEnv = { Variables: { user: AuthUser } };
+export type AuthEnv = { Variables: { user: AuthUser; sessionId: string } };
 
 export async function createSession(c: Context, userId: number) {
     const token = randomBytes(32).toString("base64url");
@@ -73,6 +73,7 @@ export const requireAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const user = await getSessionUser(c);
     if (!user) return c.json({ error: "Not logged in" }, 401);
     c.set("user", user);
+    c.set("sessionId", getCookie(c, COOKIE_NAME)!);
     await next();
 };
 
