@@ -8,6 +8,11 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 COPY frontend/ ./
+# shown in the corner on non-main deployments, see BuildBadge.astro
+ARG GIT_BRANCH=
+ARG GIT_COMMIT=
+ENV PUBLIC_GIT_BRANCH=$GIT_BRANCH \
+    PUBLIC_GIT_COMMIT=$GIT_COMMIT
 RUN npm run build
 
 # ---- backend: install all deps and compile TypeScript ----
