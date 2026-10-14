@@ -9,5 +9,5 @@
 | pt 09.10 | 8 | Przegląd tygodnia nr 1, planowanie zadań na tablicy Trello, research: weryfikacja e-mail, Stripe, OAuth |
 | pon 12.10 | 8 | Research i projekt modelu danych dla zbiorów CSV (Dataset/Metric), planowanie środowiska staging |
 | wt 13.10 | 8 | Środowisko staging z auto-deployem, zamiana modelu Server na Dataset i Metric, badge z gałęzią i commitem na wdrożeniach nie-produkcyjnych |
-| śr 14.10 | 8 | Rate limiting logowania i rejestracji, przegląd i scalenie PR do main |
+| śr 14.10 | 8 | Rate limiting logowania i rejestracji, logowanie przez Google i Facebook (OAuth, Facebook w trakcie), ustawienia konta (edycja profilu, zmiana hasła), usuwanie konta, scalenie staging → main |
 | **Suma** | **64** | |
