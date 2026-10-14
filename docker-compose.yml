@@ -38,6 +38,8 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}
+      # set to "true" when the server sits behind a reverse proxy, see src/auth/rateLimit.ts
+      TRUST_PROXY: ${TRUST_PROXY:-}
     depends_on:
       db:
         condition: service_healthy

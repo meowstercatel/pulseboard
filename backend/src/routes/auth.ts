@@ -7,11 +7,20 @@ import {
     toAuthUser,
     type AuthEnv,
 } from "../auth/session.js";
+import { RateLimiter, limitByIp, tooManyRequests } from "../auth/rateLimit.js";
 import { db } from "../prisma/db.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 256;
+
+const MINUTE = 60 * 1000;
+// Every login request from one IP, to slow down credential stuffing
+const loginIpLimiter = new RateLimiter(30, 15 * MINUTE);
+// Failed logins per account, to stop password guessing spread across many IPs
+const loginEmailLimiter = new RateLimiter(10, 15 * MINUTE);
+// Account creation from one IP
+const registerIpLimiter = new RateLimiter(5, 60 * MINUTE);
 
 type Credentials = { email: string; password: string; username?: string };
 
@@ -45,7 +54,7 @@ function isUniqueViolation(err: unknown): boolean {
 
 export const auth = new Hono<AuthEnv>();
 
-auth.post("/register", async (c) => {
+auth.post("/register", limitByIp(registerIpLimiter), async (c) => {
     const creds = await readCredentials(c.req.raw);
     if (!creds) return c.json({ error: "Invalid request" }, 400);
 
@@ -93,11 +102,16 @@ auth.post("/register", async (c) => {
     return c.json({ user: toAuthUser(user) }, 201);
 });
 
-auth.post("/login", async (c) => {
+auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     const creds = await readCredentials(c.req.raw);
     if (!creds || creds.password.length > MAX_PASSWORD) {
         return c.json({ error: "Invalid request" }, 400);
     }
+
+    const retryAfter = loginEmailLimiter.retryAfter(creds.email);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    // Counted up front so parallel guesses can't all slip past the check
+    loginEmailLimiter.hit(creds.email);
 
     const user = await db.orm.public.User.where({ email: creds.email }).first();
     const ok = await verifyPassword(
@@ -107,6 +121,7 @@ auth.post("/login", async (c) => {
     if (!user || !ok) {
         return c.json({ error: "Wrong email or password" }, 401);
     }
+    loginEmailLimiter.reset(creds.email);
 
     await createSession(c, user.id);
     return c.json({ user: toAuthUser(user) });
