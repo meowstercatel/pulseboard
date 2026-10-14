@@ -157,6 +157,63 @@ auth.get("/me", requireAuth, (c) => {
     return c.json({ user: c.get("user") });
 });
 
+auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    const current = await db.orm.public.User.where({
+        id: c.get("user").id,
+    }).first();
+    if (!current) return c.json({ error: "Not logged in" }, 401);
+    if (
+        !body ||
+        typeof body.confirmEmail !== "string" ||
+        body.confirmEmail.trim().toLowerCase() !== current.email
+    ) {
+        return c.json(
+            { error: "Type your account email to confirm deletion" },
+            400,
+        );
+    }
+    if (current.passwordHash) {
+        if (
+            !validPassword(body.currentPassword) ||
+            !(await verifyPassword(body.currentPassword, current.passwordHash))
+        ) {
+            return c.json({ error: "Current password is incorrect" }, 400);
+        }
+    } else {
+        // Social accounts have no password: require a freshly authenticated session.
+        const session = await db.orm.public.Session.where({
+            id: c.get("sessionId"),
+            userId: current.id,
+        }).first();
+        if (
+            !session ||
+            Date.now() - new Date(session.createdAt).getTime() > 10 * MINUTE
+        ) {
+            return c.json(
+                {
+                    error: "Sign out and sign in again with your social account, then delete your account within 10 minutes",
+                },
+                403,
+            );
+        }
+    }
+
+    // Foreign keys atomically cascade to sessions, OAuth links, datasets, and metrics.
+    const deleted = await db.orm.public.User.where({
+        id: current.id,
+        email: current.email,
+        passwordHash: current.passwordHash,
+    }).delete();
+    if (!deleted)
+        return c.json(
+            { error: "Your account changed. Reload and try again" },
+            409,
+        );
+    await destroySession(c);
+    return c.body(null, 204);
+});
+
 auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     const body = await readAccountBody(c.req.raw);
     if (

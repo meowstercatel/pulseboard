@@ -35,6 +35,12 @@ export function bindForm(
     form.addEventListener("submit", (e) => e.preventDefault());
     button.addEventListener("click", submit);
     form.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") submit();
+        if (
+            e.key === "Enter" &&
+            (e.target as Element).closest("cds-text-input")
+        ) {
+            e.preventDefault();
+            submit();
+        }
     });
 }

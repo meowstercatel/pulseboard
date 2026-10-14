@@ -114,6 +114,51 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     <cds-button type="button">Change password</cds-button>
                 </form>
             </section>
+            <section class="danger" aria-labelledby="delete-heading">
+                <h2 id="delete-heading">Delete account</h2>
+                <p class="description">
+                    Permanently delete your account, saved datasets, and
+                    metrics. You will lose license access and be signed out on
+                    every device. This cannot be undone.
+                </p>
+                <details id="delete-confirmation">
+                    <summary>Delete my account…</summary>
+                    <form id="delete-form">
+                        <cds-text-input
+                            label="Type your account email to confirm"
+                            name="confirmEmail"
+                            type="email"
+                            autocomplete="off"
+                            required
+                        ></cds-text-input>
+                        <cds-text-input
+                            id="delete-password"
+                            label="Current password"
+                            name="currentPassword"
+                            type="password"
+                            autocomplete="current-password"
+                            required
+                        ></cds-text-input>
+                        <p id="delete-social-hint" class="hint" hidden>
+                            For social sign-in, you must have signed in within
+                            the last 10 minutes. Sign out and sign in again if
+                            needed.
+                        </p>
+                        <cds-inline-notification
+                            kind="error"
+                            title="Couldn't delete account"
+                            hide-close-button
+                            hidden
+                        ></cds-inline-notification>
+                        <cds-button type="button" kind="danger">
+                            Permanently delete account
+                        </cds-button>
+                        <button id="cancel-delete" type="button">
+                            Cancel
+                        </button>
+                    </form>
+                </details>
+            </section>
         </div>
     </main>
 </HtmlTemplate>
@@ -199,6 +244,30 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     [hidden] {
         display: none !important;
     }
+    .danger {
+        border-top: 2px solid var(--cds-support-error, #da1e28);
+    }
+    summary {
+        color: var(--cds-text-error, #da1e28);
+        cursor: pointer;
+    }
+    details[open] summary {
+        margin-bottom: 1.5rem;
+    }
+    #cancel-delete {
+        align-self: flex-start;
+        background: none;
+        border: 0;
+        padding: 0.5rem 0;
+        color: var(--cds-link-primary, #0f62fe);
+        font: inherit;
+        cursor: pointer;
+    }
+    summary:focus-visible,
+    #cancel-delete:focus-visible {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: 4px;
+    }
     @media (max-width: 400px) {
         section {
             padding: 1rem;
@@ -213,6 +282,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     import "@carbon/web-components/es/components/link/index.js";
     import {
         changePassword,
+        deleteAccount,
         logout,
         requireUser,
         updateProfile,
@@ -231,6 +301,23 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     const input = (form: HTMLFormElement, name: string) =>
         form.querySelector<Input>(`[name="${name}"]`)!;
     let savedEmail = "";
+    let hasPassword = true;
+    const deleteForm = document.getElementById(
+        "delete-form",
+    ) as HTMLFormElement;
+    const cancelDelete = document.getElementById(
+        "cancel-delete",
+    ) as HTMLButtonElement;
+    cancelDelete.addEventListener("click", () => {
+        (
+            document.getElementById("delete-confirmation") as HTMLDetailsElement
+        ).open = false;
+        input(deleteForm, "confirmEmail").value = "";
+        input(deleteForm, "currentPassword").value = "";
+        deleteForm.querySelector<HTMLElement>(
+            "cds-inline-notification",
+        )!.hidden = true;
+    });
 
     document.getElementById("logout")!.addEventListener("click", logout);
     profileForm.addEventListener("input", () => {
@@ -243,6 +330,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     requireUser().then((user) => {
         if (!user) return;
         savedEmail = user.email;
+        hasPassword = user.hasPassword;
+        document.getElementById("delete-password")!.hidden = !hasPassword;
+        document.getElementById("delete-social-hint")!.hidden = hasPassword;
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
         if (!user.licensePlan) {
@@ -295,6 +385,22 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         input(profileForm, "currentPassword").value = "";
         passwordSuccess.textContent =
             "Password changed. Other devices have been signed out.";
+        return null;
+    });
+
+    bindForm(deleteForm, async (field) => {
+        const email = field("confirmEmail").trim().toLowerCase();
+        if (email !== savedEmail)
+            return "Type your account email to confirm deletion";
+        if (hasPassword && !field("currentPassword"))
+            return "Enter your current password";
+        cancelDelete.disabled = true;
+        const result = await deleteAccount(email, field("currentPassword"));
+        if ("error" in result) {
+            cancelDelete.disabled = false;
+            return result.error;
+        }
+        location.replace("/?account_deleted=1");
         return null;
     });
 </script>
