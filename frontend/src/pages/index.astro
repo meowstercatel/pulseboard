@@ -4,9 +4,6 @@ import OAuthButtons from "../components/OAuthButtons.astro";
 ---
 
 <AuthLayout>
-    <p id="account-deleted" role="status" hidden>
-        Your account has been deleted.
-    </p>
     <form id="login-form">
         <cds-text-input
             label="Email"
@@ -37,11 +34,6 @@ import OAuthButtons from "../components/OAuthButtons.astro";
 <script>
     import { currentUser, login } from "../lib/auth";
     import { bindForm } from "../lib/form";
-
-    if (new URLSearchParams(location.search).get("account_deleted") === "1") {
-        document.getElementById("account-deleted")!.hidden = false;
-        history.replaceState(null, "", "/");
-    }
 
     currentUser().then((user) => {
         if (user) location.replace("/overview");

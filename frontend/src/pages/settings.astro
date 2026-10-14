@@ -162,7 +162,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                             <button id="cancel-delete" type="button">
                                 Cancel
                             </button>
-                            <cds-button type="button" kind="danger">
+                            <cds-button type="button" kind="danger" disabled>
                                 Permanently delete account
                             </cds-button>
                         </div>
@@ -373,6 +373,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     });
     deleteDialog.addEventListener("close", () => {
         input(deleteForm, "confirmation").value = "";
+        updateDeleteButton();
         deleteForm.querySelector<HTMLElement>(
             "cds-inline-notification",
         )!.hidden = true;
@@ -445,21 +446,28 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         return null;
     });
 
-    bindForm(deleteForm, async (field) => {
-        const confirmation = field("confirmation").trim();
-        if (confirmation !== "delete my account")
-            return 'Type "delete my account" to confirm deletion';
-        deleting = true;
-        cancelDelete.disabled = true;
-        closeDelete.disabled = true;
-        const result = await deleteAccount(confirmation);
-        if ("error" in result) {
-            deleting = false;
-            cancelDelete.disabled = false;
-            closeDelete.disabled = false;
-            return result.error;
-        }
-        location.replace("/?account_deleted=1");
-        return null;
-    });
+    const updateDeleteButton = bindForm(
+        deleteForm,
+        async (field) => {
+            const confirmation = field("confirmation").trim().toLowerCase();
+            if (confirmation !== "delete my account")
+                return 'Type "delete my account" to confirm deletion';
+            deleting = true;
+            cancelDelete.disabled = true;
+            closeDelete.disabled = true;
+            const result = await deleteAccount(confirmation);
+            if ("error" in result) {
+                deleting = false;
+                cancelDelete.disabled = false;
+                closeDelete.disabled = false;
+                return result.error;
+            }
+            location.replace("/");
+            return null;
+        },
+        () =>
+            !deleting &&
+            input(deleteForm, "confirmation").value.trim().toLowerCase() ===
+                "delete my account",
+    );
 </script>

@@ -166,7 +166,7 @@ auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
     if (
         !body ||
         typeof body.confirmation !== "string" ||
-        body.confirmation.trim() !== "delete my account"
+        body.confirmation.trim().toLowerCase() !== "delete my account"
     ) {
         return c.json(
             { error: 'Type "delete my account" to confirm deletion' },
