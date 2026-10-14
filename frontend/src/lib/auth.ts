@@ -5,7 +5,7 @@ export type User = {
     licensePlan: string | null;
 };
 
-type AuthResult = { user: User } | { error: string };
+type AuthResult = { user: User } | { error: string; status?: number };
 
 async function post(path: string, body: unknown): Promise<AuthResult> {
     try {
@@ -16,7 +16,10 @@ async function post(path: string, body: unknown): Promise<AuthResult> {
         });
         const data = await res.json().catch(() => null);
         if (res.ok && data?.user) return { user: data.user };
-        return { error: data?.error ?? `Something went wrong (${res.status})` };
+        return {
+            error: data?.error ?? `Something went wrong (${res.status})`,
+            status: res.status,
+        };
     } catch {
         return { error: "Can't reach the server" };
     }
@@ -28,6 +31,26 @@ export function login(email: string, password: string) {
 
 export function register(email: string, password: string, username: string) {
     return post("auth/register", { email, password, username });
+}
+
+async function updateAccount(path: string, body: unknown): Promise<AuthResult> {
+    const result = await post(path, body);
+    if ("error" in result && result.status === 401) {
+        location.replace("/");
+    }
+    return result;
+}
+
+export function updateProfile(
+    username: string,
+    email: string,
+    currentPassword: string,
+) {
+    return updateAccount("auth/profile", { username, email, currentPassword });
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+    return updateAccount("auth/password", { currentPassword, newPassword });
 }
 
 export function purchase(plan: "subscription" | "lifetime") {

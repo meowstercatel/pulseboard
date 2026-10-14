@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "../auth/password.js";
 import {
     createSession,
@@ -22,6 +22,33 @@ const loginIpLimiter = new RateLimiter(30, 15 * MINUTE);
 const loginEmailLimiter = new RateLimiter(10, 15 * MINUTE);
 // Account creation from one IP
 const registerIpLimiter = new RateLimiter(5, 60 * MINUTE);
+const accountLimiter = new RateLimiter(10, 15 * MINUTE);
+
+const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (c, next) => {
+    const key = String(c.get("user").id);
+    const retryAfter = accountLimiter.retryAfter(key);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    accountLimiter.hit(key);
+    await next();
+};
+
+async function readAccountBody(req: Request) {
+    if (!req.headers.get("content-type")?.startsWith("application/json")) {
+        return null;
+    }
+    const body: unknown = await req.json().catch(() => null);
+    return body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : null;
+}
+
+function validPassword(value: unknown): value is string {
+    return (
+        typeof value === "string" &&
+        value.length >= MIN_PASSWORD &&
+        value.length <= MAX_PASSWORD
+    );
+}
 
 type Credentials = { email: string; password: string; username?: string };
 
@@ -128,4 +155,122 @@ auth.post("/logout", async (c) => {
 
 auth.get("/me", requireAuth, (c) => {
     return c.json({ user: c.get("user") });
+});
+
+auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    if (
+        !body ||
+        typeof body.email !== "string" ||
+        typeof body.username !== "string"
+    ) {
+        return c.json({ error: "Invalid request" }, 400);
+    }
+    const email = body.email.trim().toLowerCase();
+    const username = body.username.trim() || null;
+    if (!EMAIL_RE.test(email)) {
+        return c.json({ error: "Enter a valid email address" }, 400);
+    }
+
+    const current = await db.orm.public.User.where({
+        id: c.get("user").id,
+    }).first();
+    if (!current) return c.json({ error: "Not logged in" }, 401);
+    if (email !== current.email && !current.passwordHash) {
+        return c.json(
+            {
+                error: "Email changes require a password-based account. This account uses social sign-in",
+            },
+            400,
+        );
+    }
+    if (
+        email !== current.email &&
+        (!current.passwordHash ||
+            !validPassword(body.currentPassword) ||
+            !(await verifyPassword(body.currentPassword, current.passwordHash)))
+    ) {
+        return c.json(
+            { error: "Enter your current password to change your email" },
+            400,
+        );
+    }
+
+    try {
+        // Avoid applying a change authorized with a password that just changed.
+        const user = await db.orm.public.User.where({
+            id: current.id,
+            passwordHash: current.passwordHash,
+        }).update({ email, username });
+        if (!user)
+            return c.json(
+                { error: "Your account changed. Reload and try again" },
+                409,
+            );
+        return c.json({ user: toAuthUser(user) });
+    } catch (err) {
+        if (isUniqueViolation(err)) {
+            return c.json(
+                { error: "An account with this email already exists" },
+                409,
+            );
+        }
+        throw err;
+    }
+});
+
+auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    if (!body || !validPassword(body.newPassword)) {
+        return c.json(
+            {
+                error: `New password must be ${MIN_PASSWORD}-${MAX_PASSWORD} characters`,
+            },
+            400,
+        );
+    }
+    const current = await db.orm.public.User.where({
+        id: c.get("user").id,
+    }).first();
+    if (!current) return c.json({ error: "Not logged in" }, 401);
+    if (!current.passwordHash) {
+        return c.json(
+            {
+                error: "This account uses social sign-in and has no password to change",
+            },
+            400,
+        );
+    }
+    if (
+        !validPassword(body.currentPassword) ||
+        !(await verifyPassword(body.currentPassword, current.passwordHash))
+    ) {
+        return c.json({ error: "Current password is incorrect" }, 400);
+    }
+    if (body.newPassword === body.currentPassword) {
+        return c.json(
+            { error: "Choose a different password from your current password" },
+            400,
+        );
+    }
+
+    const passwordHash = await hashPassword(body.newPassword);
+    const user = await db.transaction(async (tx) => {
+        const updated = await tx.orm.public.User.where({
+            id: current.id,
+            passwordHash: current.passwordHash,
+        }).update({ passwordHash });
+        if (!updated) return null;
+        // Keep this device signed in and revoke every other session atomically.
+        await tx.orm.public.Session.where({ userId: current.id })
+            .where((session) => session.id.neq(c.get("sessionId")))
+            .deleteAll();
+        return updated;
+    });
+    if (!user)
+        return c.json(
+            { error: "Your account changed. Reload and try again" },
+            409,
+        );
+    return c.json({ user: toAuthUser(user) });
 });
