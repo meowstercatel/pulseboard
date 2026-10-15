@@ -48,11 +48,24 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
       FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      # empty unless the deploy sets it; staging points it at the mailpit service
+      SMTP_URL: ${SMTP_URL:-}
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  # Fake SMTP server + web inbox for staging
+  mailpit:
+    image: axllent/mailpit
+    profiles: [mailpit]
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      # "user:password" to put basic auth on the web UI; empty means no auth
+      MP_UI_AUTH: ${MAILPIT_UI_AUTH:-}
 
 volumes:
   db-data:

@@ -9,6 +9,9 @@ on:
 env:
   COMPOSE_PROJECT_NAME: pulseboard-staging
   PORT: 3001
+  COMPOSE_PROFILES: mailpit
+  SMTP_URL: smtp://mailpit:1025
+  MAILPIT_UI_PORT: 8025
 
 jobs:
   deploy:
@@ -23,6 +26,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
           FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+          MAILPIT_UI_AUTH: ${{ secrets.MAILPIT_UI_AUTH }}
         run: |
           export GIT_BRANCH="$GITHUB_REF_NAME" GIT_COMMIT="${GITHUB_SHA::7}"
           docker compose up -d --build --remove-orphans
