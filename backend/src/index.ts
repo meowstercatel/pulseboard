@@ -1,9 +1,12 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { verifyOAuthLinkedUsers } from "./auth/emailVerification.js";
 import { auth } from "./routes/auth.js";
 import { billing } from "./routes/billing.js";
 import { oauth } from "./routes/oauth.js";
+
+await verifyOAuthLinkedUsers();
 
 const app = new Hono();
 

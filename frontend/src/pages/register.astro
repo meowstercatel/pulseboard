@@ -63,7 +63,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
                 field("username"),
             );
             if ("error" in result) return result.error;
-            location.href = "/buy";
+            location.href = "/verify-email";
             return null;
         },
     );

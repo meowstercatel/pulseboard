@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { requireVerifiedEmail } from "../auth/emailVerification.js";
 import { requireAuth, toAuthUser, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
 
@@ -12,7 +13,7 @@ function isPlan(value: unknown): value is Plan {
 export const billing = new Hono<AuthEnv>();
 
 // right now this grants the license without taking any payment.
-billing.post("/purchase", requireAuth, async (c) => {
+billing.post("/purchase", requireAuth, requireVerifiedEmail, async (c) => {
     const body: unknown = await c.req.json().catch(() => null);
     const plan = (body as { plan?: unknown } | null)?.plan;
     if (!isPlan(plan)) return c.json({ error: "Unknown plan" }, 400);

@@ -405,7 +405,11 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     bindForm(profileForm, async (field) => {
         profileSuccess.textContent = "";
         const email = field("email").trim().toLowerCase();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (
+            !/^[^\s@,;:<>()"\[\]\\]+@[^\s@,;:<>()"\[\]\\]+\.[^\s@,;:<>()"\[\]\\]+$/.test(
+                email,
+            )
+        ) {
             return "Enter a valid email address";
         }
         if (email !== savedEmail && !field("currentPassword")) {
@@ -421,7 +425,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         input(profileForm, "username").value = result.user.username ?? "";
         input(profileForm, "email").value = result.user.email;
         input(profileForm, "currentPassword").value = "";
-        profileSuccess.textContent = "Profile saved.";
+        profileSuccess.textContent = result.user.emailVerified
+            ? "Profile saved."
+            : `Profile saved. We sent a verification link to ${result.user.email}.`;
         return null;
     });
 
