@@ -1,0 +1,89 @@
+---
+import "../../styles/carbon.scss";
+import HtmlTemplate from "../../layouts/HtmlTemplate.astro";
+---
+
+<HtmlTemplate>
+    <main>
+        <h1>PulseBoard</h1>
+        <cds-loading
+            id="spinner"
+            type="small"
+            assistive-text="Ładowanie"
+        ></cds-loading>
+        <p id="message">Potwierdzamy płatność…</p>
+        <cds-button id="back" size="md" href="/buy" hidden>
+            Wróć do planów
+        </cds-button>
+    </main>
+</HtmlTemplate>
+
+<style>
+    :global(body) {
+        display: grid;
+        place-items: center;
+    }
+    main {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 640px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+        padding: 2rem;
+        box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
+    }
+    h1 {
+        margin: 0;
+    }
+    [hidden] {
+        display: none;
+    }
+</style>
+
+<script>
+    import "@carbon/web-components/es/components/button/index.js";
+    import "@carbon/web-components/es/components/loading/index.js";
+    import { currentUser, requireUser } from "../../lib/auth";
+    import { confirmCheckout } from "../../lib/billing";
+
+    const message = document.getElementById("message")!;
+    const spinner = document.getElementById("spinner")!;
+    const back = document.getElementById("back")!;
+
+    function stop(text: string) {
+        spinner.hidden = true;
+        back.hidden = false;
+        message.textContent = text;
+    }
+
+    async function run() {
+        const user = await requireUser();
+        if (!user) return;
+
+        const sessionId = new URLSearchParams(location.search).get(
+            "session_id",
+        );
+        if (sessionId) {
+            const res = await confirmCheckout(sessionId);
+            if ("error" in res) return stop(res.error);
+        }
+
+        // The webhook may land a moment after the redirect, so poll briefly.
+        // Bank transfers (Przelewy24) can take longer than this.
+        for (let i = 0; i < 15; i++) {
+            const fresh = await currentUser();
+            if (fresh?.licensePlan) {
+                location.replace("/overview");
+                return;
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+        }
+        stop(
+            "Płatność jest jeszcze przetwarzana. Licencja pojawi się automatycznie, gdy Stripe ją potwierdzi.",
+        );
+    }
+
+    run();
+</script>

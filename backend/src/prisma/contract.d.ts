@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'87d79c01f49f62513d9f4e6fc9c7aa5a7cf877a1bc76a7d737f3914d7c6f137b'>;
+  StorageHashBase<'0910358d555615da105412edc2cf7d66ca42933f654b701f7563680cf03580e4'>;
 export type ExecutionHash =
   ExecutionHashBase<'98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09'>;
 export type ProfileHash =
@@ -285,6 +285,9 @@ export type FieldOutputTypes = {
       readonly licensePlan: CodecTypes['pg/text@1']['output'] | null;
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
     };
@@ -343,6 +346,9 @@ export type FieldInputTypes = {
       readonly licensePlan: CodecTypes['pg/text@1']['input'] | null;
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['input'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
     };
@@ -401,6 +407,9 @@ export type StorageColumnTypes = {
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly licensePlan: CodecTypes['pg/text@1']['output'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
     };
@@ -459,6 +468,9 @@ export type StorageColumnInputTypes = {
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly licensePlan: CodecTypes['pg/text@1']['input'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['input'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
     };
@@ -528,6 +540,9 @@ export namespace Models {
     licensePlan: CodecTypes['pg/text@1']['output'] | null;
     licensedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     passwordHash: CodecTypes['pg/text@1']['output'] | null;
+    stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
+    stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
+    subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     username: CodecTypes['pg/text@1']['output'] | null;
     datasets: public_Dataset[];
@@ -986,6 +1001,24 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly many: false;
                 };
+                readonly stripeCustomerId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly stripeSubscriptionId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly subscriptionStatus: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly updatedAt: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-string@1';
@@ -1000,7 +1033,10 @@ type ContractBase = Omit<
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [{ readonly columns: readonly ['email'] }];
+              uniques: readonly [
+                { readonly columns: readonly ['email'] },
+                { readonly columns: readonly ['stripeCustomerId'] },
+              ];
               indexes: readonly [];
               foreignKeys: readonly [];
             };
@@ -1385,6 +1421,18 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly stripeCustomerId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly stripeSubscriptionId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly subscriptionStatus: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1454,6 +1502,9 @@ type ContractBase = Omit<
                 readonly licensePlan: { readonly column: 'licensePlan' };
                 readonly licensedAt: { readonly column: 'licensedAt' };
                 readonly passwordHash: { readonly column: 'passwordHash' };
+                readonly stripeCustomerId: { readonly column: 'stripeCustomerId' };
+                readonly stripeSubscriptionId: { readonly column: 'stripeSubscriptionId' };
+                readonly subscriptionStatus: { readonly column: 'subscriptionStatus' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
                 readonly username: { readonly column: 'username' };
               };

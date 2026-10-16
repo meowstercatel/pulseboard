@@ -92,10 +92,6 @@ export async function deleteAccount(
     }
 }
 
-export function purchase(plan: "subscription" | "lifetime") {
-    return post("billing/purchase", { plan });
-}
-
 export async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     location.href = "/";

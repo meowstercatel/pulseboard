@@ -26,6 +26,10 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
           FACEBOOK_APP_SECRET: ${{ secrets.FACEBOOK_APP_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_SUBSCRIPTION: ${{ vars.STRIPE_PRICE_SUBSCRIPTION }}
+          STRIPE_PRICE_LIFETIME: ${{ vars.STRIPE_PRICE_LIFETIME }}
           MAILPIT_UI_AUTH: ${{ secrets.MAILPIT_UI_AUTH }}
         run: |
           export GIT_BRANCH="$GITHUB_REF_NAME" GIT_COMMIT="${GITHUB_SHA::7}"
