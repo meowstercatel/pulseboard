@@ -14,12 +14,13 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: creates any tables the Prisma contract declares (additive only), then exits
+  # One-shot: brings the database schema up to the Prisma contract, then exits.
+  # Applies additive and widening changes; refuses destructive ones (e.g. drops).
   migrate:
     build:
       context: .
       target: backend
-    command: ["pnpm", "prisma", "db", "init", "--yes"]
+    command: ["pnpm", "prisma", "db", "update", "--no-interactive"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}
     depends_on:
@@ -40,11 +41,33 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}
       # set to "true" when the server sits behind a reverse proxy, see src/auth/rateLimit.ts
       TRUST_PROXY: ${TRUST_PROXY:-}
+      # public origin, e.g. https://pulseboard.example.com; OAuth redirect URIs are built from it
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      # Google/Facebook login is enabled for each provider whose credentials are set
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      # empty unless the deploy sets it; staging points it at the mailpit service
+      SMTP_URL: ${SMTP_URL:-}
+      # sender of verification emails, defaults to PulseBoard <no-reply@pulseboard.local>
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  # Fake SMTP server + web inbox for staging
+  mailpit:
+    image: axllent/mailpit
+    profiles: [mailpit]
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      # "user:password" to put basic auth on the web UI; empty means no auth
+      MP_UI_AUTH: ${MAILPIT_UI_AUTH:-}
 
 volumes:
   db-data:

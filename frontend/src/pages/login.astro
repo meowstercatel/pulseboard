@@ -1,5 +1,6 @@
 ---
 import AuthLayout from "../layouts/AuthLayout.astro";
+import OAuthButtons from "../components/OAuthButtons.astro";
 ---
 
 <AuthLayout>
@@ -24,6 +25,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         ></cds-inline-notification>
         <cds-button>login</cds-button>
     </form>
+    <OAuthButtons />
     <p>
         No account yet? <cds-link href="/register">Register</cds-link>
     </p>
@@ -36,6 +38,17 @@ import AuthLayout from "../layouts/AuthLayout.astro";
     currentUser().then((user) => {
         if (user) location.replace("/overview");
     });
+
+    // set by the server when a Google/Facebook sign-in fails
+    const oauthError = new URLSearchParams(location.search).get("oauth_error");
+    if (oauthError) {
+        const error = document.querySelector(
+            "#login-form cds-inline-notification",
+        ) as HTMLElement & { subtitle: string };
+        error.subtitle = oauthError;
+        error.hidden = false;
+        history.replaceState(null, "", "/login");
+    }
 
     bindForm(
         document.getElementById("login-form") as HTMLFormElement,

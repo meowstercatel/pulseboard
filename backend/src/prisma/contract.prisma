@@ -5,14 +5,34 @@ model User {
   // always store lowercased; the unique constraint is case-sensitive
   email        String   @unique
   username     String?
-  passwordHash String
+  // null for accounts that only sign in with Google/Facebook
+  passwordHash String?
+  // null until the owner clicks the link we email them (Google/Facebook sign-ins count as verified)
+  emailVerifiedAt TimestamptzString?
   licensePlan  String?
   licensedAt   TimestamptzString?
   createdAt    TimestamptzString @default(now())
   updatedAt    temporal.updatedAtString()
 
-  datasets Dataset[]
-  sessions Session[]
+  datasets      Dataset[]
+  sessions      Session[]
+  oauthAccounts OAuthAccount[]
+  emailVerifications EmailVerification[]
+}
+
+// a Google/Facebook login linked to a User, matched by the provider's user id
+model OAuthAccount {
+  id             Int      @id @default(autoincrement())
+  // "google" or "facebook"
+  provider       String
+  providerUserId String
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email          String?
+  createdAt      TimestamptzString @default(now())
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model Session {
@@ -20,6 +40,19 @@ model Session {
   id        String   @id
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt TimestamptzString
+  createdAt TimestamptzString @default(now())
+
+  @@index([userId])
+}
+
+// a pending email verification link; only the SHA-256 of the token is stored
+model EmailVerification {
+  tokenHash String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // the address the link was sent to, so it stops working if the user changes email
+  email     String
   expiresAt TimestamptzString
   createdAt TimestamptzString @default(now())
 

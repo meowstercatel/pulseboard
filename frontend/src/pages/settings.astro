@@ -1,0 +1,479 @@
+---
+import "../styles/carbon.scss";
+import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+---
+
+<HtmlTemplate title="Account settings · PulseBoard">
+    <main>
+        <header>
+            <a class="brand" href="/overview">
+                PulseBoard
+            </a>
+            <nav aria-label="Account navigation">
+                <cds-link id="back-link" href="/overview">
+                    Overview
+                </cds-link>
+                <cds-button id="logout" kind="ghost" size="sm">
+                    Log out
+                </cds-button>
+            </nav>
+        </header>
+
+        <div class="intro">
+            <h1>Account settings</h1>
+            <p>Manage your profile and sign-in details.</p>
+        </div>
+        <p id="loading" role="status">
+            Loading your account…
+        </p>
+        <noscript>Enable JavaScript to manage your account.</noscript>
+
+        <div id="settings" hidden>
+            <section aria-labelledby="profile-heading">
+                <h2 id="profile-heading">Profile</h2>
+                <p class="description">Your email address is used to log in.</p>
+                <form id="profile-form">
+                    <cds-text-input
+                        label="Username (optional)"
+                        name="username"
+                        autocomplete="username"
+                    ></cds-text-input>
+                    <cds-text-input
+                        label="Email"
+                        name="email"
+                        type="email"
+                        autocomplete="email"
+                        required
+                    ></cds-text-input>
+                    <cds-text-input
+                        label="Current password"
+                        name="currentPassword"
+                        type="password"
+                        autocomplete="current-password"
+                        helper-text="Required only when changing your email address."
+                    ></cds-text-input>
+                    <cds-inline-notification
+                        kind="error"
+                        title="Couldn't save profile"
+                        hide-close-button
+                        hidden
+                    ></cds-inline-notification>
+                    <p
+                        class="success"
+                        id="profile-success"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
+                    <cds-button type="button">Save profile</cds-button>
+                </form>
+            </section>
+
+            <section aria-labelledby="password-heading">
+                <h2 id="password-heading">Password</h2>
+                <p class="description">
+                    Choose a new password to keep your account secure.
+                </p>
+                <form id="password-form">
+                    <cds-text-input
+                        label="Current password"
+                        name="currentPassword"
+                        type="password"
+                        autocomplete="current-password"
+                        required
+                    ></cds-text-input>
+                    <cds-text-input
+                        label="New password"
+                        name="newPassword"
+                        type="password"
+                        autocomplete="new-password"
+                        helper-text="8–256 characters."
+                        required
+                    ></cds-text-input>
+                    <cds-text-input
+                        label="Confirm new password"
+                        name="confirm"
+                        type="password"
+                        autocomplete="new-password"
+                        required
+                    ></cds-text-input>
+                    <cds-inline-notification
+                        kind="error"
+                        title="Couldn't change password"
+                        hide-close-button
+                        hidden
+                    ></cds-inline-notification>
+                    <p
+                        class="success"
+                        id="password-success"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
+                    <p class="hint">
+                        Changing your password signs you out on other devices.
+                    </p>
+                    <cds-button type="button">Change password</cds-button>
+                </form>
+            </section>
+            <section class="danger" aria-labelledby="delete-heading">
+                <h2 id="delete-heading">Delete account</h2>
+                <p class="description">
+                    Permanently delete your account, saved datasets, and
+                    metrics. You will lose license access and be signed out on
+                    every device. This cannot be undone.
+                </p>
+                <cds-button id="open-delete" type="button" kind="danger">
+                    Delete my account
+                </cds-button>
+                <dialog
+                    id="delete-confirmation"
+                    aria-labelledby="delete-modal-heading"
+                    aria-describedby="delete-modal-description"
+                >
+                    <header class="modal-header">
+                        <h2 id="delete-modal-heading">Delete your account?</h2>
+                        <button
+                            id="close-delete"
+                            type="button"
+                            aria-label="Close account deletion dialog"
+                        >
+                            ×
+                        </button>
+                    </header>
+                    <p id="delete-modal-description" class="description">
+                        Your account, saved datasets, and metrics will be
+                        permanently deleted. You will lose license access and be
+                        signed out on every device. This cannot be undone.
+                    </p>
+                    <form id="delete-form">
+                        <cds-text-input
+                            label='Type "delete my account" to confirm'
+                            name="confirmation"
+                            autocomplete="off"
+                            spellcheck="false"
+                            required
+                        ></cds-text-input>
+                        <cds-inline-notification
+                            kind="error"
+                            title="Couldn't delete account"
+                            hide-close-button
+                            hidden
+                        ></cds-inline-notification>
+                        <div class="modal-actions">
+                            <button id="cancel-delete" type="button">
+                                Cancel
+                            </button>
+                            <cds-button type="button" kind="danger" disabled>
+                                Permanently delete account
+                            </cds-button>
+                        </div>
+                    </form>
+                </dialog>
+            </section>
+        </div>
+    </main>
+</HtmlTemplate>
+
+<style>
+    main {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 3rem;
+    }
+    header,
+    nav {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    header {
+        justify-content: space-between;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .brand {
+        color: var(--cds-text-primary, #161616);
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    a:focus-visible {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: 4px;
+    }
+    .intro {
+        margin: 2rem 0;
+    }
+    h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+    .intro p,
+    .description,
+    .hint {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    #settings {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    section {
+        padding: 1.5rem;
+        background: var(--cds-layer-01, #f4f4f4);
+    }
+    .description {
+        margin-bottom: 1.5rem;
+    }
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    cds-button {
+        align-self: flex-start;
+    }
+    cds-inline-notification {
+        max-width: 100%;
+    }
+    .success {
+        color: var(--cds-text-primary, #161616);
+        font-size: 0.875rem;
+        border-left: 3px solid var(--cds-support-success, #24a148);
+        padding-left: 0.75rem;
+    }
+    .success:empty,
+    [hidden] {
+        display: none !important;
+    }
+    .danger {
+        border-top: 2px solid var(--cds-support-error, #da1e28);
+    }
+    dialog {
+        box-sizing: border-box;
+        width: min(36rem, calc(100vw - 2rem));
+        max-height: calc(100dvh - 2rem);
+        margin: auto;
+        padding: 1.5rem;
+        border: 0;
+        overflow-y: auto;
+        background: var(--cds-layer-01, #f4f4f4);
+        color: var(--cds-text-primary, #161616);
+    }
+    dialog::backdrop {
+        background: rgba(22, 22, 22, 0.6);
+    }
+    .modal-header {
+        align-items: flex-start;
+        flex-wrap: nowrap;
+        padding: 0;
+        margin-bottom: 1rem;
+        border: 0;
+    }
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+    #cancel-delete,
+    #close-delete {
+        background: none;
+        border: 0;
+        padding: 0.5rem;
+        color: var(--cds-link-primary, #0f62fe);
+        font: inherit;
+        cursor: pointer;
+    }
+    #close-delete {
+        color: var(--cds-text-primary, #161616);
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+    #cancel-delete:disabled,
+    #close-delete:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    #cancel-delete:focus-visible,
+    #close-delete:focus-visible {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: 2px;
+    }
+    @media (max-width: 400px) {
+        section {
+            padding: 1rem;
+        }
+    }
+</style>
+
+<script>
+    import "@carbon/web-components/es/components/button/index.js";
+    import "@carbon/web-components/es/components/text-input/index.js";
+    import "@carbon/web-components/es/components/notification/index.js";
+    import "@carbon/web-components/es/components/link/index.js";
+    import {
+        changePassword,
+        deleteAccount,
+        logout,
+        requireUser,
+        updateProfile,
+    } from "../lib/auth";
+    import { bindForm } from "../lib/form";
+
+    type Input = HTMLElement & { value: string };
+    const profileForm = document.getElementById(
+        "profile-form",
+    ) as HTMLFormElement;
+    const passwordForm = document.getElementById(
+        "password-form",
+    ) as HTMLFormElement;
+    const profileSuccess = document.getElementById("profile-success")!;
+    const passwordSuccess = document.getElementById("password-success")!;
+    const input = (form: HTMLFormElement, name: string) =>
+        form.querySelector<Input>(`[name="${name}"]`)!;
+    let savedEmail = "";
+    const deleteForm = document.getElementById(
+        "delete-form",
+    ) as HTMLFormElement;
+    const cancelDelete = document.getElementById(
+        "cancel-delete",
+    ) as HTMLButtonElement;
+    const deleteDialog = document.getElementById(
+        "delete-confirmation",
+    ) as HTMLDialogElement;
+    const openDelete = document.getElementById("open-delete")!;
+    const closeDelete = document.getElementById(
+        "close-delete",
+    ) as HTMLButtonElement;
+    let deleting = false;
+    openDelete.addEventListener("click", () => {
+        deleteDialog.showModal();
+        input(deleteForm, "confirmation")
+            .shadowRoot?.querySelector("input")
+            ?.focus();
+    });
+    const dismissDeletion = () => {
+        if (!deleting) deleteDialog.close();
+    };
+    cancelDelete.addEventListener("click", dismissDeletion);
+    closeDelete.addEventListener("click", dismissDeletion);
+    deleteDialog.addEventListener("cancel", (event) => {
+        if (deleting) event.preventDefault();
+    });
+    deleteDialog.addEventListener("close", () => {
+        input(deleteForm, "confirmation").value = "";
+        updateDeleteButton();
+        deleteForm.querySelector<HTMLElement>(
+            "cds-inline-notification",
+        )!.hidden = true;
+        openDelete.shadowRoot?.querySelector("button")?.focus();
+    });
+
+    document.getElementById("logout")!.addEventListener("click", logout);
+    profileForm.addEventListener("input", () => {
+        profileSuccess.textContent = "";
+    });
+    passwordForm.addEventListener("input", () => {
+        passwordSuccess.textContent = "";
+    });
+
+    requireUser().then((user) => {
+        if (!user) return;
+        savedEmail = user.email;
+        input(profileForm, "username").value = user.username ?? "";
+        input(profileForm, "email").value = user.email;
+        if (!user.licensePlan) {
+            const back = document.getElementById("back-link")!;
+            back.setAttribute("href", "/buy");
+            back.textContent = "License";
+        }
+        document.getElementById("loading")!.hidden = true;
+        document.getElementById("settings")!.hidden = false;
+    });
+
+    bindForm(profileForm, async (field) => {
+        profileSuccess.textContent = "";
+        const email = field("email").trim().toLowerCase();
+        if (
+            !/^[^\s@,;:<>()"\[\]\\]+@[^\s@,;:<>()"\[\]\\]+\.[^\s@,;:<>()"\[\]\\]+$/.test(
+                email,
+            )
+        ) {
+            return "Enter a valid email address";
+        }
+        if (email !== savedEmail && !field("currentPassword")) {
+            return "Enter your current password to change your email";
+        }
+        const result = await updateProfile(
+            field("username"),
+            email,
+            field("currentPassword"),
+        );
+        if ("error" in result) return result.error;
+        savedEmail = result.user.email;
+        input(profileForm, "username").value = result.user.username ?? "";
+        input(profileForm, "email").value = result.user.email;
+        input(profileForm, "currentPassword").value = "";
+        profileSuccess.textContent = result.user.emailVerified
+            ? "Profile saved."
+            : `Profile saved. We sent a verification link to ${result.user.email}.`;
+        return null;
+    });
+
+    bindForm(passwordForm, async (field) => {
+        passwordSuccess.textContent = "";
+        if (!field("currentPassword")) return "Enter your current password";
+        const password = field("newPassword");
+        if (password.length < 8 || password.length > 256) {
+            return "New password must be 8–256 characters";
+        }
+        if (password !== field("confirm")) return "Passwords don't match";
+        const result = await changePassword(field("currentPassword"), password);
+        if ("error" in result) return result.error;
+        passwordForm
+            .querySelectorAll<Input>("cds-text-input")
+            .forEach((field) => {
+                field.value = "";
+            });
+        input(profileForm, "currentPassword").value = "";
+        passwordSuccess.textContent =
+            "Password changed. Other devices have been signed out.";
+        return null;
+    });
+
+    const updateDeleteButton = bindForm(
+        deleteForm,
+        async (field) => {
+            const confirmation = field("confirmation").trim().toLowerCase();
+            if (confirmation !== "delete my account")
+                return 'Type "delete my account" to confirm deletion';
+            deleting = true;
+            cancelDelete.disabled = true;
+            closeDelete.disabled = true;
+            const result = await deleteAccount(confirmation);
+            if ("error" in result) {
+                deleting = false;
+                cancelDelete.disabled = false;
+                closeDelete.disabled = false;
+                return result.error;
+            }
+            location.replace("/");
+            return null;
+        },
+        () =>
+            !deleting &&
+            input(deleteForm, "confirmation").value.trim().toLowerCase() ===
+                "delete my account",
+    );
+</script>

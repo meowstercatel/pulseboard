@@ -47,6 +47,7 @@ const plans = [
                 </cds-tag>
             </p>
         </header>
+        <cds-link href="/settings">Account settings</cds-link>
         <h3>Wybierz plan</h3>
         <div class="licenses">
             {plans.map((plan) => (
@@ -168,13 +169,14 @@ const plans = [
 <script>
     import "@carbon/web-components/es/components/button/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
-    import { purchase, requireUser } from "../lib/auth";
+    import "@carbon/web-components/es/components/link/index.js";
+    import { purchase, requireVerifiedUser } from "../lib/auth";
 
     const status = document.getElementById("license-status") as HTMLElement & {
         type: string;
     };
 
-    requireUser().then((user) => {
+    requireVerifiedUser().then((user) => {
         if (user?.licensePlan) {
             status.type = "green";
             status.textContent = "opłacona";

@@ -1,0 +1,116 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+---
+
+<AuthLayout>
+    <p id="status" role="status" aria-live="polite">
+        Checking your account…
+    </p>
+
+    <div id="pending" hidden>
+        <p>
+            We sent a verification link to <strong id="email"></strong>. Open it
+            to finish setting up your account.
+        </p>
+        <form id="resend-form">
+            <cds-inline-notification
+                kind="error"
+                title="Couldn't resend"
+                hide-close-button
+                hidden
+            ></cds-inline-notification>
+            <cds-button kind="secondary">resend email</cds-button>
+        </form>
+        <p>
+            Wrong address? <cds-link href="/settings">Change it</cds-link> or
+            <cds-link id="logout" href="/">
+                log out
+            </cds-link>
+        </p>
+    </div>
+
+    <div id="failed" hidden>
+        <cds-inline-notification
+            kind="error"
+            title="Couldn't verify your email"
+            hide-close-button
+            open
+        ></cds-inline-notification>
+        <p>
+            <cds-link href="/verify-email">Request a new link</cds-link>
+        </p>
+    </div>
+
+    <div id="done" hidden>
+        <p>Your email address is verified.</p>
+        <cds-button id="continue" href="/buy">
+            continue
+        </cds-button>
+    </div>
+</AuthLayout>
+
+<script>
+    import {
+        currentUser,
+        logout,
+        resendVerificationEmail,
+        verifyEmail,
+    } from "../lib/auth";
+    import { bindForm } from "../lib/form";
+
+    const status = document.getElementById("status")!;
+    const show = (id: "pending" | "failed" | "done") => {
+        status.hidden = true;
+        document.getElementById(id)!.hidden = false;
+    };
+
+    async function fromLink(token: string) {
+        // keep the token out of the history and the Referer header
+        history.replaceState(null, "", "/verify-email");
+        status.textContent = "Verifying your email address…";
+        const result = await verifyEmail(token);
+        if ("error" in result) {
+            const error = document.querySelector(
+                "#failed cds-inline-notification",
+            ) as HTMLElement & { subtitle: string };
+            error.subtitle = result.error;
+            show("failed");
+            return;
+        }
+        // the link may have been opened in a browser that isn't logged in
+        const user = await currentUser();
+        const next = !user ? "/login" : user.licensePlan ? "/overview" : "/buy";
+        document.getElementById("continue")!.setAttribute("href", next);
+        show("done");
+    }
+
+    async function waiting() {
+        const user = await currentUser();
+        if (!user) return location.replace("/login");
+        if (user.emailVerified) {
+            return location.replace(user.licensePlan ? "/overview" : "/buy");
+        }
+        document.getElementById("email")!.textContent = user.email;
+        show("pending");
+    }
+
+    const token = new URLSearchParams(location.search).get("token");
+    if (token) fromLink(token);
+    else waiting();
+
+    document.getElementById("logout")!.addEventListener("click", (e) => {
+        e.preventDefault();
+        logout();
+    });
+
+    bindForm(
+        document.getElementById("resend-form") as HTMLFormElement,
+        async () => {
+            const error = await resendVerificationEmail();
+            if (error) return error;
+            status.textContent = "Sent! Check your inbox.";
+            status.hidden = false;
+            return null;
+        },
+    );
+</script>

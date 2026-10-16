@@ -11,18 +11,24 @@ export type AuthUser = {
     email: string;
     username: string | null;
     licensePlan: string | null;
+    emailVerified: boolean;
 };
 
-export function toAuthUser(user: AuthUser): AuthUser {
+type UserRow = Omit<AuthUser, "emailVerified"> & {
+    emailVerifiedAt: string | null;
+};
+
+export function toAuthUser(user: UserRow): AuthUser {
     return {
         id: user.id,
         email: user.email,
         username: user.username,
         licensePlan: user.licensePlan,
+        emailVerified: user.emailVerifiedAt !== null,
     };
 }
 
-export type AuthEnv = { Variables: { user: AuthUser } };
+export type AuthEnv = { Variables: { user: AuthUser; sessionId: string } };
 
 export async function createSession(c: Context, userId: number) {
     const token = randomBytes(32).toString("base64url");
@@ -73,10 +79,14 @@ export const requireAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const user = await getSessionUser(c);
     if (!user) return c.json({ error: "Not logged in" }, 401);
     c.set("user", user);
+    c.set("sessionId", getCookie(c, COOKIE_NAME)!);
     await next();
 };
 
 export const requireLicense: MiddlewareHandler<AuthEnv> = async (c, next) => {
+    if (!c.get("user").emailVerified) {
+        return c.json({ error: "Verify your email address first" }, 403);
+    }
     if (!c.get("user").licensePlan) {
         return c.json({ error: "No active license" }, 402);
     }
