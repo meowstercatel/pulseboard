@@ -8,6 +8,7 @@ import {
     type OAuthProfile,
 } from "../auth/oauth.js";
 import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
+import { publicUrl } from "../auth/publicUrl.js";
 import { createSession, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
 import { isUniqueViolation } from "../prisma/errors.js";
@@ -18,11 +19,9 @@ const STATE_TTL_SECONDS = 10 * 60;
 // Each sign-in costs two outbound requests, so cap them per IP
 const callbackIpLimiter = new RateLimiter(30, 15 * 60 * 1000);
 
-// Must match a redirect URI registered with the provider. Set PUBLIC_URL when
-// the request URL differs from the public one (e.g. behind a reverse proxy).
+// Must match a redirect URI registered with the provider
 function redirectUri(c: Context, provider: string): string {
-    const base = process.env["PUBLIC_URL"] || new URL(c.req.url).origin;
-    return `${base.replace(/\/$/, "")}/api/auth/oauth/${provider}/callback`;
+    return publicUrl(c, `/api/auth/oauth/${provider}/callback`);
 }
 
 function fail(c: Context, message: string) {
@@ -38,7 +37,20 @@ async function resolveUser(provider: string, profile: OAuthProfile) {
     })
         .include("user")
         .first();
-    if (linked) return linked.user;
+    if (linked) {
+        const { user } = linked;
+        // Covers links made before email verification existed
+        if (!user.emailVerifiedAt && linked.email === user.email) {
+            const updated = await db.orm.public.User.where({
+                id: user.id,
+                email: user.email,
+            })
+                .where((u) => u.emailVerifiedAt.isNull())
+                .update({ emailVerifiedAt: new Date().toISOString() });
+            if (updated) return updated;
+        }
+        return user;
+    }
 
     const email = profile.email?.trim().toLowerCase();
     if (!email || !profile.emailVerified) {
@@ -53,11 +65,17 @@ async function resolveUser(provider: string, profile: OAuthProfile) {
             // The email owner just proved control of it, so sign out any
             // sessions that were opened before the link
             await tx.orm.public.Session.where({ userId: user.id }).deleteAll();
+            if (!user.emailVerifiedAt) {
+                user = (await tx.orm.public.User.where({ id: user.id }).update({
+                    emailVerifiedAt: new Date().toISOString(),
+                }))!;
+            }
         } else {
             user = await tx.orm.public.User.create({
                 email,
                 username: profile.name,
                 passwordHash: null,
+                emailVerifiedAt: new Date().toISOString(),
             });
         }
         await tx.orm.public.OAuthAccount.create({

@@ -1,4 +1,9 @@
 import { Hono, type MiddlewareHandler } from "hono";
+import {
+    sendVerificationEmail,
+    trySendVerificationEmail,
+    verifyEmailToken,
+} from "../auth/emailVerification.js";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "../auth/password.js";
 import {
     createSession,
@@ -11,7 +16,10 @@ import { RateLimiter, limitByIp, tooManyRequests } from "../auth/rateLimit.js";
 import { db } from "../prisma/db.js";
 import { isUniqueViolation } from "../prisma/errors.js";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Excludes characters nodemailer reads as address-list syntax, so
+// "a@b.com,c" can't send the verification email somewhere else
+const EMAIL_RE =
+    /^[^\s@,;:<>()"\[\]\\]+@[^\s@,;:<>()"\[\]\\]+\.[^\s@,;:<>()"\[\]\\]+$/;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 256;
 
@@ -23,6 +31,10 @@ const loginEmailLimiter = new RateLimiter(10, 15 * MINUTE);
 // Account creation from one IP
 const registerIpLimiter = new RateLimiter(5, 60 * MINUTE);
 const accountLimiter = new RateLimiter(10, 15 * MINUTE);
+// Verification emails resent per account, so the endpoint can't be used to spam an inbox
+const resendLimiter = new RateLimiter(3, 15 * MINUTE);
+// Verification attempts from one IP, against guessing tokens
+const verifyIpLimiter = new RateLimiter(30, 15 * MINUTE);
 
 const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const key = String(c.get("user").id);
@@ -119,6 +131,7 @@ auth.post("/register", limitByIp(registerIpLimiter), async (c) => {
         throw err;
     }
 
+    await trySendVerificationEmail(c, user.id);
     await createSession(c, user.id);
     return c.json({ user: toAuthUser(user) }, 201);
 });
@@ -155,6 +168,51 @@ auth.post("/logout", async (c) => {
 
 auth.get("/me", requireAuth, (c) => {
     return c.json({ user: c.get("user") });
+});
+
+auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    if (!body || typeof body.token !== "string" || !body.token) {
+        return c.json({ error: "Invalid request" }, 400);
+    }
+    const user = await verifyEmailToken(body.token);
+    if (!user) {
+        return c.json(
+            { error: "This verification link is invalid or has expired" },
+            400,
+        );
+    }
+    return c.json({ user: toAuthUser(user) });
+});
+
+auth.post("/verify-email/resend", requireAuth, async (c) => {
+    const user = c.get("user");
+    if (user.emailVerified) {
+        return c.json({ error: "Your email address is already verified" }, 400);
+    }
+    const key = String(user.id);
+    const retryAfter = resendLimiter.retryAfter(key);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    resendLimiter.hit(key);
+
+    let sent;
+    try {
+        sent = await sendVerificationEmail(c, user.id);
+    } catch (err) {
+        console.error(
+            `Couldn't send verification email to user ${user.id}`,
+            err,
+        );
+        return c.json(
+            { error: "Couldn't send the email, try again later" },
+            502,
+        );
+    }
+    // verified by another tab since this session was loaded
+    if (!sent) {
+        return c.json({ error: "Your email address is already verified" }, 400);
+    }
+    return c.body(null, 204);
 });
 
 auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
@@ -229,16 +287,26 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     }
 
     try {
-        // Avoid applying a change authorized with a password that just changed.
+        // Avoid applying a change authorized with a password that just changed,
+        // or writing back an old email (and its verified state) over a newer one.
         const user = await db.orm.public.User.where({
             id: current.id,
+            email: current.email,
             passwordHash: current.passwordHash,
-        }).update({ email, username });
+        }).update(
+            email === current.email
+                ? { email, username }
+                : // the new address has to be verified again
+                  { email, username, emailVerifiedAt: null },
+        );
         if (!user)
             return c.json(
                 { error: "Your account changed. Reload and try again" },
                 409,
             );
+        if (email !== current.email) {
+            await trySendVerificationEmail(c, user.id);
+        }
         return c.json({ user: toAuthUser(user) });
     } catch (err) {
         if (isUniqueViolation(err)) {

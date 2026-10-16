@@ -3,6 +3,7 @@ export type User = {
     email: string;
     username: string | null;
     licensePlan: string | null;
+    emailVerified: boolean;
 };
 
 type AuthResult = { user: User } | { error: string; status?: number };
@@ -31,6 +32,24 @@ export function login(email: string, password: string) {
 
 export function register(email: string, password: string, username: string) {
     return post("auth/register", { email, password, username });
+}
+
+export function verifyEmail(token: string) {
+    return post("auth/verify-email", { token });
+}
+
+export async function resendVerificationEmail(): Promise<string | null> {
+    try {
+        const res = await fetch("/api/auth/verify-email/resend", {
+            method: "POST",
+        });
+        if (res.ok) return null;
+        if (res.status === 401) location.replace("/");
+        const data = await res.json().catch(() => null);
+        return data?.error ?? `Couldn't send the email (${res.status})`;
+    } catch {
+        return "Can't reach the server";
+    }
 }
 
 async function updateAccount(path: string, body: unknown): Promise<AuthResult> {
@@ -108,8 +127,15 @@ export async function requireUser(): Promise<User | null> {
     return user;
 }
 
-export async function requireLicense(): Promise<User | null> {
+// Unverified users are sent to the page asking them to check their inbox
+export async function requireVerifiedUser(): Promise<User | null> {
     const user = await requireUser();
+    if (user && !user.emailVerified) location.replace("/verify-email");
+    return user?.emailVerified ? user : null;
+}
+
+export async function requireLicense(): Promise<User | null> {
+    const user = await requireVerifiedUser();
     if (user && !user.licensePlan) location.replace("/buy");
     return user?.licensePlan ? user : null;
 }

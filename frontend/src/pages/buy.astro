@@ -170,13 +170,13 @@ const plans = [
     import "@carbon/web-components/es/components/button/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
     import "@carbon/web-components/es/components/link/index.js";
-    import { purchase, requireUser } from "../lib/auth";
+    import { purchase, requireVerifiedUser } from "../lib/auth";
 
     const status = document.getElementById("license-status") as HTMLElement & {
         type: string;
     };
 
-    requireUser().then((user) => {
+    requireVerifiedUser().then((user) => {
         if (user?.licensePlan) {
             status.type = "green";
             status.textContent = "opłacona";

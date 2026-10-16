@@ -22,10 +22,16 @@ importers:
       hono:
         specifier: ^4.13.13
         version: 4.13.13
+      nodemailer:
+        specifier: ^10.1.1
+        version: 10.1.1
     devDependencies:
       "@types/node":
         specifier: ^26.1.1
         version: 26.6.4
+      "@types/nodemailer":
+        specifier: ^8.0.2
+        version: 8.0.2
       prisma:
         specifier: 8.0.0-rc.21
         version: 8.0.0-rc.21(@types/node@26.6.4)(@vercel/nft@1.11.0)(magicast@0.5.5)(pg@8.22.0)(typanion@3.14.0)(typescript@7.0.2)(vite@8.3.3(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.0.3(@types/node@26.6.4)(vite@8.3.3(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(ws@8.22.0)
@@ -1870,6 +1876,12 @@ packages:
         integrity: sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg==,
       }
 
+  "@types/nodemailer@8.0.2":
+    resolution:
+      {
+        integrity: sha512-c7M5ox8p0nEOfbJ2E9Qcmt8/QCu/VzsiAhzBiZbvky2PhKZDHpKB3sQHBM5MEZNkCfBOaS6S9//AGPRTNB7IaA==,
+      }
+
   "@types/pg@8.20.4":
     resolution:
       {
@@ -3111,6 +3123,13 @@ packages:
         integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==,
       }
     hasBin: true
+
+  nodemailer@10.1.1:
+    resolution:
+      {
+        integrity: sha512-pbqZRoeYUO+1E8TJ/11WeY4D2EVujj1hsYjz3qff/vUFDtGnmi7p3iqzTFslYOfQ6PnjVcWxx/CIUSHCSrO/QA==,
+      }
+    engines: { node: ">=20.0.0" }
 
   nopt@8.1.0:
     resolution:
@@ -5203,6 +5222,10 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
+  "@types/nodemailer@8.0.2":
+    dependencies:
+      "@types/node": 26.6.4
+
   "@types/pg@8.20.4":
     dependencies:
       "@types/node": 26.6.4
@@ -5834,6 +5857,8 @@ snapshots:
       whatwg-url: 5.0.0
 
   node-gyp-build@4.8.4: {}
+
+  nodemailer@10.1.1: {}
 
   nopt@8.1.0:
     dependencies:

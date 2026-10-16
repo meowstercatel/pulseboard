@@ -50,6 +50,8 @@ services:
       FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
       # empty unless the deploy sets it; staging points it at the mailpit service
       SMTP_URL: ${SMTP_URL:-}
+      # sender of verification emails, defaults to PulseBoard <no-reply@pulseboard.local>
+      MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       db:
         condition: service_healthy
