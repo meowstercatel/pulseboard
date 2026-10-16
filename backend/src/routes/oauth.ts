@@ -25,7 +25,7 @@ function redirectUri(c: Context, provider: string): string {
 }
 
 function fail(c: Context, message: string) {
-    return c.redirect(`/?oauth_error=${encodeURIComponent(message)}`);
+    return c.redirect(`/login?oauth_error=${encodeURIComponent(message)}`);
 }
 
 // Finds the user this provider account belongs to. If it isn't linked yet, it

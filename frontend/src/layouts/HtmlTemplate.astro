@@ -3,8 +3,9 @@ import BuildBadge from "../components/BuildBadge.astro";
 
 interface Props {
     title?: string;
+    description?: string;
 }
-const { title = "PulseBoard" } = Astro.props;
+const { title = "PulseBoard", description } = Astro.props;
 ---
 
 <html lang="en">
@@ -15,6 +16,7 @@ const { title = "PulseBoard" } = Astro.props;
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
         <title>{title}</title>
+        {description && <meta name="description" content={description} />}
         <style>
             body,
             html {

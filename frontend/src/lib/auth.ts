@@ -123,7 +123,7 @@ export async function currentUser(): Promise<User | null> {
 
 export async function requireUser(): Promise<User | null> {
     const user = await currentUser();
-    if (!user) location.replace("/");
+    if (!user) location.replace("/login");
     return user;
 }
 
