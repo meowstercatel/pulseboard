@@ -74,19 +74,15 @@ services:
       # "user:password" to put basic auth on the web UI; empty means no auth
       MP_UI_AUTH: ${MAILPIT_UI_AUTH:-}
 
-  # Web-based Postgres viewer. Published on loopback only (Docker bypasses ufw);
-  # reach it remotely through `tailscale serve` on the host.
+  # Web-based Postgres viewer
   pgweb:
     image: sosedoff/pgweb
     profiles: [pgweb]
     restart: unless-stopped
     ports:
       - "127.0.0.1:${PGWEB_PORT:-8081}:8081"
-    # the image entrypoint already binds 0.0.0.0:8081; any non-empty PGWEB_READONLY appends --readonly
-    command: ${PGWEB_READONLY:+--readonly}
     environment:
       PGWEB_DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}?sslmode=disable
-      # basic auth on the web UI, read by pgweb itself (same as --auth-user / --auth-pass); empty means no auth
       PGWEB_AUTH_USER: ${PGWEB_AUTH_USER:-}
       PGWEB_AUTH_PASS: ${PGWEB_AUTH_PASS:-}
     depends_on:
