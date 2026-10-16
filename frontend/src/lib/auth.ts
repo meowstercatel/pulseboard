@@ -44,7 +44,7 @@ export async function resendVerificationEmail(): Promise<string | null> {
             method: "POST",
         });
         if (res.ok) return null;
-        if (res.status === 401) location.replace("/");
+        if (res.status === 401) location.replace("/login");
         const data = await res.json().catch(() => null);
         return data?.error ?? `Couldn't send the email (${res.status})`;
     } catch {
@@ -55,7 +55,7 @@ export async function resendVerificationEmail(): Promise<string | null> {
 async function updateAccount(path: string, body: unknown): Promise<AuthResult> {
     const result = await post(path, body);
     if ("error" in result && result.status === 401) {
-        location.replace("/");
+        location.replace("/login");
     }
     return result;
 }
@@ -82,7 +82,7 @@ export async function deleteAccount(
             body: JSON.stringify({ confirmation }),
         });
         if (res.status === 204) return { deleted: true };
-        if (res.status === 401) location.replace("/");
+        if (res.status === 401) location.replace("/login");
         const data = await res.json().catch(() => null);
         return {
             error: data?.error ?? `Couldn't delete account (${res.status})`,

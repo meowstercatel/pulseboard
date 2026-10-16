@@ -79,14 +79,14 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         }
         // the link may have been opened in a browser that isn't logged in
         const user = await currentUser();
-        const next = !user ? "/" : user.licensePlan ? "/overview" : "/buy";
+        const next = !user ? "/login" : user.licensePlan ? "/overview" : "/buy";
         document.getElementById("continue")!.setAttribute("href", next);
         show("done");
     }
 
     async function waiting() {
         const user = await currentUser();
-        if (!user) return location.replace("/");
+        if (!user) return location.replace("/login");
         if (user.emailVerified) {
             return location.replace(user.licensePlan ? "/overview" : "/buy");
         }
