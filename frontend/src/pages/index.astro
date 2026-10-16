@@ -51,12 +51,12 @@ const features = [
                     Log in <span aria-hidden="true">↗</span>
                 </a>
                 <cds-button
-                    class="nav-demo"
+                    class="nav-register"
                     kind="tertiary"
                     size="md"
-                    href="#demo"
+                    href="/register"
                 >
-                    Explore the demo{" "}
+                    Register{" "}
                     <span slot="icon" aria-hidden="true">
                         →
                     </span>
@@ -65,10 +65,6 @@ const features = [
         </header>
         <main id="main">
             <section class="hero wrap" aria-labelledby="hero-title">
-                <div class="eyebrow">
-                    <span class="status-dot"></span> A CLEARER VIEW OF LINUX
-                    SERVER HEALTH
-                </div>
                 <div class="hero-row">
                     <h1 id="hero-title">
                         Your server’s pulse,
@@ -81,36 +77,16 @@ const features = [
                             clear dashboard. See what’s busy, what’s filling up,
                             and what needs a closer look.
                         </p>
-                        <div class="actions">
-                            <cds-button href="#demo">
-                                Explore the demo{" "}
-                                <span slot="icon" aria-hidden="true">
-                                    →
-                                </span>
-                            </cds-button>
-                            <cds-link href="/register">
-                                Create an account
-                            </cds-link>
-                        </div>
-                        <p class="micro">
-                            Sample dashboard. No account needed.
-                        </p>
                     </div>
                 </div>
-                <section id="demo" class="demo" aria-labelledby="demo-title">
+                <section id="demo" class="demo" aria-label="Dashboard preview">
                     <div class="demo-caption">
-                        <h2 id="demo-title">ONE SERVER. THE WHOLE PICTURE.</h2>
                         <span>
                             INTERACTIVE PREVIEW{" "}
                             <span aria-hidden="true">↓</span>
                         </span>
                     </div>
                     <DashboardPreview />
-                    <p class="demo-note">
-                        <span class="note-dot" aria-hidden="true"></span> You’re
-                        exploring sample data, not a connected server. Hover
-                        over a chart or use its arrow keys to inspect values.
-                    </p>
                 </section>
             </section>
             <section
@@ -120,7 +96,6 @@ const features = [
             >
                 <div class="section-heading">
                     <div>
-                        <p class="eyebrow">LESS GUESSWORK. MORE CONTEXT.</p>
                         <h2 id="features-title">
                             Know where
                             <br />
@@ -155,7 +130,6 @@ const features = [
                     ↙<span>↗</span>
                 </div>
                 <div>
-                    <p class="eyebrow">EVERY METRIC HAS A STORY</p>
                     <h2 id="perspective-title">
                         From the big picture
                         <br />
@@ -171,7 +145,6 @@ const features = [
             </section>
             <section class="closing wrap" aria-labelledby="closing-title">
                 <div>
-                    <p class="eyebrow">MEET PULSEBOARD</p>
                     <h2 id="closing-title">
                         A clearer view
                         <br />
@@ -291,29 +264,10 @@ const features = [
     .hero {
         padding-top: 78px;
     }
-    .eyebrow {
-        font:
-            10px ui-monospace,
-            SFMono-Regular,
-            Consolas,
-            monospace;
-        letter-spacing: 1.4px;
-        color: var(--cds-text-secondary, #525252);
-    }
-    .status-dot {
-        display: inline-block;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--cds-link-primary, #0f62fe);
-        margin-right: 9px;
-        vertical-align: 1px;
-    }
     .hero-row {
         display: grid;
         grid-template-columns: 1.25fr 1fr;
         gap: 55px;
-        margin-top: 28px;
         align-items: center;
     }
     h1 {
@@ -332,23 +286,12 @@ const features = [
         line-height: 1.8;
         max-width: 390px;
     }
-    .actions {
-        display: flex;
-        gap: 23px;
-        align-items: center;
-        margin-top: 25px;
-    }
-    .hero-copy > .micro {
-        font-size: 12px;
-        margin-top: 13px;
-        color: var(--cds-text-secondary, #525252);
-    }
     .demo {
         margin-top: 64px;
     }
     .demo-caption {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         margin-bottom: 15px;
         gap: 15px;
         color: var(--cds-text-secondary, #525252);
@@ -357,28 +300,9 @@ const features = [
             monospace;
         letter-spacing: 1.3px;
     }
-    .demo-caption h2 {
-        font: inherit;
-        letter-spacing: inherit;
-    }
     .demo-caption > span > span {
         color: var(--cds-link-primary, #0f62fe);
         margin-left: 8px;
-    }
-    .demo-note {
-        color: var(--cds-text-secondary, #525252);
-        font-size: 12px;
-        line-height: 1.7;
-        margin-top: 18px;
-        text-align: center;
-    }
-    .note-dot {
-        display: inline-block;
-        width: 5px;
-        height: 5px;
-        background: var(--cds-text-secondary, #525252);
-        border-radius: 50%;
-        margin-right: 5px;
     }
     .features {
         padding-top: 108px;
@@ -396,11 +320,6 @@ const features = [
         line-height: 1.12;
         font-weight: 400;
         letter-spacing: -0.8px;
-    }
-    .section-heading h2,
-    .perspective h2,
-    .closing h2 {
-        margin-top: 20px;
     }
     .section-heading > p,
     .perspective > p {
@@ -499,7 +418,7 @@ const features = [
     .closing > div + div {
         margin-right: 30px;
     }
-    .closing p:not(.eyebrow) {
+    .closing p {
         color: var(--cds-text-secondary, #525252);
         font-size: 13px;
         line-height: 1.8;
@@ -580,23 +499,20 @@ const features = [
         .header {
             min-height: 80px;
             gap: 15px;
+            flex-wrap: wrap;
+            padding-block: 16px;
         }
         .brand {
             font-size: 19px;
         }
         nav {
-            gap: 0;
+            gap: 12px;
         }
-        nav .nav-feature,
-        nav .nav-demo {
+        nav .nav-feature {
             display: none;
         }
         .hero {
             padding-top: 50px;
-        }
-        .eyebrow {
-            font-size: 10px;
-            letter-spacing: 1px;
         }
         h1 {
             font-size: clamp(36px, 9.5vw, 56px);
@@ -604,10 +520,6 @@ const features = [
         }
         .hero-copy > p {
             font-size: 14px;
-        }
-        .actions {
-            gap: 16px;
-            flex-wrap: wrap;
         }
 
         .demo {
@@ -678,5 +590,4 @@ const features = [
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
-    import "@carbon/web-components/es/components/link/index.js";
 </script>
