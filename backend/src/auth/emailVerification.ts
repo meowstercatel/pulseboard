@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
 import { sendMail } from "../mail/mailer.js";
+import { verifyEmailTemplate } from "../mail/verifyEmailTemplate.js";
 import { db } from "../prisma/db.js";
 import { publicUrl } from "./publicUrl.js";
 import type { AuthEnv } from "./session.js";
@@ -9,10 +10,6 @@ const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
-}
-
-function escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 }
 
 // Replaces any earlier link for this user, so only the newest one works.
@@ -44,9 +41,7 @@ export async function sendVerificationEmail(
     const link = publicUrl(c, `/verify-email?token=${token}`);
     await sendMail({
         to: user.email,
-        subject: "Verify your PulseBoard email address",
-        text: `Confirm this email address for your PulseBoard account by opening:\n\n${link}\n\nThe link expires in 24 hours. If you didn't create an account, ignore this email.`,
-        html: `<p>Confirm this email address for your PulseBoard account:</p><p><a href="${escapeHtml(link)}">Verify email address</a></p><p>The link expires in 24 hours. If you didn't create an account, ignore this email.</p>`,
+        ...verifyEmailTemplate(link, user.email),
     });
     return true;
 }
