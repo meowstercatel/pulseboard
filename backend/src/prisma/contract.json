@@ -569,6 +569,27 @@
                   "kind": "scalar"
                 }
               },
+              "stripeCustomerId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "stripeSubscriptionId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "subscriptionStatus": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -668,6 +689,15 @@
                 },
                 "passwordHash": {
                   "column": "passwordHash"
+                },
+                "stripeCustomerId": {
+                  "column": "stripeCustomerId"
+                },
+                "stripeSubscriptionId": {
+                  "column": "stripeSubscriptionId"
+                },
+                "subscriptionStatus": {
+                  "column": "subscriptionStatus"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1152,6 +1182,21 @@
                   "dataType": "pg/text",
                   "nullable": true
                 },
+                "stripeCustomerId": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "stripeSubscriptionId": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "subscriptionStatus": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-string@1",
                   "dataType": "pg/timestamptz",
@@ -1175,6 +1220,11 @@
                   "columns": [
                     "email"
                   ]
+                },
+                {
+                  "columns": [
+                    "stripeCustomerId"
+                  ]
                 }
               ]
             }
@@ -1184,7 +1234,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "87d79c01f49f62513d9f4e6fc9c7aa5a7cf877a1bc76a7d737f3914d7c6f137b"
+    "storageHash": "0910358d555615da105412edc2cf7d66ca42933f654b701f7563680cf03580e4"
   },
   "execution": {
     "executionHash": "98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09",

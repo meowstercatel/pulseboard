@@ -14,6 +14,7 @@ import {
 } from "../auth/session.js";
 import { RateLimiter, limitByIp, tooManyRequests } from "../auth/rateLimit.js";
 import { db } from "../prisma/db.js";
+import { cancelSubscriptionOf } from "./billing.js";
 import { isUniqueViolation } from "../prisma/errors.js";
 
 // Excludes characters nodemailer reads as address-list syntax, so
@@ -243,6 +244,12 @@ auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
             { error: "Your account changed. Reload and try again" },
             409,
         );
+    await cancelSubscriptionOf(current).catch((err) => {
+        console.error(
+            `Couldn't cancel Stripe subscription ${current.stripeSubscriptionId} of deleted user ${current.id}`,
+            err,
+        );
+    });
     await destroySession(c);
     return c.body(null, 204);
 });

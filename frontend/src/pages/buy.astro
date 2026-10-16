@@ -73,6 +73,10 @@ const plans = [
                 </section>
             ))}
         </div>
+        <cds-button id="manage" size="md" kind="tertiary" hidden>
+            Zarządzaj subskrypcją
+        </cds-button>
+        <p class="note">Płatności obsługuje Stripe.</p>
     </main>
 </HtmlTemplate>
 
@@ -164,39 +168,63 @@ const plans = [
         width: 100%;
         max-width: none;
     }
+    /* the component's own display style would override the attribute */
+    cds-button[hidden] {
+        display: none;
+    }
 </style>
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
     import "@carbon/web-components/es/components/link/index.js";
-    import { purchase, requireVerifiedUser } from "../lib/auth";
+    import { requireVerifiedUser } from "../lib/auth";
+    import { billingPortal, checkout } from "../lib/billing";
+
+    type Button = HTMLElement & { disabled: boolean };
 
     const status = document.getElementById("license-status") as HTMLElement & {
         type: string;
     };
+    const manage = document.getElementById("manage") as Button;
+    const buttons = document.querySelectorAll<Button>("cds-button[data-plan]");
 
     requireVerifiedUser().then((user) => {
-        if (user?.licensePlan) {
-            status.type = "green";
-            status.textContent = "opłacona";
+        if (!user?.licensePlan) return;
+        status.type = "green";
+        status.textContent =
+            user.licensePlan === "lifetime" ? "dożywotnia" : "subskrypcja";
+        for (const button of buttons) {
+            const plan = button.dataset["plan"];
+            // a subscriber can still upgrade to lifetime
+            if (user.licensePlan === "lifetime" || plan === user.licensePlan) {
+                button.disabled = true;
+            }
         }
+        manage.hidden = user.licensePlan !== "subscription";
     });
 
-    const buttons = document.querySelectorAll<
-        HTMLElement & { disabled: boolean }
-    >("cds-button[data-plan]");
+    // Sends the browser to a Stripe-hosted page, or shows the error.
+    async function redirect(
+        result: Promise<{ url: string } | { error: string }>,
+        disable: Button[],
+    ) {
+        const before = disable.map((b) => b.disabled);
+        disable.forEach((b) => (b.disabled = true));
+        const res = await result;
+        if ("error" in res) {
+            disable.forEach((b, i) => (b.disabled = before[i]!));
+            alert(res.error);
+            return;
+        }
+        location.href = res.url;
+    }
+
     for (const button of buttons) {
-        button.addEventListener("click", async () => {
+        button.addEventListener("click", () => {
             const plan = button.dataset["plan"] as "subscription" | "lifetime";
-            buttons.forEach((b) => (b.disabled = true));
-            const result = await purchase(plan);
-            if ("error" in result) {
-                buttons.forEach((b) => (b.disabled = false));
-                alert(result.error);
-                return;
-            }
-            location.href = "/overview";
+            redirect(checkout(plan), [...buttons]);
         });
     }
+    manage.addEventListener("click", () => redirect(billingPortal(), [manage]));
 </script>

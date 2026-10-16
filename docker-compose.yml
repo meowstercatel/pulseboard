@@ -52,6 +52,11 @@ services:
       SMTP_URL: ${SMTP_URL:-}
       # sender of verification emails, defaults to PulseBoard <no-reply@pulseboard.local>
       MAIL_FROM: ${MAIL_FROM:-}
+      # payments are disabled (503) while these are empty, see src/routes/billing.ts
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_SUBSCRIPTION: ${STRIPE_PRICE_SUBSCRIPTION:-}
+      STRIPE_PRICE_LIFETIME: ${STRIPE_PRICE_LIFETIME:-}
     depends_on:
       db:
         condition: service_healthy

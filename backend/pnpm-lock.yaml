@@ -25,6 +25,9 @@ importers:
       nodemailer:
         specifier: ^10.1.1
         version: 10.1.1
+      stripe:
+        specifier: ^23.0.0
+        version: 23.0.0(@types/node@26.6.4)
     devDependencies:
       "@types/node":
         specifier: ^26.1.1
@@ -3609,6 +3612,18 @@ packages:
       }
     engines: { node: ">=18" }
 
+  stripe@23.0.0:
+    resolution:
+      {
+        integrity: sha512-MDE2A5ZVVluYURORaZEVghSmnLJc3w6aHAlZSxDQMsOjOb3V0O6ro/CiaeFlJS4N7uIVmsg98ocRsPmUK6YfyA==,
+      }
+    engines: { node: ">=20" }
+    peerDependencies:
+      "@types/node": ">=20"
+    peerDependenciesMeta:
+      "@types/node":
+        optional: true
+
   strnum@2.4.2:
     resolution:
       {
@@ -6188,6 +6203,10 @@ snapshots:
       ansi-regex: 6.4.0
 
   strip-final-newline@4.0.0: {}
+
+  stripe@23.0.0(@types/node@26.6.4):
+    optionalDependencies:
+      "@types/node": 26.6.4
 
   strnum@2.4.2:
     dependencies:

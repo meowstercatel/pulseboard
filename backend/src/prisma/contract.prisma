@@ -11,6 +11,11 @@ model User {
   emailVerifiedAt TimestamptzString?
   licensePlan  String?
   licensedAt   TimestamptzString?
+  // set the first time the user opens Stripe Checkout
+  stripeCustomerId     String? @unique
+  // latest subscription and its Stripe status, kept in sync by the webhook
+  stripeSubscriptionId String?
+  subscriptionStatus   String?
   createdAt    TimestamptzString @default(now())
   updatedAt    temporal.updatedAtString()
 
