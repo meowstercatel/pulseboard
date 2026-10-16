@@ -1,0 +1,388 @@
+---
+import UsageChart from "./UsageChart.astro";
+
+const cpu = [
+    31, 35, 28, 40, 44, 39, 52, 61, 58, 47, 43, 38, 41, 49, 55, 50, 46, 42, 37,
+    40, 45, 48, 44, 42,
+];
+const memory = [
+    64, 65, 65, 66, 68, 67, 69, 71, 72, 70, 70, 69, 70, 71, 72, 73, 72, 71, 71,
+    70, 71, 72, 71, 71,
+];
+const disks = [
+    { name: "/", used: "38.2 / 98 GiB", percent: 39 },
+    { name: "/var", used: "171.5 / 196 GiB", percent: 88 },
+];
+---
+
+<div class="dashboard">
+    <div class="window-bar">
+        <span class="window-dots" aria-hidden="true">
+            <i></i>
+            <i></i>
+            <i></i>
+        </span>
+        <span>PulseBoard / Overview</span>
+        <span class="sample">SAMPLE DATA</span>
+    </div>
+    <div class="dashboard-content">
+        <div class="server-heading">
+            <div>
+                <h3>
+                    web-01 <span class="online">Online</span>
+                </h3>
+                <p>
+                    Ubuntu 24.04.1 LTS <span>·</span> 10.0.0.12
+                </p>
+            </div>
+            <span class="uptime">↑ Uptime 23d 4h 17m</span>
+        </div>
+        <div class="metrics">
+            <div>
+                <span class="label">CPU usage</span>
+                <p class="metric">
+                    42<span>%</span>
+                    <span class="spark" aria-hidden="true">
+                        ▁▃▂▅▃▆▄▃▅▄
+                    </span>
+                </p>
+                <span class="detail">8 cores · AMD EPYC 7763</span>
+            </div>
+            <div>
+                <span class="label">Memory</span>
+                <p class="metric">
+                    71<span>%</span>
+                    <span class="spark" aria-hidden="true">
+                        ▃▃▄▃▄▅▄▅▅▅
+                    </span>
+                </p>
+                <span class="detail">11.4 / 16 GiB</span>
+            </div>
+            <div>
+                <span class="label">Network traffic</span>
+                <p class="metric network">
+                    ↓ 12.4 <span>MB/s</span>
+                </p>
+                <span class="detail">↑ 3.1 MB/s outgoing</span>
+            </div>
+        </div>
+        <div class="charts">
+            <div>
+                <UsageChart title="CPU usage · last 2 hours" series={cpu} />
+            </div>
+            <div class="memory-chart">
+                <UsageChart
+                    title="Memory usage · last 2 hours"
+                    series={memory}
+                />
+            </div>
+        </div>
+        <div class="details">
+            <div class="storage">
+                <h4>Storage</h4>
+                {disks.map((disk) => (
+                    <div class="disk">
+                        <div>
+                            <code>{disk.name}</code>
+                            <span>
+                                {disk.used} <strong>{disk.percent}%</strong>
+                            </span>
+                        </div>
+                        <meter
+                            min="0"
+                            max="100"
+                            value={disk.percent}
+                            high="80"
+                            optimum="30"
+                            aria-label={`${disk.name} disk usage`}
+                        >
+                            {disk.percent}%
+                        </meter>
+                    </div>
+                ))}
+            </div>
+            <div class="services">
+                <h4>Services</h4>
+                <p>
+                    <code>nginx.service</code>
+                    <span class="active">Active</span>
+                </p>
+                <p>
+                    <code>postgresql.service</code>
+                    <span class="active">Active</span>
+                </p>
+                <p>
+                    <code>app-worker.service</code>
+                    <span class="failed">Failed</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .dashboard {
+        --cds-text-secondary: #939d9b;
+        --cds-text-primary: #edf1ee;
+        --cds-border-subtle: #29322f;
+        --cds-layer-01: #141c19;
+        --cds-background-inverse: #d8edb9;
+        --cds-text-inverse: #172014;
+        background: #101714;
+        border: 1px solid #354039;
+        border-radius: 12px;
+        box-shadow: 0 24px 100px #0005;
+        overflow: hidden;
+        text-align: left;
+    }
+    .window-bar {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 16px 24px;
+        background: #19211d;
+        border-bottom: 1px solid #303a33;
+        color: #a6afa9;
+        font:
+            11px ui-monospace,
+            monospace;
+    }
+    .window-dots {
+        display: flex;
+        gap: 6px;
+    }
+    .window-dots i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #536056;
+    }
+    .sample {
+        margin-left: auto;
+        font-size: 9px;
+        letter-spacing: 1.2px;
+        color: #b7c5b7;
+    }
+    .dashboard-content {
+        padding: 28px;
+    }
+    .server-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 26px;
+    }
+    h3,
+    h4,
+    p {
+        margin: 0;
+    }
+    h3 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 21px;
+        font-weight: 500;
+        letter-spacing: -0.6px;
+    }
+    .online {
+        border: 1px solid #34513a;
+        border-radius: 4px;
+        padding: 4px 7px;
+        color: #c2eea2;
+        background: #233223;
+        font:
+            10px ui-monospace,
+            monospace;
+        letter-spacing: 0;
+    }
+    .server-heading p,
+    .uptime {
+        color: #939d9b;
+        font:
+            11px ui-monospace,
+            monospace;
+        margin-top: 10px;
+    }
+    .server-heading p span {
+        margin: 0 8px;
+    }
+    .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border: 1px solid #2c3730;
+        border-radius: 7px;
+    }
+    .metrics > div {
+        padding: 18px 20px;
+        min-width: 0;
+    }
+    .metrics > div + div {
+        border-left: 1px solid #2c3730;
+    }
+    .label,
+    .detail {
+        color: #a3afa7;
+        font-size: 11px;
+    }
+    .metric {
+        font-size: 34px;
+        letter-spacing: -1.4px;
+        margin: 12px 0 8px;
+        white-space: nowrap;
+    }
+    .metric > span {
+        font-size: 15px;
+        color: #a3afa7;
+        letter-spacing: 0;
+        margin-left: 3px;
+    }
+    .metric > .spark {
+        float: right;
+        color: #c3ed94;
+        letter-spacing: 2px;
+        font-size: 17px;
+        margin-top: 11px;
+    }
+    .network {
+        font-size: 29px;
+        padding: 3px 0;
+    }
+    .charts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        margin: 25px 0;
+        gap: 30px;
+    }
+    .charts :global(.usage-chart) {
+        --series: #c3ed94;
+        font-size: 11px;
+    }
+    .charts :global(.title) {
+        margin: 0 0 15px;
+        font-weight: 400;
+        color: #c9d3cb;
+    }
+    .charts :global(.plot) {
+        height: 110px;
+    }
+    .memory-chart :global(.usage-chart) {
+        --series: #90bfa9;
+    }
+    .details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        border-top: 1px solid #2c3730;
+        padding-top: 20px;
+    }
+    h4 {
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 18px;
+    }
+    .disk {
+        margin-top: 13px;
+    }
+    .disk > div,
+    .services p {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 10px;
+        color: #a3afa7;
+    }
+    code {
+        font-family: ui-monospace, monospace;
+        color: #c9d3cb;
+        font-size: 10px;
+    }
+    strong {
+        color: #dce4dc;
+        margin-left: 10px;
+        font-weight: 400;
+    }
+    meter {
+        display: block;
+        width: 100%;
+        height: 5px;
+        margin-top: 9px;
+        border: none;
+        background: #29322b;
+        border-radius: 3px;
+    }
+    meter::-webkit-meter-bar {
+        background: #29322b;
+        border: 0;
+        height: 5px;
+    }
+    meter::-webkit-meter-optimum-value {
+        background: #b9d795;
+    }
+    meter::-webkit-meter-suboptimum-value {
+        background: #ddb67b;
+    }
+    meter::-moz-meter-bar {
+        background: #b9d795;
+    }
+    .services p {
+        margin-top: 13px;
+    }
+    .active {
+        color: #b8d89d;
+    }
+    .failed {
+        color: #efae94;
+    }
+    .active::before,
+    .failed::before {
+        content: "";
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        margin-right: 7px;
+        vertical-align: middle;
+    }
+    @media (max-width: 700px) {
+        .dashboard-content {
+            padding: 20px 16px;
+        }
+        .window-bar {
+            padding: 14px 16px;
+            gap: 12px;
+        }
+        .uptime,
+        .spark {
+            display: none;
+        }
+        .metrics > div {
+            padding: 14px 10px;
+        }
+        .metric {
+            font-size: 28px;
+        }
+        .network {
+            font-size: 20px;
+            padding: 5px 0;
+        }
+        .metric > span {
+            font-size: 11px;
+        }
+        .detail {
+            font-size: 9px;
+        }
+        .charts,
+        .details {
+            gap: 24px;
+            grid-template-columns: 1fr;
+        }
+        .sample {
+            font-size: 8px;
+            letter-spacing: 0.4px;
+        }
+    }
+</style>

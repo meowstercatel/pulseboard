@@ -1,0 +1,49 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+---
+
+<AuthLayout>
+    <form id="login-form">
+        <cds-text-input
+            label="Email"
+            name="email"
+            type="email"
+            autocomplete="email"
+        ></cds-text-input>
+        <cds-text-input
+            label="Password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+        ></cds-text-input>
+        <cds-inline-notification
+            kind="error"
+            title="Couldn't log in"
+            hide-close-button
+            hidden
+        ></cds-inline-notification>
+        <cds-button>login</cds-button>
+    </form>
+    <p>
+        No account yet? <cds-link href="/register">Register</cds-link>
+    </p>
+</AuthLayout>
+
+<script>
+    import { currentUser, login } from "../lib/auth";
+    import { bindForm } from "../lib/form";
+
+    currentUser().then((user) => {
+        if (user) location.replace("/overview");
+    });
+
+    bindForm(
+        document.getElementById("login-form") as HTMLFormElement,
+        async (field) => {
+            const result = await login(field("email"), field("password"));
+            if ("error" in result) return result.error;
+            location.href = "/overview";
+            return null;
+        },
+    );
+</script>
