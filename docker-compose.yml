@@ -80,7 +80,7 @@ services:
     profiles: [pgweb]
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${PGWEB_PORT:-8081}:8081"
+      - "${PGWEB_PORT:-8081}:8081"
     environment:
       PGWEB_DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}?sslmode=disable
       PGWEB_AUTH_USER: ${PGWEB_AUTH_USER:-}
