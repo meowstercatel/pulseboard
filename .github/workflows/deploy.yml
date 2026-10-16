@@ -4,6 +4,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# pgweb is published on loopback only
+env:
+  COMPOSE_PROFILES: pgweb
+  PGWEB_PORT: 8081
+
 jobs:
   deploy:
     environment: production
@@ -21,6 +26,8 @@ jobs:
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PRICE_SUBSCRIPTION: ${{ vars.STRIPE_PRICE_SUBSCRIPTION }}
           STRIPE_PRICE_LIFETIME: ${{ vars.STRIPE_PRICE_LIFETIME }}
+          PGWEB_AUTH_USER: ${{ secrets.PGWEB_AUTH_USER }}
+          PGWEB_AUTH_PASS: ${{ secrets.PGWEB_AUTH_PASS }}
         run: |
           export GIT_BRANCH="$GITHUB_REF_NAME" GIT_COMMIT="${GITHUB_SHA::7}"
           docker compose up -d --build --remove-orphans
