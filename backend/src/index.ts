@@ -1,31 +1,10 @@
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono } from "hono";
+import { createApp } from "./app.js";
 import { verifyOAuthLinkedUsers } from "./auth/emailVerification.js";
-import { auth } from "./routes/auth.js";
-import { billing } from "./routes/billing.js";
-import { oauth } from "./routes/oauth.js";
 
 await verifyOAuthLinkedUsers();
 
-const app = new Hono();
-
-app.route("/api/auth/oauth", oauth);
-app.route("/api/auth", auth);
-app.route("/api/billing", billing);
-app.get("/health", (c) => {
-    return c.json({ ok: true });
-});
-
-// In the Docker image the built frontend is served from STATIC_DIR
-const staticDir = process.env["STATIC_DIR"];
-if (staticDir) {
-    app.use("/*", serveStatic({ root: staticDir }));
-}
-
-app.get("/", (c) => {
-    return c.text("Hello Hono!");
-});
+const app = createApp();
 
 serve(
     {
