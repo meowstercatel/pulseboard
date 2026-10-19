@@ -1,0 +1,54 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.10.1
+      - name: Install dependencies
+        run: |
+          npm ci
+          pnpm --dir backend install --frozen-lockfile
+          npm --prefix frontend ci
+      - name: Check test types
+        run: npm run test:typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Start test PostgreSQL and Mailpit
+        run: npm run test:services
+      - name: API integration tests
+        run: npm run test:integration
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build both apps and run browser tests
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: Stop test services
+        if: always()
+        run: npm run test:services:stop
