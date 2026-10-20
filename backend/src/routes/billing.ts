@@ -171,7 +171,7 @@ billing.post("/checkout", requireAuth, requireVerifiedEmail, async (c) => {
         line_items: [{ price, quantity: 1 }],
         client_reference_id: String(user.id),
         metadata: { userId: String(user.id), plan },
-        locale: "pl",
+        locale: "en",
         success_url: publicUrl(
             c,
             "/buy/success?session_id={CHECKOUT_SESSION_ID}",
@@ -218,6 +218,7 @@ billing.post("/portal", requireAuth, async (c) => {
 
     const portal = await stripe.billingPortal.sessions.create({
         customer: row.stripeCustomerId,
+        locale: "en",
         return_url: publicUrl(c, "/buy"),
     });
     return c.json({ url: portal.url });

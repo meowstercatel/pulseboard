@@ -6,32 +6,32 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 const plans = [
     {
         id: "subscription",
-        name: "Subskrypcja",
-        price: "19 zł",
-        period: "/ miesiąc",
-        note: "Odnawiana co miesiąc, możesz anulować w każdej chwili.",
+        name: "Subscription",
+        price: "19 PLN",
+        period: "/ month",
+        note: "Renews monthly. Cancel anytime.",
         features: [
-            "Wszystkie funkcje PulseBoard",
-            "Aktualizacje na bieżąco",
-            "Wsparcie e-mail",
+            "All PulseBoard features",
+            "Ongoing updates",
+            "Email support",
         ],
-        cta: "Subskrybuj",
+        cta: "Subscribe",
         kind: "secondary",
     },
     {
         id: "lifetime",
-        name: "Licencja dożywotnia",
-        price: "199 zł",
-        period: "jednorazowo",
-        note: "Płacisz raz, korzystasz bez ograniczeń czasowych.",
+        name: "Lifetime license",
+        price: "199 PLN",
+        period: "one-time payment",
+        note: "Pay once for lifetime access.",
         features: [
-            "Wszystkie funkcje PulseBoard",
-            "Dożywotnie aktualizacje",
-            "Priorytetowe wsparcie",
+            "All PulseBoard features",
+            "Lifetime updates",
+            "Priority support",
         ],
-        cta: "Kup licencję",
+        cta: "Buy license",
         kind: "primary",
-        badge: "Najlepsza wartość",
+        badge: "Best value",
     },
 ];
 ---
@@ -41,14 +41,14 @@ const plans = [
         <header>
             <h1>PulseBoard</h1>
             <p class="status">
-                Licencja:
+                License:
                 <cds-tag id="license-status" type="red" size="md">
-                    nieopłacona
+                    unpaid
                 </cds-tag>
             </p>
         </header>
         <cds-link href="/settings">Account settings</cds-link>
-        <h3>Wybierz plan</h3>
+        <h3>Choose a plan</h3>
         <div class="licenses">
             {plans.map((plan) => (
                 <section class:list={["license", { featured: plan.badge }]}>
@@ -74,9 +74,9 @@ const plans = [
             ))}
         </div>
         <cds-button id="manage" size="md" kind="tertiary" hidden>
-            Zarządzaj subskrypcją
+            Manage subscription
         </cds-button>
-        <p class="note">Płatności obsługuje Stripe.</p>
+        <p class="note">Payments are processed by Stripe.</p>
     </main>
 </HtmlTemplate>
 
@@ -193,7 +193,7 @@ const plans = [
         if (!user?.licensePlan) return;
         status.type = "green";
         status.textContent =
-            user.licensePlan === "lifetime" ? "dożywotnia" : "subskrypcja";
+            user.licensePlan === "lifetime" ? "lifetime" : "subscription";
         for (const button of buttons) {
             const plan = button.dataset["plan"];
             // a subscriber can still upgrade to lifetime
