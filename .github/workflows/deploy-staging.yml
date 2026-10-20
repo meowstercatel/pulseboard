@@ -23,6 +23,7 @@ jobs:
       - name: Deploy
         env:
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
