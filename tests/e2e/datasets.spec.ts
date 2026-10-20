@@ -65,6 +65,9 @@ test("import CSV files, see the error report and delete a dataset", async ({
         await page
             .locator("#file")
             .setInputFiles(sample("invalid-3-percent.csv"));
+        // the previous file's report goes away as soon as another is chosen
+        await expect(page.locator("#report")).toBeHidden();
+        await expect(page.locator("#import-error")).toBeHidden();
         await page
             .locator('cds-text-input[name="name"] input')
             .fill("Web server");

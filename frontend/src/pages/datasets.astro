@@ -115,6 +115,13 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     hide-close-button
                     hidden
                 ></cds-inline-notification>
+                <cds-inline-notification
+                    id="delete-error"
+                    kind="error"
+                    title="Couldn't delete the dataset"
+                    hide-close-button
+                    hidden
+                ></cds-inline-notification>
                 <p class="description" id="empty" hidden>
                     No datasets yet. Import a CSV file to get started, or try
                     one of the sample files in the repository's
@@ -342,6 +349,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     const importing = byId("importing");
     const report = byId("report");
     const listError = byId<Notification>("list-error");
+    const deleteError = byId<Notification>("delete-error");
 
     const numbers = new Intl.NumberFormat("en");
     const dates = new Intl.DateTimeFormat("en-GB", {
@@ -454,11 +462,12 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
             return;
         }
         button.disabled = true;
+        deleteError.hidden = true;
         const error = await deleteDataset(dataset.id);
         if (error) {
             button.disabled = false;
-            listError.subtitle = error;
-            listError.hidden = false;
+            deleteError.subtitle = error;
+            deleteError.hidden = false;
             return;
         }
         await refresh();
@@ -503,8 +512,10 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         .getElementById("import-form")!
         .addEventListener("submit", (e) => e.preventDefault());
     fileInput.addEventListener("change", () => {
+        // results of the previous file no longer apply
         importError.hidden = true;
         importSuccess.textContent = "";
+        report.hidden = true;
         updateImportButton();
     });
     importButton.addEventListener("click", submit);

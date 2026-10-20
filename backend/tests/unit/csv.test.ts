@@ -22,7 +22,7 @@ describe("parseMetricsCsv", () => {
         expect(parsed).toEqual({
             rows: [
                 {
-                    timestamp: "2026-09-01T12:00:00.000Z",
+                    timestamp: "2026-09-01T12:00:00.000000Z",
                     host: "web-01",
                     cpuPercent: 42.5,
                     ramPercent: 60,
@@ -38,11 +38,15 @@ describe("parseMetricsCsv", () => {
     });
 
     it.each([
-        ["2026-09-01T12:00:00Z", "2026-09-01T12:00:00.000Z"],
-        ["2026-09-01 12:00", "2026-09-01T12:00:00.000Z"],
-        ["2026-09-01T14:00:00+02:00", "2026-09-01T12:00:00.000Z"],
-        ["2026-09-01T07:30:00-0430", "2026-09-01T12:00:00.000Z"],
-        ["2026-09-01T12:00:00.25Z", "2026-09-01T12:00:00.250Z"],
+        ["2026-09-01T12:00:00Z", "2026-09-01T12:00:00.000000Z"],
+        ["2026-09-01 12:00", "2026-09-01T12:00:00.000000Z"],
+        ["2026-09-01T14:00:00+02:00", "2026-09-01T12:00:00.000000Z"],
+        ["2026-09-01T07:30:00-0430", "2026-09-01T12:00:00.000000Z"],
+        ["2026-09-01T12:00:00.25Z", "2026-09-01T12:00:00.250000Z"],
+        ["2026-09-01T12:00:00.123456Z", "2026-09-01T12:00:00.123456Z"],
+        ["2026-09-01T12:00:00.9996Z", "2026-09-01T12:00:00.999600Z"],
+        ["2026-09-01T14:00:00+14:00", "2026-09-01T00:00:00.000000Z"],
+        ["9999-12-31T23:30:00+01:00", "9999-12-31T22:30:00.000000Z"],
     ])("reads timestamp %s", (input, expected) => {
         const { rows } = parseMetricsCsv(csv(`${input},h,1,1,1,1,1`));
         expect(rows[0]?.timestamp).toBe(expected);
@@ -97,8 +101,22 @@ describe("parseMetricsCsv", () => {
             'cpu_percent "n/a" is not a number',
         ],
         ["2026-09-01T00:00:00Z,h,1,,1,1,1", "ram_percent is empty"],
-        ["2026-09-01T00:00:00Z,h,1,1,-4,1,1", "disk_percent -4 is negative"],
-        ["2026-09-01T00:00:00Z,h,140,1,1,1,1", "cpu_percent 140 is over 100"],
+        ["2026-09-01T00:00:00Z,h,1,1,-4,1,1", 'disk_percent "-4" is negative'],
+        ["2026-09-01T00:00:00Z,h,140,1,1,1,1", 'cpu_percent "140" is over 100'],
+        [
+            "2026-09-01T00:00:00Z,h,1,1,1,2000000,1",
+            'net_in_mbps "2000000" is over 1,000,000',
+        ],
+        [
+            `2026-09-01T00:00:00Z,h,1,1,1,${"9".repeat(400)},1`,
+            "is not a number",
+        ],
+        ["2026-09-01T00:00:00Z,a\u0000b,1,1,1,1,1", "control characters"],
+        ["2026-09-01T00:00:00Z,a\tb,1,1,1,1,1", "control characters"],
+        ["2026-09-01T00:00:00+99:99,h,1,1,1,1,1", "Invalid timestamp"],
+        ["2026-09-01T00:00:00+15:00,h,1,1,1,1,1", "Invalid timestamp"],
+        ["9999-12-31T23:30:00-01:00,h,1,1,1,1,1", "Invalid timestamp"],
+        ["0999-12-31T23:30:00Z,h,1,1,1,1,1", "Invalid timestamp"],
         ["2026-09-01T00:00:00Z,h,1,1,1,1e3,1", "is not a number"],
         ["2026-09-01T00:00:00Z,h,1,1,1,1", "Expected 7 fields, found 6"],
         ["2026-09-01T00:00:00Z,h,1,1,1,1,1,x", "Expected 7 fields, found 8"],
@@ -123,6 +141,60 @@ describe("parseMetricsCsv", () => {
         );
         expect(parsed.rows.map((r) => r.host)).toEqual(["a", "b"]);
         expect(parsed.errors[0]?.message).toMatch(/^Duplicate reading for a/);
+    });
+
+    it("keeps readings a fraction of a millisecond apart", () => {
+        const parsed = parseMetricsCsv(
+            csv(
+                "2026-09-01T00:00:00.0001Z,a,1,1,1,1,1",
+                "2026-09-01T00:00:00.0004Z,a,1,1,1,1,1",
+            ),
+        );
+        expect(parsed.invalidRows).toBe(0);
+        expect(parsed.rows).toHaveLength(2);
+    });
+
+    it("shortens long values quoted in errors", () => {
+        const long = "x".repeat(10_000);
+        const { errors } = parseMetricsCsv(csv(`${long},h,1,1,1,1,1`));
+        expect(errors[0]!.message).toBe(
+            `Invalid timestamp "${"x".repeat(40)}…", use e.g. 2026-09-01T12:00:00Z`,
+        );
+    });
+
+    it("skips rows of separators that Excel leaves behind", () => {
+        const parsed = parseMetricsCsv(
+            [
+                HEADER.replaceAll(",", ";"),
+                "2026-09-01T00:00:00Z;a;1;1;1;1;1",
+                ";;;;;;",
+                " ; ;;;;; ",
+            ].join("\r\n"),
+        );
+        expect(parsed.totalRows).toBe(1);
+        expect(parsed.invalidRows).toBe(0);
+    });
+
+    it("splits lines on a lone CR, as classic Mac OS wrote them", () => {
+        const parsed = parseMetricsCsv(
+            csv(
+                "2026-09-01T00:00:00Z,a,1,1,1,1,1",
+                "2026-09-01T00:15:00Z,a,1,1,1,1,1",
+            ).replaceAll("\n", "\r"),
+        );
+        expect(parsed.totalRows).toBe(2);
+        expect(parsed.invalidRows).toBe(0);
+    });
+
+    it("ignores separators inside quoted header names", () => {
+        const parsed = parseMetricsCsv(
+            [
+                `${HEADER.replaceAll(",", ";")};"site, rack, row, room, floor, dc, region, zone"`,
+                "2026-09-01T00:00:00Z;a;1,5;1;1;1;1;x",
+            ].join("\n"),
+        );
+        expect(parsed.invalidRows).toBe(0);
+        expect(parsed.rows[0]?.cpuPercent).toBe(1.5);
     });
 
     it("skips blank lines without counting them", () => {

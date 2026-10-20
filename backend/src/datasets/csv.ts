@@ -9,6 +9,10 @@ export const MAX_INVALID_SHARE = 0.05;
 // The report lists at most this many problems; the counts stay exact.
 export const MAX_REPORTED_ERRORS = 100;
 const MAX_HOST_LENGTH = 100;
+// 1 Tbit/s; anything above is a unit mix-up, not a reading
+const MAX_MBPS = 1_000_000;
+// Values quoted back in error messages are cut to this length
+const MAX_QUOTED_LENGTH = 40;
 
 const COLUMNS = {
     timestamp: "timestamp",
@@ -48,7 +52,9 @@ export type ParsedCsv = {
 export class CsvError extends Error {}
 
 // 2026-09-01T12:00:00Z, 2026-09-01 12:00, 2026-09-01T12:00:00.5+02:00, ...
-// Without a zone the time is taken as UTC.
+// Without a zone the time is taken as UTC. Returned as an ISO string with
+// microseconds (Postgres' precision), so equal instants give equal strings and
+// strings sort in time order.
 const TIMESTAMP =
     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?\s*(Z|[+-]\d{2}:?\d{2})?$/i;
 
@@ -73,10 +79,24 @@ function parseTimestamp(value: string): string | null {
     if (zone.toUpperCase() !== "Z") {
         const sign = zone[0] === "-" ? -1 : 1;
         const digits = zone.slice(1).replace(":", "");
-        offset = sign * (+digits.slice(0, 2) * 60 + +digits.slice(2)) * 60_000;
+        const hours = +digits.slice(0, 2);
+        const minutes = +digits.slice(2);
+        // real offsets run from -12:00 to +14:00
+        if (hours > 14 || minutes > 59) return null;
+        offset = sign * (hours * 60 + minutes) * 60_000;
     }
-    const ms = Math.round(Number(`0.${fraction}`) * 1000);
-    return new Date(local - offset + ms).toISOString();
+    const instant = new Date(local - offset);
+    // an offset can push 9999-12-31 into year 10000, which Postgres rejects
+    const year = instant.getUTCFullYear();
+    if (year < 1000 || year > 9999) return null;
+    const seconds = instant.toISOString().slice(0, 19);
+    return `${seconds}.${fraction.padEnd(6, "0")}Z`;
+}
+
+function quote(value: string): string {
+    return value.length > MAX_QUOTED_LENGTH
+        ? `"${value.slice(0, MAX_QUOTED_LENGTH)}…"`
+        : `"${value}"`;
 }
 
 // "12.5", "12,5", "-3", ".5". No thousands separators or exponents.
@@ -84,7 +104,9 @@ const NUMBER = /^-?(\d+([.,]\d*)?|[.,]\d+)$/;
 
 function parseNumber(value: string): number | null {
     if (!NUMBER.test(value)) return null;
-    return Number(value.replace(",", "."));
+    const number = Number(value.replace(",", "."));
+    // hundreds of digits parse to Infinity
+    return Number.isFinite(number) ? number : null;
 }
 
 // Splits one line into fields, honouring double quotes ("a;b" and "" escapes).
@@ -120,8 +142,8 @@ function splitLine(line: string, separator: string): string[] {
 // The header decides the separator: whichever of ";" and "," splits it into more
 // fields. A ";" file can then use decimal commas without quoting them.
 function detectSeparator(header: string): string {
-    const semicolons = header.split(";").length;
-    const commas = header.split(",").length;
+    const semicolons = splitLine(header, ";").length;
+    const commas = splitLine(header, ",").length;
     return semicolons > commas ? ";" : ",";
 }
 
@@ -154,12 +176,16 @@ function parseRow(
 
     const timestamp = parseTimestamp(value("timestamp"));
     if (!timestamp) {
-        return `Invalid timestamp "${value("timestamp")}", use e.g. 2026-09-01T12:00:00Z`;
+        return `Invalid timestamp ${quote(value("timestamp"))}, use e.g. 2026-09-01T12:00:00Z`;
     }
     const host = value("host");
     if (!host) return "Host is empty";
     if (host.length > MAX_HOST_LENGTH) {
         return `Host is longer than ${MAX_HOST_LENGTH} characters`;
+    }
+    // Postgres can't store NUL, and other control characters are never intended
+    if (/[\u0000-\u001f\u007f]/.test(host)) {
+        return "Host contains control characters";
     }
 
     const numbers = {} as Record<
@@ -172,12 +198,15 @@ function parseRow(
         const name = COLUMNS[column];
         if (number === null) {
             return raw
-                ? `${name} "${raw}" is not a number`
+                ? `${name} ${quote(raw)} is not a number`
                 : `${name} is empty`;
         }
-        if (number < 0) return `${name} ${raw} is negative`;
+        if (number < 0) return `${name} ${quote(raw)} is negative`;
         if (column.endsWith("Percent") && number > 100) {
-            return `${name} ${raw} is over 100`;
+            return `${name} ${quote(raw)} is over 100`;
+        }
+        if (number > MAX_MBPS) {
+            return `${name} ${quote(raw)} is over ${MAX_MBPS.toLocaleString("en")}`;
         }
         numbers[column] = number;
     }
@@ -185,8 +214,9 @@ function parseRow(
 }
 
 export function parseMetricsCsv(text: string): ParsedCsv {
-    const lines = text.replace(/^﻿/, "").split(/\r?\n/);
-    // tolerate blank lines anywhere, most often a trailing newline
+    const lines = text.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/);
+    // CR alone is how classic Mac OS ended lines.
+    // Blank lines are tolerated anywhere, most often as a trailing newline.
     const firstLine = lines.findIndex((l) => l.trim() !== "");
     if (firstLine === -1) throw new CsvError("The file is empty");
 
@@ -207,18 +237,16 @@ export function parseMetricsCsv(text: string): ParsedCsv {
 
     for (let i = firstLine + 1; i < lines.length; i++) {
         const line = lines[i]!;
-        if (line.trim() === "") continue;
+        const fields = splitLine(line, separator);
+        // Excel writes rows it once formatted as ";;;;;;", treat them as blank
+        if (fields.every((field) => field.trim() === "")) continue;
         if (++totalRows > MAX_ROWS) {
             throw new CsvError(
                 `The file has more than ${MAX_ROWS.toLocaleString("en")} rows`,
             );
         }
         const lineNumber = i + 1;
-        const row = parseRow(
-            splitLine(line, separator),
-            headerFields.length,
-            positions,
-        );
+        const row = parseRow(fields, headerFields.length, positions);
         if (typeof row === "string") {
             fail(lineNumber, row);
             continue;

@@ -14,6 +14,11 @@ import { db } from "../prisma/db.js";
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const MAX_DATASETS = 5;
 const MAX_NAME_LENGTH = 100;
+// First key of the advisory lock that serializes one user's imports; the
+// second key is the user id
+const IMPORT_LOCK = 1;
+// Dataset ids are Postgres integers
+const MAX_ID = 2_147_483_647;
 // 8 parameters per row keeps each INSERT below Postgres' 65535-parameter limit
 const INSERT_BATCH = 2000;
 
@@ -72,11 +77,15 @@ function decode(bytes: ArrayBuffer): string {
     }
 }
 
+// Postgres can't store NUL, and no other control character belongs in a name
+const withoutControlCharacters = (text: string) =>
+    text.replace(/[\u0000-\u001f\u007f]/g, "");
+
 function datasetName(given: unknown, fileName: string): string {
+    const typed =
+        typeof given === "string" ? withoutControlCharacters(given).trim() : "";
     const name =
-        typeof given === "string" && given.trim()
-            ? given.trim()
-            : fileName.replace(/\.[^.]*$/, "").trim() || "Untitled dataset";
+        typed || fileName.replace(/\.[^.]*$/, "").trim() || "Untitled dataset";
     return name.slice(0, MAX_NAME_LENGTH);
 }
 
@@ -163,20 +172,25 @@ datasets.post(
         let dataset;
         try {
             dataset = await db.transaction(async (tx) => {
-                // Locks the user's row until commit, so two uploads at once
-                // can't both pass the limit check.
-                await tx.orm.public.User.where({ id: user.id }).update({
-                    email: user.email,
-                });
+                // Held until commit, so two uploads at once can't both pass
+                // the limit check. An advisory lock writes nothing and blocks
+                // only this user's other imports, not changes to the account.
+                await tx.execute(
+                    db.raw
+                        .sql`SELECT pg_advisory_xact_lock(${IMPORT_LOCK}::int, ${user.id}::int)`
+                        .affectedCount()
+                        .build(),
+                );
                 const { count } = await tx.orm.public.Dataset.where({
                     ownerId: user.id,
                 }).aggregate((a) => ({ count: a.count() }));
                 if (count >= MAX_DATASETS) throw new LimitReached();
 
+                const fileName = withoutControlCharacters(file.name);
                 const created = await tx.orm.public.Dataset.create({
                     ownerId: user.id,
-                    name: datasetName(form?.["name"], file.name),
-                    fileName: file.name.slice(0, 255) || null,
+                    name: datasetName(form?.["name"], fileName),
+                    fileName: fileName.slice(0, 255) || null,
                     rowCount: parsed.rows.length,
                     ...timeRange(parsed.rows),
                 });
@@ -207,8 +221,10 @@ datasets.post(
 );
 
 datasets.delete("/:id", async (c) => {
-    const id = Number(c.req.param("id"));
-    if (!Number.isSafeInteger(id) || id <= 0) {
+    const param = c.req.param("id");
+    // plain digits only: Number() would also accept "0x1d" or "1e1"
+    const id = /^\d{1,10}$/.test(param) ? Number(param) : 0;
+    if (id <= 0 || id > MAX_ID) {
         return c.json({ error: "Dataset not found" }, 404);
     }
     // filtering by owner too means another user's id behaves like a missing one

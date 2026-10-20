@@ -189,6 +189,45 @@ describe("import", () => {
         ).toEqual([]);
     });
 
+    it("leaves the account row alone, so a parallel email change survives", async () => {
+        const { id, cookie } = await account();
+        const before = await db.orm.public.User.where({ id }).first();
+        expect((await upload(cookie, sample("excel-pl-7d.csv"))).status).toBe(
+            201,
+        );
+        expect(await db.orm.public.User.where({ id }).first()).toEqual(before);
+    });
+
+    it("reports rows Postgres couldn't store instead of failing", async () => {
+        const { cookie } = await account();
+        const good = Array.from(
+            { length: 60 },
+            (_, i) =>
+                `2026-09-01T${String(i % 24).padStart(2, "0")}:${String(i).padStart(2, "0")}:00Z,web,1,1,1,1,1`,
+        );
+        const content = [
+            "timestamp,host,cpu_percent,ram_percent,disk_percent,net_in_mbps,net_out_mbps",
+            ...good,
+            "2026-09-01T00:00:00Z,a\u0000b,1,1,1,1,1",
+            "9999-12-31T23:30:00-01:00,web,1,1,1,1,1",
+            `2026-09-01T00:00:00Z,web,1,1,1,${"9".repeat(400)},1`,
+        ].join("\n");
+        const response = await upload(
+            cookie,
+            content,
+            "bad\u0000name.csv",
+            "My\u0000 data\u0007",
+        );
+        expect(response.status).toBe(201);
+        const { dataset, report } = await response.json();
+        expect(dataset).toMatchObject({
+            name: "My data",
+            fileName: "badname.csv",
+            rowCount: 60,
+        });
+        expect(report.invalidRows).toBe(3);
+    });
+
     it.each([
         ["an empty upload", "", 400, "Choose a CSV file"],
         ["a wrong header", "a,b\n1,2", 422, "The header is missing"],
@@ -278,6 +317,26 @@ describe("delete", () => {
                 headers: { cookie: other.cookie },
             });
             expect(response.status).toBe(404);
+        }
+        expect(await metricsOf(dataset.id)).toHaveLength(672);
+    });
+
+    it("only accepts plain decimal ids", async () => {
+        const { cookie } = await account();
+        const { dataset } = await (
+            await upload(cookie, sample("excel-pl-7d.csv"))
+        ).json();
+        for (const path of [
+            `0x${dataset.id.toString(16)}`,
+            `${dataset.id}.0`,
+            `+${dataset.id}`,
+            "99999999999",
+        ]) {
+            const response = await app.request(`/api/datasets/${path}`, {
+                method: "DELETE",
+                headers: { cookie },
+            });
+            expect(response.status, path).toBe(404);
         }
         expect(await metricsOf(dataset.id)).toHaveLength(672);
     });
