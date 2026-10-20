@@ -10,6 +10,7 @@ export default defineConfig({
                     include: [
                         "backend/tests/unit/**/*.test.ts",
                         "frontend/tests/**/*.test.ts",
+                        "tests/unit/**/*.test.ts",
                     ],
                     restoreMocks: true,
                     unstubEnvs: true,

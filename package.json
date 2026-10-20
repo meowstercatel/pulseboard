@@ -4,6 +4,7 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "samples": "node scripts/generate-samples.mjs",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:typecheck": "pnpm --dir backend exec tsc -p ../tsconfig.test.json",

@@ -11,6 +11,7 @@
     "backend/prisma.test.config.ts",
     "frontend/tests",
     "tests",
+    "scripts",
     "vitest.config.mts",
     "playwright.config.ts"
   ],
