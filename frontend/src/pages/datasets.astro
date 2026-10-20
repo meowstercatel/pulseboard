@@ -1,0 +1,515 @@
+---
+import "../styles/carbon.scss";
+import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+---
+
+<HtmlTemplate title="Datasets · PulseBoard">
+    <main>
+        <header>
+            <a class="brand" href="/overview">
+                PulseBoard
+            </a>
+            <nav aria-label="Account navigation">
+                <cds-link href="/overview">Overview</cds-link>
+                <cds-link href="/settings">Settings</cds-link>
+                <cds-button id="logout" kind="ghost" size="sm">
+                    Log out
+                </cds-button>
+            </nav>
+        </header>
+
+        <div class="intro">
+            <h1>Datasets</h1>
+            <p>
+                Import server metrics from a CSV file. PulseBoard charts and
+                forecasts each dataset separately.
+            </p>
+        </div>
+        <noscript>Enable JavaScript to import datasets.</noscript>
+
+        <div id="content">
+            <section aria-labelledby="import-heading">
+                <h2 id="import-heading">Import a CSV file</h2>
+                <p class="description">
+                    The first line must name these columns, in any order:
+                </p>
+                <pre class="columns">timestamp,host,cpu_percent,ram_percent,disk_percent,net_in_mbps,net_out_mbps</pre>
+                <p class="description">
+                    Fields can be separated by commas or semicolons, and
+                    decimals can use a comma, so files saved from Excel work as
+                    they are. Timestamps without a time zone are read as UTC.
+                </p>
+                <ul class="description limits">
+                    <li>Up to 25 MB and 500,000 rows per file.</li>
+                    <li>
+                        Rows with mistakes are skipped and listed below. If more
+                        than 5% of rows have mistakes, nothing is imported.
+                    </li>
+                    <li id="dataset-limit">Up to 5 datasets per account.</li>
+                </ul>
+                <form id="import-form">
+                    <div class="file-field">
+                        <label for="file">CSV file</label>
+                        <input
+                            id="file"
+                            name="file"
+                            type="file"
+                            accept=".csv,text/csv"
+                            required
+                        />
+                    </div>
+                    <cds-text-input
+                        label="Name (optional)"
+                        name="name"
+                        maxlength="100"
+                        helper-text="Defaults to the file name."
+                    ></cds-text-input>
+                    <cds-inline-notification
+                        id="import-error"
+                        kind="error"
+                        title="Couldn't import the file"
+                        hide-close-button
+                        hidden
+                    ></cds-inline-notification>
+                    <p
+                        class="success"
+                        id="import-success"
+                        role="status"
+                        aria-live="polite"
+                    ></p>
+                    <cds-inline-loading id="importing" hidden>
+                        Checking and saving rows. Large files can take up to a
+                        minute.
+                    </cds-inline-loading>
+                    <cds-button id="import-button" type="button" disabled>
+                        Import
+                    </cds-button>
+                </form>
+
+                <div id="report" hidden>
+                    <h3 id="report-heading">Rows with mistakes</h3>
+                    <p class="description" id="report-summary"></p>
+                    <div class="table-wrap">
+                        <table aria-labelledby="report-heading">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Line</th>
+                                    <th scope="col">Problem</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section aria-labelledby="list-heading">
+                <h2 id="list-heading">Your datasets</h2>
+                <p id="loading" role="status">
+                    Loading your datasets…
+                </p>
+                <cds-inline-notification
+                    id="list-error"
+                    kind="error"
+                    title="Couldn't load datasets"
+                    hide-close-button
+                    hidden
+                ></cds-inline-notification>
+                <p class="description" id="empty" hidden>
+                    No datasets yet. Import a CSV file to get started, or try
+                    one of the sample files in the repository's
+                    <code>samples/</code> folder.
+                </p>
+                <div class="table-wrap" id="list" hidden>
+                    <table aria-labelledby="list-heading">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Rows</th>
+                                <th scope="col">Period</th>
+                                <th scope="col">Imported</th>
+                                <th scope="col">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="list-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+</HtmlTemplate>
+
+<style>
+    main {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 3rem;
+    }
+    header,
+    nav {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    header {
+        justify-content: space-between;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .brand {
+        color: var(--cds-text-primary, #161616);
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    a:focus-visible {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: 4px;
+    }
+    .intro {
+        margin: 2rem 0;
+    }
+    h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+    h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 2rem 0 0.5rem;
+    }
+    .intro p,
+    .description {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    .description {
+        margin-bottom: 1rem;
+    }
+    .limits {
+        padding-left: 1.25rem;
+        list-style: disc;
+        margin-bottom: 1.5rem;
+    }
+    code,
+    .columns {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.8125rem;
+    }
+    .columns {
+        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
+        overflow-x: auto;
+        background: var(--cds-field-01, #fff);
+    }
+    #content {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    section {
+        padding: 1.5rem;
+        background: var(--cds-layer-01, #f4f4f4);
+    }
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .file-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .file-field label {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+    }
+    .file-field input {
+        font: inherit;
+        font-size: 0.875rem;
+    }
+    .file-field input:focus-visible {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: 2px;
+    }
+    cds-button {
+        align-self: flex-start;
+    }
+    cds-inline-notification {
+        max-width: 100%;
+    }
+    .success {
+        color: var(--cds-text-primary, #161616);
+        font-size: 0.875rem;
+        border-left: 3px solid var(--cds-support-success, #24a148);
+        padding-left: 0.75rem;
+    }
+    .success:empty,
+    [hidden] {
+        display: none !important;
+    }
+    .table-wrap {
+        overflow-x: auto;
+        max-height: 24rem;
+        overflow-y: auto;
+    }
+    /* rows are created by the script, so their styles need :global() */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+    th,
+    table :global(td) {
+        text-align: left;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+        vertical-align: middle;
+    }
+    th {
+        position: sticky;
+        top: 0;
+        background: var(--cds-layer-accent-01, #e0e0e0);
+        font-weight: 600;
+    }
+    table :global(td.number) {
+        font-variant-numeric: tabular-nums;
+    }
+    table :global(td.actions) {
+        text-align: right;
+    }
+    table :global(.file-name) {
+        display: block;
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+    }
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    @media (max-width: 400px) {
+        section {
+            padding: 1rem;
+        }
+    }
+</style>
+
+<script>
+    import "@carbon/web-components/es/components/button/index.js";
+    import "@carbon/web-components/es/components/text-input/index.js";
+    import "@carbon/web-components/es/components/notification/index.js";
+    import "@carbon/web-components/es/components/link/index.js";
+    import "@carbon/web-components/es/components/inline-loading/index.js";
+    import { logout, requireLicense } from "../lib/auth";
+    import {
+        deleteDataset,
+        importDataset,
+        listDatasets,
+        type Dataset,
+        type ImportReport,
+    } from "../lib/datasets";
+
+    type Input = HTMLElement & { value: string };
+    type Button = HTMLElement & { disabled: boolean };
+    type Notification = HTMLElement & { subtitle: string };
+
+    const MAX_FILE_BYTES = 25 * 1024 * 1024;
+    const byId = <T extends HTMLElement>(id: string) =>
+        document.getElementById(id) as T;
+
+    const fileInput = byId<HTMLInputElement>("file");
+    const nameInput = document.querySelector<Input>(
+        'cds-text-input[name="name"]',
+    )!;
+    const importButton = byId<Button>("import-button");
+    const importError = byId<Notification>("import-error");
+    const importSuccess = byId("import-success");
+    const importing = byId("importing");
+    const report = byId("report");
+    const listError = byId<Notification>("list-error");
+
+    const numbers = new Intl.NumberFormat("en");
+    const dates = new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeZone: "UTC",
+    });
+    const day = (iso: string | null) =>
+        iso ? dates.format(new Date(iso)) : "–";
+
+    let datasetCount = 0;
+    let maxDatasets = 5;
+    let busy = false;
+
+    function cell(text: string, className?: string) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (className) td.className = className;
+        return td;
+    }
+
+    function updateImportButton() {
+        importButton.disabled =
+            busy || !fileInput.files?.length || datasetCount >= maxDatasets;
+    }
+
+    function showReport(result: ImportReport | undefined, rejected: boolean) {
+        const rows = byId("report-rows");
+        rows.replaceChildren();
+        if (!result || result.invalidRows === 0) {
+            report.hidden = true;
+            return;
+        }
+        const shown =
+            result.errors.length < result.invalidRows
+                ? ` The first ${result.errors.length} are listed.`
+                : "";
+        byId("report-summary").textContent = rejected
+            ? `${numbers.format(result.invalidRows)} of ${numbers.format(result.totalRows)} rows have mistakes, so nothing was imported. Fix them and try again.${shown}`
+            : `${numbers.format(result.invalidRows)} of ${numbers.format(result.totalRows)} rows were skipped.${shown}`;
+        for (const error of result.errors) {
+            const tr = document.createElement("tr");
+            tr.append(cell(String(error.line), "number"), cell(error.message));
+            rows.append(tr);
+        }
+        report.hidden = false;
+    }
+
+    function renderList(datasets: Dataset[]) {
+        datasetCount = datasets.length;
+        byId("dataset-limit").textContent =
+            `Up to ${maxDatasets} datasets per account. You have ${datasetCount}.` +
+            (datasetCount >= maxDatasets
+                ? " Delete one to import another."
+                : "");
+        byId("empty").hidden = datasets.length > 0;
+        byId("list").hidden = datasets.length === 0;
+
+        const rows = byId("list-rows");
+        rows.replaceChildren();
+        for (const dataset of datasets) {
+            const tr = document.createElement("tr");
+            const name = cell(dataset.name);
+            if (dataset.fileName && dataset.fileName !== dataset.name) {
+                const file = document.createElement("span");
+                file.className = "file-name";
+                file.textContent = dataset.fileName;
+                name.append(file);
+            }
+            const actions = document.createElement("td");
+            actions.className = "actions";
+            const remove = document.createElement("cds-button") as Button;
+            remove.setAttribute("kind", "danger--ghost");
+            remove.setAttribute("size", "sm");
+            remove.textContent = "Delete";
+            remove.addEventListener("click", () =>
+                removeDataset(dataset, remove),
+            );
+            actions.append(remove);
+            tr.append(
+                name,
+                cell(numbers.format(dataset.rowCount), "number"),
+                cell(`${day(dataset.startsAt)} – ${day(dataset.endsAt)}`),
+                cell(day(dataset.createdAt)),
+                actions,
+            );
+            rows.append(tr);
+        }
+        updateImportButton();
+    }
+
+    async function refresh() {
+        const result = await listDatasets();
+        byId("loading").hidden = true;
+        if ("error" in result) {
+            listError.subtitle = result.error;
+            listError.hidden = false;
+            return;
+        }
+        listError.hidden = true;
+        maxDatasets = result.limits.maxDatasets;
+        renderList(result.datasets);
+    }
+
+    async function removeDataset(dataset: Dataset, button: Button) {
+        if (
+            !confirm(
+                `Delete "${dataset.name}" and its ${numbers.format(dataset.rowCount)} rows? This cannot be undone.`,
+            )
+        ) {
+            return;
+        }
+        button.disabled = true;
+        const error = await deleteDataset(dataset.id);
+        if (error) {
+            button.disabled = false;
+            listError.subtitle = error;
+            listError.hidden = false;
+            return;
+        }
+        await refresh();
+    }
+
+    async function submit() {
+        const file = fileInput.files?.[0];
+        if (busy || !file) return;
+        importError.hidden = true;
+        importSuccess.textContent = "";
+        report.hidden = true;
+        if (file.size > MAX_FILE_BYTES) {
+            importError.subtitle = "The file is larger than 25 MB";
+            importError.hidden = false;
+            return;
+        }
+
+        busy = true;
+        importing.hidden = false;
+        updateImportButton();
+        const result = await importDataset(file, nameInput.value);
+        busy = false;
+        importing.hidden = true;
+
+        if ("error" in result) {
+            importError.subtitle = result.error;
+            importError.hidden = false;
+            showReport(result.report, true);
+            updateImportButton();
+            return;
+        }
+        const { dataset, report: imported } = result;
+        importSuccess.textContent = `Imported ${numbers.format(imported.importedRows)} rows into "${dataset.name}".`;
+        showReport(imported, false);
+        fileInput.value = "";
+        nameInput.value = "";
+        await refresh();
+    }
+
+    document.getElementById("logout")!.addEventListener("click", logout);
+    document
+        .getElementById("import-form")!
+        .addEventListener("submit", (e) => e.preventDefault());
+    fileInput.addEventListener("change", () => {
+        importError.hidden = true;
+        importSuccess.textContent = "";
+        updateImportButton();
+    });
+    importButton.addEventListener("click", submit);
+
+    requireLicense().then((user) => {
+        if (user) refresh();
+    });
+</script>

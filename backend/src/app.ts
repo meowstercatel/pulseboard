@@ -2,6 +2,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { auth } from "./routes/auth.js";
 import { billing } from "./routes/billing.js";
+import { datasets } from "./routes/datasets.js";
 import { oauth } from "./routes/oauth.js";
 
 // Importing the app does not open a port or run startup database updates.
@@ -10,6 +11,7 @@ export function createApp() {
     app.route("/api/auth/oauth", oauth);
     app.route("/api/auth", auth);
     app.route("/api/billing", billing);
+    app.route("/api/datasets", datasets);
     app.get("/health", (c) => c.json({ ok: true }));
 
     const staticDir = process.env["STATIC_DIR"];
