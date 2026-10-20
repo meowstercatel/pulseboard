@@ -1,0 +1,2 @@
+# keep the sample files byte-for-byte (BOM, CRLF) so the import sees what Excel writes
+samples/*.csv -text
