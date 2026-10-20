@@ -3,10 +3,23 @@
   "private": true,
   "scripts": {
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "samples": "node scripts/generate-samples.mjs",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:typecheck": "pnpm --dir backend exec tsc -p ../tsconfig.test.json",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "npm run build && playwright test",
+    "test:all": "npm run test:typecheck && npm test && npm run test:integration && npm run test:e2e",
+    "test:services": "docker compose -f compose.test.yml up -d --wait",
+    "test:services:stop": "docker compose -f compose.test.yml down",
+    "build": "pnpm --dir backend run build && npm --prefix frontend run build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "nock": "^15.0.2",
     "prettier": "^3.9.9",
-    "prettier-plugin-astro": "^1.1.0"
+    "prettier-plugin-astro": "^1.1.0",
+    "vitest": "^5.0.5"
   }
 }

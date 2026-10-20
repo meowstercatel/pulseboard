@@ -11,6 +11,11 @@ model User {
   emailVerifiedAt TimestamptzString?
   licensePlan  String?
   licensedAt   TimestamptzString?
+  // set the first time the user opens Stripe Checkout
+  stripeCustomerId     String? @unique
+  // latest subscription and its Stripe status, kept in sync by the webhook
+  stripeSubscriptionId String?
+  subscriptionStatus   String?
   createdAt    TimestamptzString @default(now())
   updatedAt    temporal.updatedAtString()
 
@@ -18,6 +23,7 @@ model User {
   sessions      Session[]
   oauthAccounts OAuthAccount[]
   emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
 }
 
 // a Google/Facebook login linked to a User, matched by the provider's user id
@@ -48,6 +54,19 @@ model Session {
 
 // a pending email verification link; only the SHA-256 of the token is stored
 model EmailVerification {
+  tokenHash String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // the address the link was sent to, so it stops working if the user changes email
+  email     String
+  expiresAt TimestamptzString
+  createdAt TimestamptzString @default(now())
+
+  @@index([userId])
+}
+
+// a pending password reset link; only the SHA-256 of the token is stored
+model PasswordReset {
   tokenHash String   @id
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

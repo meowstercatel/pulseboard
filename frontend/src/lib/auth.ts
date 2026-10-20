@@ -52,6 +52,27 @@ export async function resendVerificationEmail(): Promise<string | null> {
     }
 }
 
+export async function requestPasswordReset(
+    email: string,
+): Promise<string | null> {
+    try {
+        const res = await fetch("/api/auth/password-reset", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email }),
+        });
+        if (res.ok) return null;
+        const data = await res.json().catch(() => null);
+        return data?.error ?? `Couldn't send the email (${res.status})`;
+    } catch {
+        return "Can't reach the server";
+    }
+}
+
+export function resetPassword(token: string, newPassword: string) {
+    return post("auth/password-reset/confirm", { token, newPassword });
+}
+
 async function updateAccount(path: string, body: unknown): Promise<AuthResult> {
     const result = await post(path, body);
     if ("error" in result && result.status === 401) {
@@ -90,10 +111,6 @@ export async function deleteAccount(
     } catch {
         return { error: "Can't reach the server" };
     }
-}
-
-export function purchase(plan: "subscription" | "lifetime") {
-    return post("billing/purchase", { plan });
 }
 
 export async function logout() {

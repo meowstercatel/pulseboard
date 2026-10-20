@@ -52,6 +52,11 @@ services:
       SMTP_URL: ${SMTP_URL:-}
       # sender of verification emails, defaults to PulseBoard <no-reply@pulseboard.local>
       MAIL_FROM: ${MAIL_FROM:-}
+      # payments are disabled (503) while these are empty, see src/routes/billing.ts
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_SUBSCRIPTION: ${STRIPE_PRICE_SUBSCRIPTION:-}
+      STRIPE_PRICE_LIFETIME: ${STRIPE_PRICE_LIFETIME:-}
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +73,21 @@ services:
     environment:
       # "user:password" to put basic auth on the web UI; empty means no auth
       MP_UI_AUTH: ${MAILPIT_UI_AUTH:-}
+
+  # Web-based Postgres viewer
+  pgweb:
+    image: sosedoff/pgweb
+    profiles: [pgweb]
+    restart: unless-stopped
+    ports:
+      - "${PGWEB_PORT:-8081}:8081"
+    environment:
+      PGWEB_DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}?sslmode=disable
+      PGWEB_AUTH_USER: ${PGWEB_AUTH_USER:-}
+      PGWEB_AUTH_PASS: ${PGWEB_AUTH_PASS:-}
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   db-data:

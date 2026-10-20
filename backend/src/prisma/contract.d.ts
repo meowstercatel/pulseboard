@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'87d79c01f49f62513d9f4e6fc9c7aa5a7cf877a1bc76a7d737f3914d7c6f137b'>;
+  StorageHashBase<'d7d041a2cacd34b2a9695ea8115b3b4fe1d1c4c75e90c1d8cd370a6ad66a7062'>;
 export type ExecutionHash =
   ExecutionHashBase<'98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09'>;
 export type ProfileHash =
@@ -271,6 +271,13 @@ export type FieldOutputTypes = {
       readonly providerUserId: CodecTypes['pg/text@1']['output'];
       readonly userId: CodecTypes['pg/int4@1']['output'];
     };
+    readonly PasswordReset: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly email: CodecTypes['pg/text@1']['output'];
+      readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly tokenHash: CodecTypes['pg/text@1']['output'];
+      readonly userId: CodecTypes['pg/int4@1']['output'];
+    };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -285,6 +292,9 @@ export type FieldOutputTypes = {
       readonly licensePlan: CodecTypes['pg/text@1']['output'] | null;
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
     };
@@ -329,6 +339,13 @@ export type FieldInputTypes = {
       readonly providerUserId: CodecTypes['pg/text@1']['input'];
       readonly userId: CodecTypes['pg/int4@1']['input'];
     };
+    readonly PasswordReset: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly email: CodecTypes['pg/text@1']['input'];
+      readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly tokenHash: CodecTypes['pg/text@1']['input'];
+      readonly userId: CodecTypes['pg/int4@1']['input'];
+    };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -343,6 +360,9 @@ export type FieldInputTypes = {
       readonly licensePlan: CodecTypes['pg/text@1']['input'] | null;
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['input'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
     };
@@ -387,6 +407,13 @@ export type StorageColumnTypes = {
       readonly providerUserId: CodecTypes['pg/text@1']['output'];
       readonly userId: CodecTypes['pg/int4@1']['output'];
     };
+    readonly PasswordReset: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly email: CodecTypes['pg/text@1']['output'];
+      readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly tokenHash: CodecTypes['pg/text@1']['output'];
+      readonly userId: CodecTypes['pg/int4@1']['output'];
+    };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -401,6 +428,9 @@ export type StorageColumnTypes = {
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly licensePlan: CodecTypes['pg/text@1']['output'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
     };
@@ -445,6 +475,13 @@ export type StorageColumnInputTypes = {
       readonly providerUserId: CodecTypes['pg/text@1']['input'];
       readonly userId: CodecTypes['pg/int4@1']['input'];
     };
+    readonly PasswordReset: {
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly email: CodecTypes['pg/text@1']['input'];
+      readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly tokenHash: CodecTypes['pg/text@1']['input'];
+      readonly userId: CodecTypes['pg/int4@1']['input'];
+    };
     readonly Session: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly expiresAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -459,6 +496,9 @@ export type StorageColumnInputTypes = {
       readonly licensedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly licensePlan: CodecTypes['pg/text@1']['input'] | null;
       readonly passwordHash: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeCustomerId: CodecTypes['pg/text@1']['input'] | null;
+      readonly stripeSubscriptionId: CodecTypes['pg/text@1']['input'] | null;
+      readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
     };
@@ -512,6 +552,15 @@ export namespace Models {
     user: public_User;
     readonly [RelationKeys]?: 'user';
   };
+  export type public_PasswordReset = {
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    email: CodecTypes['pg/text@1']['output'];
+    expiresAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    tokenHash: CodecTypes['pg/text@1']['output'];
+    userId: CodecTypes['pg/int4@1']['output'];
+    user: public_User;
+    readonly [RelationKeys]?: 'user';
+  };
   export type public_Session = {
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     expiresAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -528,13 +577,18 @@ export namespace Models {
     licensePlan: CodecTypes['pg/text@1']['output'] | null;
     licensedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     passwordHash: CodecTypes['pg/text@1']['output'] | null;
+    stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
+    stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
+    subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     username: CodecTypes['pg/text@1']['output'] | null;
     datasets: public_Dataset[];
     emailVerifications: public_EmailVerification[];
     oauthAccounts: public_OAuthAccount[];
+    passwordResets: public_PasswordReset[];
     sessions: public_Session[];
-    readonly [RelationKeys]?: 'datasets' | 'emailVerifications' | 'oauthAccounts' | 'sessions';
+    readonly [RelationKeys]?:
+      'datasets' | 'emailVerifications' | 'oauthAccounts' | 'passwordResets' | 'sessions';
   };
 }
 
@@ -544,6 +598,7 @@ export declare const models: {
     EmailVerification: Models.public_EmailVerification;
     Metric: Models.public_Metric;
     OAuthAccount: Models.public_OAuthAccount;
+    PasswordReset: Models.public_PasswordReset;
     Session: Models.public_Session;
     User: Models.public_User;
   };
@@ -884,6 +939,65 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly PasswordReset: {
+              columns: {
+                readonly createdAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly many: false;
+                };
+                readonly email: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly expiresAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly tokenHash: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly userId: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['tokenHash'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'PasswordReset_userId_idx_a489d58a';
+                  readonly prefix: 'PasswordReset_userId_idx';
+                  readonly columns: readonly ['userId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'PasswordReset';
+                    readonly columns: readonly ['userId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'User';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly Session: {
               columns: {
                 readonly createdAt: {
@@ -986,6 +1100,24 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly many: false;
                 };
+                readonly stripeCustomerId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly stripeSubscriptionId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly subscriptionStatus: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly updatedAt: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-string@1';
@@ -1000,7 +1132,10 @@ type ContractBase = Omit<
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [{ readonly columns: readonly ['email'] }];
+              uniques: readonly [
+                { readonly columns: readonly ['email'] },
+                { readonly columns: readonly ['stripeCustomerId'] },
+              ];
               indexes: readonly [];
               foreignKeys: readonly [];
             };
@@ -1024,6 +1159,10 @@ type ContractBase = Omit<
     readonly OAuthAccount: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'OAuthAccount';
+    };
+    readonly PasswordReset: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'PasswordReset';
     };
     readonly Session: { readonly namespace: 'public' & NamespaceId; readonly model: 'Session' };
     readonly User: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
@@ -1299,6 +1438,58 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly PasswordReset: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly email: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly expiresAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly tokenHash: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly userId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+            };
+            readonly relations: {
+              readonly user: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['userId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'PasswordReset';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly email: { readonly column: 'email' };
+                readonly expiresAt: { readonly column: 'expiresAt' };
+                readonly tokenHash: { readonly column: 'tokenHash' };
+                readonly userId: { readonly column: 'userId' };
+              };
+            };
+          };
           readonly Session: {
             readonly fields: {
               readonly createdAt: {
@@ -1385,6 +1576,18 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly stripeCustomerId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly stripeSubscriptionId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly subscriptionStatus: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1431,6 +1634,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['userId'];
                 };
               };
+              readonly passwordResets: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'PasswordReset';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['userId'];
+                };
+              };
               readonly sessions: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -1454,6 +1668,9 @@ type ContractBase = Omit<
                 readonly licensePlan: { readonly column: 'licensePlan' };
                 readonly licensedAt: { readonly column: 'licensedAt' };
                 readonly passwordHash: { readonly column: 'passwordHash' };
+                readonly stripeCustomerId: { readonly column: 'stripeCustomerId' };
+                readonly stripeSubscriptionId: { readonly column: 'stripeSubscriptionId' };
+                readonly subscriptionStatus: { readonly column: 'subscriptionStatus' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
                 readonly username: { readonly column: 'username' };
               };

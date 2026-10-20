@@ -20,6 +20,10 @@
       "model": "OAuthAccount",
       "namespace": "public"
     },
+    "PasswordReset": {
+      "model": "PasswordReset",
+      "namespace": "public"
+    },
     "Session": {
       "model": "Session",
       "namespace": "public"
@@ -450,6 +454,84 @@
               "table": "OAuthAccount"
             }
           },
+          "PasswordReset": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "email": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "expiresAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "tokenHash": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "userId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "user": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "userId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "email": {
+                  "column": "email"
+                },
+                "expiresAt": {
+                  "column": "expiresAt"
+                },
+                "tokenHash": {
+                  "column": "tokenHash"
+                },
+                "userId": {
+                  "column": "userId"
+                }
+              },
+              "namespaceId": "public",
+              "table": "PasswordReset"
+            }
+          },
           "Session": {
             "fields": {
               "createdAt": {
@@ -569,6 +651,27 @@
                   "kind": "scalar"
                 }
               },
+              "stripeCustomerId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "stripeSubscriptionId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "subscriptionStatus": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -630,6 +733,21 @@
                   "namespace": "public"
                 }
               },
+              "passwordResets": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "userId"
+                  ]
+                },
+                "to": {
+                  "model": "PasswordReset",
+                  "namespace": "public"
+                }
+              },
               "sessions": {
                 "cardinality": "1:N",
                 "on": {
@@ -668,6 +786,15 @@
                 },
                 "passwordHash": {
                   "column": "passwordHash"
+                },
+                "stripeCustomerId": {
+                  "column": "stripeCustomerId"
+                },
+                "stripeSubscriptionId": {
+                  "column": "stripeSubscriptionId"
+                },
+                "subscriptionStatus": {
+                  "column": "subscriptionStatus"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1044,6 +1171,74 @@
                 }
               ]
             },
+            "PasswordReset": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "dataType": "pg/timestamptz",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nullable": false
+                },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "expiresAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": false
+                },
+                "tokenHash": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "userId": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "userId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "PasswordReset"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "User"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "userId"
+                  ],
+                  "name": "PasswordReset_userId_idx_a489d58a",
+                  "prefix": "PasswordReset_userId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "tokenHash"
+                ]
+              },
+              "uniques": []
+            },
             "Session": {
               "columns": {
                 "createdAt": {
@@ -1152,6 +1347,21 @@
                   "dataType": "pg/text",
                   "nullable": true
                 },
+                "stripeCustomerId": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "stripeSubscriptionId": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "subscriptionStatus": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-string@1",
                   "dataType": "pg/timestamptz",
@@ -1175,6 +1385,11 @@
                   "columns": [
                     "email"
                   ]
+                },
+                {
+                  "columns": [
+                    "stripeCustomerId"
+                  ]
                 }
               ]
             }
@@ -1184,7 +1399,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "87d79c01f49f62513d9f4e6fc9c7aa5a7cf877a1bc76a7d737f3914d7c6f137b"
+    "storageHash": "d7d041a2cacd34b2a9695ea8115b3b4fe1d1c4c75e90c1d8cd370a6ad66a7062"
   },
   "execution": {
     "executionHash": "98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09",
