@@ -9,11 +9,11 @@ import HtmlTemplate from "../../layouts/HtmlTemplate.astro";
         <cds-loading
             id="spinner"
             type="small"
-            assistive-text="Ładowanie"
+            assistive-text="Loading"
         ></cds-loading>
-        <p id="message">Potwierdzamy płatność…</p>
+        <p id="message">Confirming your payment…</p>
         <cds-button id="back" size="md" href="/buy" hidden>
-            Wróć do planów
+            Back to plans
         </cds-button>
     </main>
 </HtmlTemplate>
@@ -81,7 +81,7 @@ import HtmlTemplate from "../../layouts/HtmlTemplate.astro";
             await new Promise((r) => setTimeout(r, 2000));
         }
         stop(
-            "Płatność jest jeszcze przetwarzana. Licencja pojawi się automatycznie, gdy Stripe ją potwierdzi.",
+            "Your payment is still processing. Your license will be activated automatically once Stripe confirms it.",
         );
     }
 
