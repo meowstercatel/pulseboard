@@ -402,3 +402,228 @@ describe("email verification and licenses", () => {
         expect((await request("auth/me", undefined, cookie)).status).toBe(401);
     });
 });
+
+describe("password reset", () => {
+    const newPassword = "A brand new secure password!";
+
+    async function requestReset(email: string) {
+        const response = await request("auth/password-reset", { email });
+        expect(response.status).toBe(204);
+        return lastToken();
+    }
+
+    it("answers the same for unknown, social-only and password accounts", async () => {
+        const { email } = await register();
+        const social = await db.orm.public.User.create({
+            email: `social-${randomUUID()}@example.com`,
+            username: null,
+            passwordHash: null,
+        });
+        userIds.add(social.id);
+        mail.mockClear();
+        for (const address of [
+            `missing-${randomUUID()}@example.com`,
+            social.email,
+        ]) {
+            const response = await request("auth/password-reset", {
+                email: address,
+            });
+            expect(response.status).toBe(204);
+        }
+        expect(mail).not.toHaveBeenCalled();
+        const response = await request("auth/password-reset", {
+            email: ` ${email.toUpperCase()} `,
+        });
+        expect(response.status).toBe(204);
+        expect(mail).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                to: email,
+                subject: "Reset your PulseBoard password",
+                html: expect.stringContaining("/reset-password?token="),
+            }),
+        );
+    });
+
+    it("sets the new password once, signs out everywhere and logs this browser in", async () => {
+        const { email, cookie, user } = await register();
+        const token = await requestReset(email);
+        expect(
+            (
+                await request("auth/password-reset/confirm", {
+                    token,
+                    newPassword: "short",
+                })
+            ).status,
+        ).toBe(400);
+        const response = await request("auth/password-reset/confirm", {
+            token,
+            newPassword,
+        });
+        expect(response.status).toBe(200);
+        expect((await response.json()).user).toMatchObject({
+            id: user.id,
+            emailVerified: true,
+        });
+        const fresh = sessionCookie(response);
+        expect((await request("auth/me", undefined, fresh)).status).toBe(200);
+        expect((await request("auth/me", undefined, cookie)).status).toBe(401);
+        expect((await request("auth/login", { email, password })).status).toBe(
+            401,
+        );
+        expect(
+            (await request("auth/login", { email, password: newPassword }))
+                .status,
+        ).toBe(200);
+        expect(
+            (
+                await request("auth/password-reset/confirm", {
+                    token,
+                    newPassword: "Yet another password!",
+                })
+            ).status,
+        ).toBe(400);
+    });
+
+    it("only accepts the newest, unexpired link", async () => {
+        const { email, user } = await register();
+        const oldToken = await requestReset(email);
+        const token = await requestReset(email);
+        expect(
+            (
+                await request("auth/password-reset/confirm", {
+                    token: oldToken,
+                    newPassword,
+                })
+            ).status,
+        ).toBe(400);
+        await db.orm.public.PasswordReset.where({ userId: user.id }).update({
+            expiresAt: new Date(Date.now() - 1000).toISOString(),
+        });
+        expect(
+            (
+                await request("auth/password-reset/confirm", {
+                    token,
+                    newPassword,
+                })
+            ).status,
+        ).toBe(400);
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+    });
+
+    it("drops the link when the email changes, even if it changes back", async () => {
+        const { email, cookie } = await register();
+        const token = await requestReset(email);
+        for (const address of [`changed-${randomUUID()}@example.com`, email]) {
+            const changed = await request(
+                "auth/profile",
+                {
+                    email: address,
+                    username: "Alice",
+                    currentPassword: password,
+                },
+                cookie,
+            );
+            expect(changed.status).toBe(200);
+        }
+        expect(
+            (
+                await request("auth/password-reset/confirm", {
+                    token,
+                    newPassword,
+                })
+            ).status,
+        ).toBe(400);
+    });
+
+    it("drops the link when the password is changed in settings", async () => {
+        const { email, cookie } = await register();
+        const token = await requestReset(email);
+        const changed = await request(
+            "auth/password",
+            { currentPassword: password, newPassword: "Changed in settings!" },
+            cookie,
+        );
+        expect(changed.status).toBe(200);
+        expect(
+            (
+                await request("auth/password-reset/confirm", {
+                    token,
+                    newPassword,
+                })
+            ).status,
+        ).toBe(400);
+    });
+
+    it("never mails a link built from a forged Host header", async () => {
+        const { email } = await register();
+        mail.mockClear();
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const forged = (headers: Record<string, string> = {}) =>
+            app.request("http://evil.example/api/auth/password-reset", {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "x-forwarded-for": ip,
+                    ...headers,
+                },
+                body: JSON.stringify({ email }),
+            });
+        try {
+            vi.stubEnv("NODE_ENV", "production");
+            vi.stubEnv("PUBLIC_URL", "");
+            expect((await forged()).status).toBe(204);
+            expect(mail).not.toHaveBeenCalled();
+
+            vi.stubEnv("PUBLIC_URL", "https://pulseboard.example");
+            expect((await forged({ host: "evil.example" })).status).toBe(204);
+            expect(mail.mock.calls.at(-1)?.[0].text).toContain(
+                "https://pulseboard.example/reset-password?token=",
+            );
+            expect(mail.mock.calls.at(-1)?.[0].html).not.toContain(
+                "evil.example",
+            );
+        } finally {
+            vi.unstubAllEnvs();
+        }
+    });
+
+    it("limits requests per address and IP, and caps emails per address without refusing", async () => {
+        const { email } = await register();
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        mail.mockClear().mockRejectedValueOnce(new Error("SMTP unavailable"));
+        for (let attempt = 0; attempt < 3; attempt++) {
+            expect(
+                (await request("auth/password-reset", { email })).status,
+            ).toBe(204);
+        }
+        const blocked = await request("auth/password-reset", { email });
+        expect(blocked.status).toBe(429);
+        expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
+        expect(mail).toHaveBeenCalledTimes(3);
+
+        ip = `203.0.113.${ipSequence}`;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            expect(
+                (await request("auth/password-reset", { email })).status,
+            ).toBe(204);
+        }
+        expect(mail).toHaveBeenCalledTimes(5);
+    });
+
+    it("cascades account deletion to reset links", async () => {
+        const { email, user, cookie } = await register();
+        await requestReset(email);
+        await request(
+            "auth/delete-account",
+            { confirmation: "delete my account" },
+            cookie,
+        );
+        expect(
+            await db.orm.public.PasswordReset.where({
+                userId: user.id,
+            }).first(),
+        ).toBeNull();
+    });
+});

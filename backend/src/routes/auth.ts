@@ -5,6 +5,7 @@ import {
     verifyEmailToken,
 } from "../auth/emailVerification.js";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "../auth/password.js";
+import { requestPasswordReset, resetPassword } from "../auth/passwordReset.js";
 import {
     createSession,
     destroySession,
@@ -12,7 +13,12 @@ import {
     toAuthUser,
     type AuthEnv,
 } from "../auth/session.js";
-import { RateLimiter, limitByIp, tooManyRequests } from "../auth/rateLimit.js";
+import {
+    RateLimiter,
+    clientIp,
+    limitByIp,
+    tooManyRequests,
+} from "../auth/rateLimit.js";
 import { db } from "../prisma/db.js";
 import { cancelSubscriptionOf } from "./billing.js";
 import { isUniqueViolation } from "../prisma/errors.js";
@@ -36,6 +42,11 @@ const accountLimiter = new RateLimiter(10, 15 * MINUTE);
 const resendLimiter = new RateLimiter(3, 15 * MINUTE);
 // Verification attempts from one IP, against guessing tokens
 const verifyIpLimiter = new RateLimiter(30, 15 * MINUTE);
+const resetRequestIpLimiter = new RateLimiter(10, 15 * MINUTE);
+const resetIpEmailLimiter = new RateLimiter(3, 15 * MINUTE);
+// Over the limit requests are dropped silently, so strangers can't lock someone out
+const resetEmailLimiter = new RateLimiter(5, 60 * MINUTE);
+const resetIpLimiter = new RateLimiter(30, 15 * MINUTE);
 
 const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const key = String(c.get("user").id);
@@ -312,6 +323,9 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
                 409,
             );
         if (email !== current.email) {
+            await db.orm.public.PasswordReset.where({
+                userId: user.id,
+            }).deleteAll();
             await trySendVerificationEmail(c, user.id);
         }
         return c.json({ user: toAuthUser(user) });
@@ -368,6 +382,9 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
             passwordHash: current.passwordHash,
         }).update({ passwordHash });
         if (!updated) return null;
+        await tx.orm.public.PasswordReset.where({
+            userId: current.id,
+        }).deleteAll();
         // Keep this device signed in and revoke every other session atomically.
         await tx.orm.public.Session.where({ userId: current.id })
             .where((session) => session.id.neq(c.get("sessionId")))
@@ -379,5 +396,51 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
             { error: "Your account changed. Reload and try again" },
             409,
         );
+    return c.json({ user: toAuthUser(user) });
+});
+
+auth.post("/password-reset", limitByIp(resetRequestIpLimiter), async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    if (!body || typeof body.email !== "string") {
+        return c.json({ error: "Invalid request" }, 400);
+    }
+    const email = body.email.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+        return c.json({ error: "Enter a valid email address" }, 400);
+    }
+    const key = `${clientIp(c)} ${email}`;
+    const retryAfter = resetIpEmailLimiter.retryAfter(key);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    resetIpEmailLimiter.hit(key);
+
+    if (!resetEmailLimiter.retryAfter(email)) {
+        resetEmailLimiter.hit(email);
+        await requestPasswordReset(c, email);
+    }
+    return c.body(null, 204);
+});
+
+auth.post("/password-reset/confirm", limitByIp(resetIpLimiter), async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    if (!body || typeof body.token !== "string" || !body.token) {
+        return c.json({ error: "Invalid request" }, 400);
+    }
+    if (!validPassword(body.newPassword)) {
+        return c.json(
+            {
+                error: `New password must be ${MIN_PASSWORD}-${MAX_PASSWORD} characters`,
+            },
+            400,
+        );
+    }
+    const user = await resetPassword(body.token, body.newPassword);
+    if (!user) {
+        return c.json(
+            { error: "This reset link is invalid or has expired" },
+            400,
+        );
+    }
+    loginEmailLimiter.reset(user.email);
+    await createSession(c, user.id);
     return c.json({ user: toAuthUser(user) });
 });

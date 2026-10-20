@@ -17,6 +17,9 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             type="password"
             autocomplete="current-password"
         ></cds-text-input>
+        <p class="forgot">
+            <cds-link href="/forgot-password">Forgot password?</cds-link>
+        </p>
         <cds-inline-notification
             kind="error"
             title="Couldn't log in"
@@ -30,6 +33,12 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         No account yet? <cds-link href="/register">Register</cds-link>
     </p>
 </AuthLayout>
+
+<style>
+    .forgot {
+        margin-top: -0.5rem;
+    }
+</style>
 
 <script>
     import { currentUser, login } from "../lib/auth";
