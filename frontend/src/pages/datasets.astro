@@ -21,8 +21,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         <div class="intro">
             <h1>Datasets</h1>
             <p>
-                Import server metrics from a CSV file. PulseBoard charts and
-                forecasts each dataset separately.
+                Import server metrics from a CSV file. View each dataset
+                separately in the dashboard.
             </p>
         </div>
         <noscript>Enable JavaScript to import datasets.</noscript>
@@ -411,7 +411,15 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         rows.replaceChildren();
         for (const dataset of datasets) {
             const tr = document.createElement("tr");
-            const name = cell(dataset.name);
+            const name = cell("");
+            const dashboardLink = document.createElement("a");
+            dashboardLink.href = `/overview?dataset=${dataset.id}`;
+            dashboardLink.textContent = dataset.name;
+            dashboardLink.setAttribute(
+                "aria-label",
+                `Open dashboard for ${dataset.name}`,
+            );
+            name.append(dashboardLink);
             if (dataset.fileName && dataset.fileName !== dataset.name) {
                 const file = document.createElement("span");
                 file.className = "file-name";
