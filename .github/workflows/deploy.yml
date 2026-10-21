@@ -17,6 +17,7 @@ jobs:
       - name: Deploy
         env:
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          TRUST_PROXY: ${{ vars.TRUST_PROXY }}
           SMTP_URL: ${{ secrets.SMTP_URL }}
           MAIL_FROM: ${{ vars.MAIL_FROM }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
