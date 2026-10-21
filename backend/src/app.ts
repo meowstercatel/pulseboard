@@ -2,6 +2,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { auth } from "./routes/auth.js";
 import { billing } from "./routes/billing.js";
+import { dashboard } from "./routes/dashboard.js";
 import { datasets } from "./routes/datasets.js";
 import { oauth } from "./routes/oauth.js";
 
@@ -12,6 +13,7 @@ export function createApp() {
     app.route("/api/auth", auth);
     app.route("/api/billing", billing);
     app.route("/api/datasets", datasets);
+    app.route("/api/datasets", dashboard);
     app.get("/health", (c) => c.json({ ok: true }));
 
     const staticDir = process.env["STATIC_DIR"];

@@ -39,3 +39,41 @@ The browser test uses the built Astro site, the real backend and SMTP through Ma
 - `tests/e2e/`: critical browser journeys; prefer roles and labels, or Carbon host selectors when necessary for shadow DOM.
 
 CI runs unit tests, API integration tests, both builds and the Chromium scenario on pull requests and pushes to main/staging. On failure it uploads the Playwright report, screenshots and traces. To inspect a local report, run `npx playwright show-report`.
+
+## Imported metrics dashboard
+
+`frontend/tests/dashboard.test.ts` runs the dashboard controller in Happy DOM,
+covering selection changes, aborts and out-of-order responses, errors/retry,
+empty datasets, single readings, actual timestamp spacing and keyboard chart
+inspection. It runs with `npm test` and does not require a build or services.
+`backend/tests/integration/dashboard.test.ts` checks authentication, verification,
+licensing, owner isolation, literal host search, range selection and a real
+500,000-row PostgreSQL history. The large fixture is removed with its test account.
+
+Dashboard URLs accept `?dataset=<id>`. Authenticated, verified, licensed owners
+can read `/api/datasets/:id/hosts?q=<literal-substring>` (at most 100 matches;
+`hasMore` asks the UI to refine the search) and
+`/api/datasets/:id/metrics?host=<hostname>&range=all|1h|24h|7d|30d`.
+Ranges are inclusive and end at that host's last imported timestamp, not the
+current clock. Responses are private and not cached. Charts return at most 600
+original readings sampled uniformly by row, retaining both endpoints. The API
+reports the total and sampling mode; the UI warns that sampling can omit peaks.
+KPIs use the exact final reading; the expandable table contains the same points
+as the charts. Times are displayed in UTC and values to at most three decimals.
+
+For manual verification with the built app and a disposable licensed account:
+
+1. Use `sc instructions browser`, then `sc browser open <app-url>/datasets`.
+2. Import `samples/servers-30d.csv` using `sc browser upload`; open the resulting
+   dataset's dashboard link.
+3. Check `db-01`'s final values: CPU 20.3%, RAM 46.4%, disk 42.5%, incoming
+   8.92 Mbps and outgoing 3.6 Mbps, at `2026-09-30T23:45:00Z`.
+4. Switch to `web-01` and the last 24 hours. Expect 97 readings (both boundaries
+   included), CPU 28.1%, RAM 53.2%, disk 70.9%, incoming 15.85 Mbps and outgoing
+   6.75 Mbps. Compare plotted table values with the CSV.
+5. Import a second, single-reading CSV and switch datasets. Verify a visible
+   point, exact timestamp, and the single-reading explanation.
+6. Capture the metrics and charts with `sc browser screenshot --out <path>`.
+
+Browser control uses documented `sc browser` commands. The existing Playwright
+suite remains available for CI; manual `sc` verification does not run that suite.

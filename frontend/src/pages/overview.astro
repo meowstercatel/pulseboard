@@ -1,80 +1,10 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
-import UsageChart from "../components/UsageChart.astro";
-
-// Placeholder data until the backend exposes a stats endpoint.
-const server = {
-    hostname: "web-01",
-    ip: "10.0.0.12",
-    os: "Ubuntu 24.04.1 LTS",
-    kernel: "6.8.0-45-generic",
-    uptime: "23d 4h 17m",
-    online: true,
-};
-
-const cpu = { usage: 42, cores: 8, model: "AMD EPYC 7763", temp: 58 };
-const memory = { used: 11.4, total: 16 };
-const swap = { used: 0.3, total: 2 };
-const load = [1.82, 1.64, 1.41];
-
-const cpuHistory = [
-    31, 35, 28, 40, 44, 39, 52, 61, 58, 47, 43, 38, 41, 49, 55, 50, 46, 42, 37,
-    40, 45, 48, 44, 42,
-];
-const memHistory = [
-    64, 65, 65, 66, 68, 67, 69, 71, 72, 70, 70, 69, 70, 71, 72, 73, 72, 71, 71,
-    70, 71, 72, 71, 71,
-];
-
-const disks = [
-    { mount: "/", device: "/dev/nvme0n1p2", fs: "ext4", used: 38.2, total: 98 },
-    {
-        mount: "/var",
-        device: "/dev/nvme0n1p3",
-        fs: "ext4",
-        used: 171.5,
-        total: 196,
-    },
-    {
-        mount: "/boot",
-        device: "/dev/nvme0n1p1",
-        fs: "vfat",
-        used: 0.12,
-        total: 0.5,
-    },
-];
-
-const network = {
-    iface: "eth0",
-    rx: "12.4 MB/s",
-    tx: "3.1 MB/s",
-    rxTotal: "1.82 TB",
-    txTotal: "412 GB",
-};
-
-const processes = [
-    { pid: 1423, user: "postgres", name: "postgres", cpu: 18.2, mem: 12.4 },
-    { pid: 2210, user: "www-data", name: "node", cpu: 9.7, mem: 6.1 },
-    { pid: 987, user: "root", name: "nginx", cpu: 3.4, mem: 0.8 },
-    { pid: 3311, user: "redis", name: "redis-server", cpu: 2.1, mem: 2.3 },
-    { pid: 1, user: "root", name: "systemd", cpu: 0.3, mem: 0.1 },
-    { pid: 655, user: "root", name: "sshd", cpu: 0.1, mem: 0.1 },
-];
-
-const services = [
-    { name: "nginx.service", active: true },
-    { name: "postgresql.service", active: true },
-    { name: "redis-server.service", active: true },
-    { name: "app-worker.service", active: false },
-];
-
-const percent = (used: number, total: number) =>
-    Math.round((used / total) * 100);
-const status = (p: number) => (p >= 90 ? "error" : "active");
+import { metricFields } from "../lib/dashboard";
 ---
 
-<HtmlTemplate>
+<HtmlTemplate title="Overview · PulseBoard">
     <main>
         <cds-header aria-label="PulseBoard">
             <cds-header-name href="/overview">PulseBoard</cds-header-name>
@@ -84,9 +14,6 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                 </cds-header-nav-item>
                 <cds-header-nav-item href="/datasets">
                     Datasets
-                </cds-header-nav-item>
-                <cds-header-nav-item href="javascript:void 0">
-                    Alerts
                 </cds-header-nav-item>
                 <cds-header-menu menu-label="Account" trigger-content="Account">
                     <cds-header-menu-item href="/settings">
@@ -101,271 +28,377 @@ const status = (p: number) => (p >= 90 ? "error" : "active");
                 </cds-header-menu>
             </cds-header-nav>
         </cds-header>
-
-        <div class="cds-ce-demo-devenv--container">
-            <section class="content">
-                <div class="page-header">
-                    <div>
-                        <h1>
-                            {server.hostname}
-                            <cds-tag
-                                type={server.online ? "green" : "red"}
-                                size="md"
-                            >
-                                {server.online ? "Online" : "Offline"}
-                            </cds-tag>
-                        </h1>
-                        <p class="meta">
-                            {server.ip} · {server.os} · kernel {server.kernel} ·
-                            up {server.uptime}
-                        </p>
-                    </div>
+        <section class="content">
+            <div class="page-header">
+                <div>
+                    <h1>Overview</h1>
                     <p class="meta">
-                        Last updated: <span id="last-updated">just now</span>
+                        Explore imported server metrics. All times are UTC.
                     </p>
                 </div>
-
-                <div class="grid kpis">
-                    <cds-tile>
-                        <p class="label">CPU</p>
-                        <p class="value">
-                            {cpu.usage}
-                            <span class="unit">%</span>
-                        </p>
-                        <cds-progress-bar
-                            label="CPU usage"
-                            hide-label=""
-                            value={cpu.usage}
-                            status={status(cpu.usage)}
-                        ></cds-progress-bar>
-                        <p class="meta">
-                            {cpu.cores} cores · {cpu.model} · {cpu.temp}°C
-                        </p>
-                    </cds-tile>
-                    <cds-tile>
-                        <p class="label">Memory</p>
-                        <p class="value">
-                            {percent(memory.used, memory.total)}
-                            <span class="unit">%</span>
-                        </p>
-                        <cds-progress-bar
-                            label="Memory usage"
-                            hide-label=""
-                            value={percent(memory.used, memory.total)}
-                            status={status(percent(memory.used, memory.total))}
-                        ></cds-progress-bar>
-                        <p class="meta">
-                            {memory.used} / {memory.total} GiB · swap{" "}
-                            {swap.used} / {swap.total} GiB
-                        </p>
-                    </cds-tile>
-                    <cds-tile>
-                        <p class="label">Load average</p>
-                        <p class="value">{load[0].toFixed(2)}</p>
-                        <p class="meta">
-                            1m {load[0].toFixed(2)} · 5m {load[1].toFixed(2)} ·
-                            15m {load[2].toFixed(2)}
-                        </p>
-                    </cds-tile>
-                    <cds-tile>
-                        <p class="label">Network ({network.iface})</p>
-                        <p class="value net">
-                            <span>↓ {network.rx}</span>
-                            <span>↑ {network.tx}</span>
-                        </p>
-                        <p class="meta">
-                            Total received {network.rxTotal} · sent{" "}
-                            {network.txTotal}
-                        </p>
-                    </cds-tile>
-                </div>
-
-                <div class="grid charts">
-                    <cds-tile>
-                        <UsageChart
-                            title="CPU usage · last 2 hours"
-                            series={cpuHistory}
-                        />
-                    </cds-tile>
-                    <cds-tile>
-                        <UsageChart
-                            title="Memory usage · last 2 hours"
-                            series={memHistory}
-                        />
-                    </cds-tile>
-                </div>
-
-                <div class="grid split">
-                    <cds-tile>
-                        <p class="label">Storage</p>
-                        <div class="disks">
-                            {disks.map((d) => (
-                                <div class="disk">
-                                    <cds-progress-bar
-                                        label={`${d.mount}  (${d.device}, ${d.fs})`}
-                                        helper-text={`${d.used} / ${d.total} GiB · ${percent(d.used, d.total)}%`}
-                                        value={percent(d.used, d.total)}
-                                        status={status(
-                                            percent(d.used, d.total),
-                                        )}
-                                    />
-                                </div>
-                            ))}
+                <cds-link href="/datasets">
+                    Manage datasets / import CSV
+                </cds-link>
+            </div>
+            <noscript>Enable JavaScript to view imported metrics.</noscript>
+            <cds-tile>
+                <div class="controls">
+                    <div class="field">
+                        <label for="dataset">Dataset</label>
+                        <select id="dataset" disabled></select>
+                    </div>
+                    <div class="field host-field">
+                        <label for="host">Host</label>
+                        <select
+                            id="host"
+                            aria-describedby="host-hint"
+                            disabled
+                        ></select>
+                        <div id="host-filter" class="field" hidden>
+                            <label for="host-search">Filter hosts</label>
+                            <input
+                                id="host-search"
+                                type="search"
+                                maxlength="255"
+                                placeholder="Type a hostname"
+                            />
                         </div>
-                    </cds-tile>
-                    <cds-tile>
-                        <p class="label">Services</p>
-                        <ul class="services">
-                            {services.map((s) => (
-                                <li>
-                                    <span>{s.name}</span>
-                                    <cds-tag
-                                        type={s.active ? "green" : "red"}
-                                        size="sm"
-                                    >
-                                        {s.active ? "active" : "failed"}
-                                    </cds-tag>
-                                </li>
-                            ))}
-                        </ul>
-                    </cds-tile>
+                        <p id="host-hint" class="meta" role="status"></p>
+                    </div>
+                    <div class="field">
+                        <label for="range">Time range</label>
+                        <select id="range" disabled>
+                            <option value="all">All imported readings</option>
+                            <option value="1h">Last hour of data</option>
+                            <option value="24h">Last 24 hours of data</option>
+                            <option value="7d">Last 7 days of data</option>
+                            <option value="30d">Last 30 days of data</option>
+                        </select>
+                    </div>
                 </div>
-
-                <cds-table>
-                    <cds-table-header-title slot="title">
-                        Top processes
-                    </cds-table-header-title>
-                    <cds-table-header-description slot="description">
-                        Sorted by CPU usage
-                    </cds-table-header-description>
-                    <cds-table-head>
-                        <cds-table-header-row>
-                            <cds-table-header-cell>PID</cds-table-header-cell>
-                            <cds-table-header-cell>User</cds-table-header-cell>
-                            <cds-table-header-cell>
-                                Command
-                            </cds-table-header-cell>
-                            <cds-table-header-cell>CPU %</cds-table-header-cell>
-                            <cds-table-header-cell>MEM %</cds-table-header-cell>
-                        </cds-table-header-row>
-                    </cds-table-head>
-                    <cds-table-body>
-                        {processes.map((p) => (
-                            <cds-table-row>
-                                <cds-table-cell>{p.pid}</cds-table-cell>
-                                <cds-table-cell>{p.user}</cds-table-cell>
-                                <cds-table-cell>{p.name}</cds-table-cell>
-                                <cds-table-cell>
-                                    {p.cpu.toFixed(1)}
-                                </cds-table-cell>
-                                <cds-table-cell>
-                                    {p.mem.toFixed(1)}
-                                </cds-table-cell>
-                            </cds-table-row>
-                        ))}
-                    </cds-table-body>
-                </cds-table>
-            </section>
-        </div>
+                <p class="meta">
+                    Ranges end at the selected host’s latest imported reading.
+                </p>
+            </cds-tile>
+            <p id="status" role="status" aria-live="polite">
+                Loading datasets…
+            </p>
+            <p id="dashboard-error" role="alert" hidden></p>
+            <cds-button id="retry" kind="secondary" size="sm" hidden>
+                Retry
+            </cds-button>
+            <div id="results" hidden>
+                <div class="page-header">
+                    <h2 id="selection-title"></h2>
+                    <p class="meta" id="reading-time"></p>
+                </div>
+                <div class="grid kpis">
+                    {metricFields.map(([field, label]) => (
+                        <cds-tile>
+                            <p class="label">{label}</p>
+                            <p class="value" id={`value-${field}`}></p>
+                            <p class="meta">Latest imported value</p>
+                        </cds-tile>
+                    ))}
+                </div>
+                <p id="sampling" class="meta"></p>
+                <div class="grid charts">
+                    {metricFields.map(([field, label]) => (
+                        <cds-tile>
+                            <div class="chart" id={`chart-${field}`}>
+                                <div class="page-header">
+                                    <h3>{label}</h3>
+                                    <span class="scale meta"></span>
+                                </div>
+                                <div class="plot" tabindex="0" role="img">
+                                    <svg
+                                        viewBox="0 0 600 160"
+                                        preserveAspectRatio="none"
+                                        aria-hidden="true"
+                                    ></svg>
+                                    <span
+                                        class="hover-line"
+                                        hidden
+                                        aria-hidden="true"
+                                    ></span>
+                                    <span
+                                        class="hover-dot"
+                                        hidden
+                                        aria-hidden="true"
+                                    ></span>
+                                    <div class="chart-tooltip" hidden>
+                                        <p
+                                            class="inspection"
+                                            role="status"
+                                            aria-live="polite"
+                                        ></p>
+                                    </div>
+                                </div>
+                                <div class="axis meta">
+                                    <span class="axis-start"></span>
+                                    <span class="axis-end"></span>
+                                </div>
+                            </div>
+                        </cds-tile>
+                    ))}
+                </div>
+                <details>
+                    <summary>View plotted readings as a table</summary>
+                    <div class="table-wrap">
+                        <table>
+                            <caption>
+                                Plotted readings (same sampling as charts)
+                            </caption>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp (UTC)</th>
+                                    {metricFields.map(([, label, unit]) => (
+                                        <th>
+                                            {label} ({unit})
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody id="reading-rows"></tbody>
+                        </table>
+                    </div>
+                </details>
+            </div>
+        </section>
     </main>
 </HtmlTemplate>
-
 <style>
     main {
         width: 100%;
-        height: 100%;
     }
     .content {
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        padding: 4rem 2rem 2rem;
-        box-sizing: border-box;
+        padding: 5rem 2rem 2rem;
     }
     .page-header {
         display: flex;
         justify-content: space-between;
-        align-items: flex-end;
+        align-items: baseline;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: 0.75rem;
     }
     h1 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
         margin: 0;
     }
+    h2 {
+        font-size: 1.5rem;
+        overflow-wrap: anywhere;
+    }
+    h3 {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .meta {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    .controls,
     .grid {
         display: grid;
         gap: 1rem;
     }
-    .kpis {
-        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    .controls {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
     }
-    .charts,
-    .split {
-        grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 0;
+    }
+    label {
+        font-size: 0.75rem;
+        color: var(--cds-text-secondary, #525252);
+    }
+    select,
+    input {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        height: 2.5rem;
+        padding: 0 0.75rem;
+        border: 0;
+        border-bottom: 1px solid var(--cds-border-strong, #8d8d8d);
+        background: var(--cds-field-01, #f4f4f4);
+        color: var(--cds-text-primary, #161616);
+        font: inherit;
+        font-size: 0.875rem;
+    }
+    select:focus,
+    input:focus {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: -2px;
+    }
+    #host-hint:empty {
+        display: none;
+    }
+    #host-hint {
+        font-size: 0.75rem;
+    }
+    select,
+    input {
+        border-radius: 0;
+    }
+    #results {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .kpis {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    }
+    .charts {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
     }
     cds-tile {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.75rem;
+        min-width: 0;
     }
     .label {
         font-weight: 600;
     }
     .value {
-        font-size: 2.25rem;
-        line-height: 1.2;
+        font-size: 1.75rem;
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
     }
-    .value.net {
+    .chart {
         display: flex;
         flex-direction: column;
-        font-size: 1.25rem;
+        gap: 0.75rem;
     }
-    .unit {
-        font-size: 1rem;
-        margin-inline-start: 0.125rem;
+    .plot {
+        position: relative;
+        height: 10rem;
+        cursor: crosshair;
+        outline-offset: 4px;
     }
-    .meta {
-        color: var(--cds-text-secondary, #525252);
-        font-size: 0.875rem;
+    svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
     }
-    .disks {
-        display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
+    svg :global(.chart-grid) {
+        stroke: var(--cds-border-subtle, #e0e0e0);
+        stroke-width: 1;
+        vector-effect: non-scaling-stroke;
     }
-    .services {
-        list-style: none;
-        margin: 0;
-        padding: 0;
+    svg :global(.chart-line) {
+        fill: none;
+        stroke: var(--cds-link-primary, #0f62fe);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
     }
-    .services li {
+    svg :global(.chart-point) {
+        fill: var(--cds-link-primary, #0f62fe);
+    }
+    .axis {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-block-end: 1px solid var(--cds-border-subtle, #e0e0e0);
+        gap: 1rem;
+        font-size: 0.75rem;
+    }
+    .axis-end {
+        text-align: right;
+    }
+    .hover-dot {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--cds-link-primary, #0f62fe);
+        border: 2px solid var(--cds-layer-01, #f4f4f4);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+    .hover-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-left: 1px dashed var(--cds-text-secondary, #525252);
+        pointer-events: none;
+    }
+    .chart-tooltip {
+        position: absolute;
+        z-index: 2;
+        pointer-events: none;
+        width: max-content;
+        max-width: min(17rem, 100%);
+        box-sizing: border-box;
+        padding: 0.5rem 0.75rem;
+        color: var(--cds-text-inverse, #fff);
+        background: var(--cds-background-inverse, #393939);
+        box-shadow: 0 2px 6px #0003;
+    }
+    .inspection {
+        margin: 0;
+        font-size: 0.75rem;
+        line-height: 1.5;
+        font-variant-numeric: tabular-nums;
+    }
+    #dashboard-error {
+        border-left: 3px solid var(--cds-support-error, #da1e28);
+        padding: 1rem;
+    }
+    [hidden] {
+        display: none !important;
+    }
+    #status:empty {
+        display: none;
+    }
+    summary {
+        cursor: pointer;
+        padding: 0.75rem 0;
+    }
+    .table-wrap {
+        overflow: auto;
+        max-height: 24rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+    th,
+    table :global(td) {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+        white-space: nowrap;
+    }
+    th {
+        font-weight: 600;
+    }
+    caption {
+        text-align: left;
+        padding: 0.75rem;
+    }
+    @media (max-width: 600px) {
+        .content {
+            padding: 4.5rem 1rem 2rem;
+        }
     }
 </style>
-
 <script>
     import "@carbon/web-components/es/components/ui-shell/index.js";
     import "@carbon/web-components/es/components/tile/index.js";
-    import "@carbon/web-components/es/components/tag/index.js";
-    import "@carbon/web-components/es/components/progress-bar/index.js";
-    import "@carbon/web-components/es/components/data-table/index.js";
+    import "@carbon/web-components/es/components/link/index.js";
+    import "@carbon/web-components/es/components/button/index.js";
     import { logout, requireLicense } from "../lib/auth";
-
-    requireLicense();
+    import { initDashboard } from "../lib/dashboard";
     document.getElementById("logout")?.addEventListener("click", logout);
-
-    const lastUpdated = document.getElementById("last-updated");
-    const loadedAt = Date.now();
-    setInterval(() => {
-        if (lastUpdated) {
-            lastUpdated.textContent = `${Math.round((Date.now() - loadedAt) / 1000)}s ago`;
-        }
-    }, 1000);
+    requireLicense().then((user) => {
+        if (user) void initDashboard();
+    });
 </script>
