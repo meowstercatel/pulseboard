@@ -31,3 +31,20 @@ const { title = "PulseBoard", description } = Astro.props;
         <BuildBadge />
     </body>
 </html>
+
+<script>
+    // Carbon's text input does not expose a CSS part yet. Expose just its
+    // native input so our shared radius can be styled without clipping the
+    // label, helper text, password toggle tooltip, or focus outline.
+    const fields = document.querySelectorAll("cds-text-input");
+    if (fields.length) {
+        customElements.whenDefined("cds-text-input").then(async () => {
+            for (const field of fields) {
+                await (
+                    field as HTMLElement & { updateComplete: Promise<boolean> }
+                ).updateComplete;
+                field.shadowRoot?.querySelector("input")?.part.add("input");
+            }
+        });
+    }
+</script>

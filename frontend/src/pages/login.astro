@@ -15,6 +15,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             label="Password"
             name="password"
             type="password"
+            show-password-visibility-toggle
             autocomplete="current-password"
         ></cds-text-input>
         <p class="forgot">
@@ -26,7 +27,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             hide-close-button
             hidden
         ></cds-inline-notification>
-        <cds-button>login</cds-button>
+        <cds-button>Log in</cds-button>
     </form>
     <OAuthButtons />
     <p>
@@ -41,11 +42,11 @@ import OAuthButtons from "../components/OAuthButtons.astro";
 </style>
 
 <script>
-    import { currentUser, login } from "../lib/auth";
+    import { accountDestination, currentUser, login } from "../lib/auth";
     import { bindForm } from "../lib/form";
 
     currentUser().then((user) => {
-        if (user) location.replace("/overview");
+        if (user) location.replace(accountDestination(user));
     });
 
     // set by the server when a Google/Facebook sign-in fails
@@ -64,7 +65,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         async (field) => {
             const result = await login(field("email"), field("password"));
             if ("error" in result) return result.error;
-            location.href = "/overview";
+            location.href = accountDestination(result.user);
             return null;
         },
     );

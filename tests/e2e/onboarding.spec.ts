@@ -23,7 +23,7 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
             .locator('cds-text-input[name="confirm"] input')
             .fill(password);
         await page
-            .getByRole("button", { name: "register", exact: true })
+            .getByRole("button", { name: "Register", exact: true })
             .click();
         await expect(page).toHaveURL("/verify-email");
         await expect(page.locator("#pending")).toContainText(email);
@@ -49,7 +49,7 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
         expect(message.ok()).toBe(true);
         const body = await message.json();
         const link = body.Text.match(
-            /http:\/\/127\.0\.0\.1:4300\/verify-email\?token=[A-Za-z0-9_-]+/,
+            /http:\/\/127\.0\.0\.1:\d+\/verify-email\?token=[A-Za-z0-9_-]+/,
         )?.[0];
         expect(link).toBeTruthy();
         await page.goto(link!);
