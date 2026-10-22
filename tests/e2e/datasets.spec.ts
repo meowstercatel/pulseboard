@@ -43,7 +43,7 @@ test("import CSV files, see the error report and delete a dataset", async ({
             {
                 name: "session",
                 value: account.token,
-                url: "http://127.0.0.1:4300",
+                url: testEnvironment().PUBLIC_URL,
             },
         ]);
         await page.goto("/datasets");

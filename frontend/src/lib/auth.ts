@@ -6,6 +6,11 @@ export type User = {
     emailVerified: boolean;
 };
 
+export function accountDestination(user: User): string {
+    if (!user.emailVerified) return "/verify-email";
+    return user.licensePlan ? "/overview" : "/buy";
+}
+
 type AuthResult = { user: User } | { error: string; status?: number };
 
 async function post(path: string, body: unknown): Promise<AuthResult> {

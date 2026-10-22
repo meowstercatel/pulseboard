@@ -15,7 +15,7 @@ export function testEnvironment() {
         NODE_ENV: "test",
         DATABASE_URL: databaseUrl,
         TRUST_PROXY: "true",
-        PUBLIC_URL: "http://127.0.0.1:4300",
+        PUBLIC_URL: `http://127.0.0.1:${process.env.TEST_PORT || "4300"}`,
         STATIC_DIR: "",
         SMTP_URL: "",
         GOOGLE_CLIENT_ID: "",

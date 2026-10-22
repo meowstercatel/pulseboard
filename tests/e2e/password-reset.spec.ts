@@ -22,7 +22,7 @@ test("reset a forgotten password from the emailed link", async ({
         await expect(page).toHaveURL("/forgot-password");
         await page.locator('cds-text-input[name="email"] input').fill(email);
         await page
-            .getByRole("button", { name: "send reset link", exact: true })
+            .getByRole("button", { name: "Send reset link", exact: true })
             .click();
         await expect(page.locator("#sent")).toContainText(email);
 
@@ -50,7 +50,7 @@ test("reset a forgotten password from the emailed link", async ({
         ).json();
         expect(message.HTML).toContain(">reset password</a>");
         const link = message.Text.match(
-            /http:\/\/127\.0\.0\.1:4300\/reset-password\?token=[A-Za-z0-9_-]+/,
+            /http:\/\/127\.0\.0\.1:\d+\/reset-password\?token=[A-Za-z0-9_-]+/,
         )?.[0];
         expect(link).toBeTruthy();
 
@@ -63,7 +63,7 @@ test("reset a forgotten password from the emailed link", async ({
             .locator('cds-text-input[name="confirm"] input')
             .fill(newPassword);
         await page
-            .getByRole("button", { name: "reset password", exact: true })
+            .getByRole("button", { name: "Reset password", exact: true })
             .click();
         await expect(page).toHaveURL("/buy");
         const me = await page.request.get("/api/auth/me");

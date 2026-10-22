@@ -19,12 +19,12 @@ import AuthLayout from "../layouts/AuthLayout.astro";
                 hide-close-button
                 hidden
             ></cds-inline-notification>
-            <cds-button kind="secondary">resend email</cds-button>
+            <cds-button kind="secondary">Resend email</cds-button>
         </form>
         <p>
             Wrong address? <cds-link href="/settings">Change it</cds-link> or
             <cds-link id="logout" href="/">
-                log out
+                Log out
             </cds-link>
         </p>
     </div>
@@ -37,32 +37,64 @@ import AuthLayout from "../layouts/AuthLayout.astro";
             open
         ></cds-inline-notification>
         <p>
-            <cds-link href="/verify-email">Request a new link</cds-link>
+            <cds-link id="request-link" href="/verify-email">
+                Request a new link
+            </cds-link>
         </p>
     </div>
 
     <div id="done" hidden>
-        <p>Your email address is verified.</p>
+        <p id="verified-message">Your email address is verified.</p>
         <cds-button id="continue" href="/buy">
-            continue
+            Continue
         </cds-button>
     </div>
 </AuthLayout>
 
+<style>
+    #pending,
+    #failed,
+    #done {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    #pending[hidden],
+    #failed[hidden],
+    #done[hidden] {
+        display: none;
+    }
+    #failed {
+        padding-block: 0.5rem;
+    }
+</style>
+
 <script>
     import {
+        accountDestination,
         currentUser,
         logout,
         resendVerificationEmail,
         verifyEmail,
+        type User,
     } from "../lib/auth";
     import { bindForm } from "../lib/form";
 
     const status = document.getElementById("status")!;
     const show = (id: "pending" | "failed" | "done") => {
         status.hidden = true;
-        document.getElementById(id)!.hidden = false;
+        for (const state of ["pending", "failed", "done"]) {
+            document.getElementById(state)!.hidden = state !== id;
+        }
     };
+
+    function done(user: User | null, message: string) {
+        document.getElementById("verified-message")!.textContent = message;
+        document
+            .getElementById("continue")!
+            .setAttribute("href", user ? accountDestination(user) : "/login");
+        show("done");
+    }
 
     async function fromLink(token: string) {
         // keep the token out of the history and the Referer header
@@ -70,6 +102,19 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         status.textContent = "Verifying your email address…";
         const result = await verifyEmail(token);
         if ("error" in result) {
+            const user = await currentUser();
+            if (result.status === 400 && user?.emailVerified) {
+                done(
+                    user,
+                    "The account you’re signed in to already has a verified email address. You can continue without using this link.",
+                );
+                return;
+            }
+            const request = document.getElementById("request-link")!;
+            request.setAttribute("href", user ? "/verify-email" : "/login");
+            request.textContent = user
+                ? "Request a new link"
+                : "Log in to request a new link";
             const error = document.querySelector(
                 "#failed cds-inline-notification",
             ) as HTMLElement & { subtitle: string };
@@ -79,16 +124,18 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         }
         // the link may have been opened in a browser that isn't logged in
         const user = await currentUser();
-        const next = !user ? "/login" : user.licensePlan ? "/overview" : "/buy";
-        document.getElementById("continue")!.setAttribute("href", next);
-        show("done");
+        done(user, "Your email address is verified.");
     }
 
     async function waiting() {
         const user = await currentUser();
         if (!user) return location.replace("/login");
         if (user.emailVerified) {
-            return location.replace(user.licensePlan ? "/overview" : "/buy");
+            done(
+                user,
+                "Your email address is already verified. You can continue.",
+            );
+            return;
         }
         document.getElementById("email")!.textContent = user.email;
         show("pending");
@@ -106,6 +153,14 @@ import AuthLayout from "../layouts/AuthLayout.astro";
     bindForm(
         document.getElementById("resend-form") as HTMLFormElement,
         async () => {
+            const user = await currentUser();
+            if (user?.emailVerified) {
+                done(
+                    user,
+                    "Your email address is already verified. You can continue.",
+                );
+                return null;
+            }
             const error = await resendVerificationEmail();
             if (error) return error;
             status.textContent = "Sent! Check your inbox.";
