@@ -30,6 +30,7 @@ jobs:
           STRIPE_PRICE_LIFETIME: ${{ vars.STRIPE_PRICE_LIFETIME }}
           PGWEB_AUTH_USER: ${{ secrets.PGWEB_AUTH_USER }}
           PGWEB_AUTH_PASS: ${{ secrets.PGWEB_AUTH_PASS }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           export GIT_BRANCH="$GITHUB_REF_NAME" GIT_COMMIT="${GITHUB_SHA::7}"
           docker compose up -d --build --remove-orphans
