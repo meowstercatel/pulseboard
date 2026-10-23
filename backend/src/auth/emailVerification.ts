@@ -59,6 +59,32 @@ export async function trySendVerificationEmail(c: Context, userId: number) {
     }
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Verifies an account whose address a provider just proved. Anything set up
+// before that may be an attacker's, so the password, sessions and links made
+// with another address go. Returns null if it was verified meanwhile.
+export async function claimUnverifiedUser(
+    tx: Tx,
+    { id, email }: { id: number; email: string },
+) {
+    const user = await tx.orm.public.User.where({ id, email })
+        .where((u) => u.emailVerifiedAt.isNull())
+        .update({
+            emailVerifiedAt: new Date().toISOString(),
+            passwordHash: null,
+        });
+    if (!user) return null;
+    await tx.orm.public.Session.where({ userId: id }).deleteAll();
+    await tx.orm.public.OAuthAccount.where({ userId: id })
+        .where((a) => a.email.neq(email))
+        .deleteAll();
+    await tx.orm.public.OAuthAccount.where({ userId: id })
+        .where((a) => a.email.isNull())
+        .deleteAll();
+    return user;
+}
+
 // Accounts linked to Google/Facebook before verification existed: the
 // provider already verified the address the link was made with, so if the
 // account still uses that address it counts as verified.
@@ -70,12 +96,9 @@ export async function verifyOAuthLinkedUsers() {
     let count = 0;
     for await (const user of users) {
         if (!user.oauthAccounts.some((a) => a.email === user.email)) continue;
-        const updated = await db.orm.public.User.where({
-            id: user.id,
-            email: user.email,
-        })
-            .where((u) => u.emailVerifiedAt.isNull())
-            .update({ emailVerifiedAt: new Date().toISOString() });
+        const updated = await db.transaction((tx) =>
+            claimUnverifiedUser(tx, user),
+        );
         if (updated) count++;
     }
     if (count)

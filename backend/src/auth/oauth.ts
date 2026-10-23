@@ -10,6 +10,8 @@ export type OAuthProfile = {
 
 export type OAuthProvider = {
     clientId: string;
+    // whether a verified email may sign in to an existing account with it
+    linksByEmail: boolean;
     // the URL to send the browser to; `verifier` is the PKCE code verifier
     authorizeUrl(redirectUri: string, state: string, verifier: string): string;
     // trades the callback `code` for the user's profile
@@ -35,6 +37,7 @@ async function getJson(res: Response, what: string): Promise<any> {
 function google(clientId: string, clientSecret: string): OAuthProvider {
     return {
         clientId,
+        linksByEmail: true,
         authorizeUrl(redirectUri, state, verifier) {
             const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
             url.search = new URLSearchParams({
@@ -92,6 +95,7 @@ const FACEBOOK_API = "v23.0";
 function facebook(appId: string, appSecret: string): OAuthProvider {
     return {
         clientId: appId,
+        linksByEmail: false,
         authorizeUrl(redirectUri, state) {
             const url = new URL(
                 `https://www.facebook.com/${FACEBOOK_API}/dialog/oauth`,
@@ -137,8 +141,8 @@ function facebook(appId: string, appSecret: string): OAuthProvider {
             return {
                 id: String(me.id),
                 email: typeof me.email === "string" ? me.email : null,
-                // Facebook has no verified flag and only returns an email it
-                // considers valid, so we trust it like Google's verified ones
+                // Facebook has no verified flag, so its email is only trusted
+                // for new accounts, never to link an existing one
                 emailVerified: typeof me.email === "string",
                 name: typeof me.name === "string" ? me.name : null,
             };

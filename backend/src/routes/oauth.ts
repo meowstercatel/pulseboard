@@ -6,7 +6,9 @@ import {
     PROVIDER_NAMES,
     providers,
     type OAuthProfile,
+    type OAuthProvider,
 } from "../auth/oauth.js";
+import { claimUnverifiedUser } from "../auth/emailVerification.js";
 import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
 import { publicUrl } from "../auth/publicUrl.js";
 import { createSession, type AuthEnv } from "../auth/session.js";
@@ -30,7 +32,11 @@ function fail(c: Context, message: string) {
 
 // Finds the user this provider account belongs to. If it isn't linked yet, it
 // is linked to the user with the same (verified) email, or a new user is made.
-async function resolveUser(provider: string, profile: OAuthProfile) {
+async function resolveUser(
+    provider: string,
+    { linksByEmail }: OAuthProvider,
+    profile: OAuthProfile,
+) {
     const linked = await db.orm.public.OAuthAccount.where({
         provider,
         providerUserId: profile.id,
@@ -41,12 +47,9 @@ async function resolveUser(provider: string, profile: OAuthProfile) {
         const { user } = linked;
         // Covers links made before email verification existed
         if (!user.emailVerifiedAt && linked.email === user.email) {
-            const updated = await db.orm.public.User.where({
-                id: user.id,
-                email: user.email,
-            })
-                .where((u) => u.emailVerifiedAt.isNull())
-                .update({ emailVerifiedAt: new Date().toISOString() });
+            const updated = await db.transaction((tx) =>
+                claimUnverifiedUser(tx, user),
+            );
             if (updated) return updated;
         }
         return user;
@@ -61,14 +64,17 @@ async function resolveUser(provider: string, profile: OAuthProfile) {
 
     return db.transaction(async (tx) => {
         let user = await tx.orm.public.User.where({ email }).first();
+        if (user && !linksByEmail) {
+            throw new OAuthError(
+                "An account with this email already exists. Log in with your password or Google.",
+            );
+        }
         if (user) {
             // The email owner just proved control of it, so sign out any
             // sessions that were opened before the link
             await tx.orm.public.Session.where({ userId: user.id }).deleteAll();
             if (!user.emailVerifiedAt) {
-                user = (await tx.orm.public.User.where({ id: user.id }).update({
-                    emailVerifiedAt: new Date().toISOString(),
-                }))!;
+                user = (await claimUnverifiedUser(tx, user)) ?? user;
             }
         } else {
             user = await tx.orm.public.User.create({
@@ -148,11 +154,11 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
             verifier,
         );
         try {
-            user = await resolveUser(name, profile);
+            user = await resolveUser(name, provider, profile);
         } catch (err) {
             // Lost a race with a parallel sign-in that created the same rows
             if (!isUniqueViolation(err)) throw err;
-            user = await resolveUser(name, profile);
+            user = await resolveUser(name, provider, profile);
         }
     } catch (err) {
         if (err instanceof OAuthError) return fail(c, err.message);
