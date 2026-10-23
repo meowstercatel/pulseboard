@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-pulseboard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulseboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-pulseboard}
     volumes:
       - db-data:/var/lib/postgresql/data
@@ -22,7 +22,7 @@ services:
       target: backend
     command: ["pnpm", "prisma", "db", "update", "--no-interactive"]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}
     depends_on:
       db:
         condition: service_healthy
@@ -38,7 +38,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}
       # set to "true" when the server sits behind a reverse proxy, see src/auth/rateLimit.ts
       TRUST_PROXY: ${TRUST_PROXY:-}
       # public origin, e.g. https://pulseboard.example.com; OAuth redirect URIs are built from it
@@ -82,7 +82,7 @@ services:
     ports:
       - "${PGWEB_PORT:-8081}:8081"
     environment:
-      PGWEB_DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard}@db:5432/${POSTGRES_DB:-pulseboard}?sslmode=disable
+      PGWEB_DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}?sslmode=disable
       PGWEB_AUTH_USER: ${PGWEB_AUTH_USER:-}
       PGWEB_AUTH_PASS: ${PGWEB_AUTH_PASS:-}
     depends_on:
