@@ -1,10 +1,23 @@
 import { expect, it, vi } from "vitest";
 import {
+    accountDestination,
+    type User,
     login,
     requireUser,
     requireVerifiedUser,
     requireLicense,
 } from "../src/lib/auth";
+
+it.each([
+    [false, null, "/verify-email"],
+    [false, "lifetime", "/verify-email"],
+    [true, null, "/buy"],
+    [true, "lifetime", "/overview"],
+])("chooses the next account step", (emailVerified, licensePlan, expected) => {
+    expect(accountDestination({ emailVerified, licensePlan } as User)).toBe(
+        expected,
+    );
+});
 
 it("turns a network failure into a form error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));

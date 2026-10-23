@@ -43,7 +43,8 @@ export function bindForm(
     form.addEventListener("keydown", (e) => {
         if (
             e.key === "Enter" &&
-            (e.target as Element).closest("cds-text-input")
+            (e.target as Element).closest("cds-text-input") &&
+            (e.composedPath()[0] as Element)?.tagName === "INPUT"
         ) {
             e.preventDefault();
             submit();

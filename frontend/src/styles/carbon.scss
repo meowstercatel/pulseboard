@@ -2,3 +2,24 @@
     $font-path: "@ibm/plex"
 );
 @use "@carbon/styles";
+
+:root {
+    --pulse-control-radius: 3px;
+}
+
+cds-button::part(button) {
+    justify-content: center;
+    text-align: center;
+    padding-inline: 1rem;
+    border-radius: var(--pulse-control-radius);
+}
+
+cds-button:has([slot="icon"])::part(button) {
+    padding-inline-end: 3rem;
+}
+
+cds-text-input::part(input) {
+    border-radius: var(--pulse-control-radius);
+    border-block-end: 0;
+    box-shadow: none;
+}

@@ -23,7 +23,7 @@ With services and Chromium installed, `npm run test:all` runs all three suites.
 
 ## Isolation
 
-`compose.test.yml` is independent of the application/deployment Compose file. PostgreSQL uses temporary storage and database `pulseboard_test` on port 55439. Mailpit exposes SMTP on 51025 and its UI/API on 58025. The browser test starts its own server on port 4300; it refuses to reuse another server.
+`compose.test.yml` is independent of the application/deployment Compose file. PostgreSQL uses temporary storage and database `pulseboard_test` on port 55439. Mailpit exposes SMTP on 51025 and its UI/API on 58025. The browser test starts its own server on port 4300; it refuses to reuse another server. If that port is occupied, use `TEST_PORT=4317 npm run test:e2e` to run on a separate port.
 
 Tests ignore the application's `DATABASE_URL`. Override the test database only with `TEST_DATABASE_URL`; the database name must end in `_test`. The Prisma contract is applied automatically before integration tests and before the E2E server starts, with generated files isolated in `.test-cache/` by `backend/prisma.test.config.ts`. Use a dedicated disposable database: tests create and remove their own accounts. E2E supports `TEST_SMTP_URL` and `TEST_MAILPIT_URL` for a dedicated alternative Mailpit instance.
 

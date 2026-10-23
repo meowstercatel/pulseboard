@@ -230,6 +230,23 @@ describe("registration and sessions", () => {
 });
 
 describe("email verification and licenses", () => {
+    it("keeps an unverified account restricted after password login", async () => {
+        const { email } = await register();
+        const response = await request("auth/login", { email, password });
+        expect(response.status).toBe(200);
+        expect((await response.json()).user.emailVerified).toBe(false);
+        const cookie = sessionCookie(response);
+        expect(
+            (await request("billing/checkout", { plan: "lifetime" }, cookie))
+                .status,
+        ).toBe(403);
+        expect(
+            (await request("datasets/1/hosts", undefined, cookie)).status,
+        ).toBe(403);
+        expect(
+            (await request("auth/verify-email/resend", {}, cookie)).status,
+        ).toBe(204);
+    });
     it("accepts a token only once and makes the account verified", async () => {
         const { cookie } = await register();
         const token = lastToken();

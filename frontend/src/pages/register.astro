@@ -20,6 +20,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             label="Password"
             name="password"
             type="password"
+            show-password-visibility-toggle
             autocomplete="new-password"
             helper-text="At least 8 characters"
         ></cds-text-input>
@@ -27,6 +28,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             label="Repeat password"
             name="confirm"
             type="password"
+            show-password-visibility-toggle
             autocomplete="new-password"
         ></cds-text-input>
         <cds-inline-notification
@@ -35,7 +37,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             hide-close-button
             hidden
         ></cds-inline-notification>
-        <cds-button>register</cds-button>
+        <cds-button>Register</cds-button>
     </form>
     <OAuthButtons />
     <p>
@@ -44,11 +46,11 @@ import OAuthButtons from "../components/OAuthButtons.astro";
 </AuthLayout>
 
 <script>
-    import { currentUser, register } from "../lib/auth";
+    import { accountDestination, currentUser, register } from "../lib/auth";
     import { bindForm } from "../lib/form";
 
     currentUser().then((user) => {
-        if (user) location.replace("/overview");
+        if (user) location.replace(accountDestination(user));
     });
 
     bindForm(
