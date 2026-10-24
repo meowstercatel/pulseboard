@@ -42,6 +42,7 @@ async function verificationLink(
 test("unverified login stays restricted; replaced and used links recover clearly", async ({
     page,
     request,
+    baseURL,
 }) => {
     const email = `e2e-verification-${randomUUID()}@example.com`;
     try {
@@ -53,7 +54,10 @@ test("unverified login stays restricted; replaced and used links recover clearly
             ).status(),
         ).toBe(201);
         const original = await verificationLink(request, email);
-        await page.request.post("/api/auth/logout");
+        await page.request.post("/api/auth/logout", {
+            // a browser sends this itself; the API client does not
+            headers: { origin: baseURL! },
+        });
         await page.goto("/login");
         await page.locator('cds-text-input[name="email"] input').fill(email);
         const field = page.locator('cds-text-input[name="password"]');
@@ -120,7 +124,9 @@ test("unverified login stays restricted; replaced and used links recover clearly
             .click();
         await expect(page).toHaveURL("/buy");
 
-        await page.request.post("/api/auth/logout");
+        await page.request.post("/api/auth/logout", {
+            headers: { origin: baseURL! },
+        });
         await page.goto(replacement);
         await expect(page.locator("#failed")).toBeVisible();
         await expect(

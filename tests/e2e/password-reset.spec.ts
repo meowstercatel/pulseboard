@@ -6,6 +6,7 @@ const mailpit = process.env.TEST_MAILPIT_URL || "http://127.0.0.1:58025";
 test("reset a forgotten password from the emailed link", async ({
     page,
     request,
+    baseURL,
 }) => {
     const email = `e2e-reset-${randomUUID()}@example.com`;
     const oldPassword = "The password I forgot!";
@@ -15,7 +16,10 @@ test("reset a forgotten password from the emailed link", async ({
             data: { email, password: oldPassword },
         });
         expect(registered.status()).toBe(201);
-        await page.request.post("/api/auth/logout");
+        await page.request.post("/api/auth/logout", {
+            // a browser sends this itself; the API client does not
+            headers: { origin: baseURL! },
+        });
 
         await page.goto("/login");
         await page.getByText("Forgot password?").click();
@@ -72,7 +76,9 @@ test("reset a forgotten password from the emailed link", async ({
             emailVerified: true,
         });
 
-        await page.request.post("/api/auth/logout");
+        await page.request.post("/api/auth/logout", {
+            headers: { origin: baseURL! },
+        });
         const login = await page.request.post("/api/auth/login", {
             data: { email, password: newPassword },
         });

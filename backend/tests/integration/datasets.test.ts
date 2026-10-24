@@ -7,6 +7,8 @@ import { MAX_DATASETS, MAX_FILE_BYTES } from "../../src/routes/datasets.js";
 
 const app = createApp();
 const userIds = new Set<number>();
+// what the browser sends with uploads and deletes, so CSRF checks pass
+const origin = process.env["PUBLIC_URL"]!;
 
 afterEach(async () => {
     for (const id of userIds) await db.orm.public.User.where({ id }).delete();
@@ -49,7 +51,7 @@ function upload(
     if (name !== undefined) form.set("name", name);
     return app.request("/api/datasets", {
         method: "POST",
-        headers: { cookie },
+        headers: { cookie, origin },
         body: form,
     });
 }
@@ -242,7 +244,7 @@ describe("import", () => {
         const { cookie } = await account();
         const response = await app.request("/api/datasets", {
             method: "POST",
-            headers: { cookie },
+            headers: { cookie, origin },
             body: new FormData(),
         });
         expect(response.status).toBe(400);
@@ -296,7 +298,7 @@ describe("delete", () => {
         ).json();
         const response = await app.request(`/api/datasets/${dataset.id}`, {
             method: "DELETE",
-            headers: { cookie },
+            headers: { cookie, origin },
         });
         expect(response.status).toBe(204);
         expect(await metricsOf(dataset.id)).toEqual([]);
@@ -314,7 +316,7 @@ describe("delete", () => {
         for (const path of [`${dataset.id}`, "999999999", "abc"]) {
             const response = await app.request(`/api/datasets/${path}`, {
                 method: "DELETE",
-                headers: { cookie: other.cookie },
+                headers: { cookie: other.cookie, origin },
             });
             expect(response.status).toBe(404);
         }
@@ -334,7 +336,7 @@ describe("delete", () => {
         ]) {
             const response = await app.request(`/api/datasets/${path}`, {
                 method: "DELETE",
-                headers: { cookie },
+                headers: { cookie, origin },
             });
             expect(response.status, path).toBe(404);
         }
