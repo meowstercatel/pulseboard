@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import DashboardControls from "../components/DashboardControls.astro";
 import { metricFields } from "../lib/dashboard";
 ---
 
@@ -9,8 +10,11 @@ import { metricFields } from "../lib/dashboard";
         <cds-header aria-label="PulseBoard">
             <cds-header-name href="/overview">PulseBoard</cds-header-name>
             <cds-header-nav menu-bar-label="PulseBoard">
-                <cds-header-nav-item href="/overview">
+                <cds-header-nav-item href="/overview" data-dataset-link>
                     Overview
+                </cds-header-nav-item>
+                <cds-header-nav-item href="/history" data-dataset-link>
+                    History
                 </cds-header-nav-item>
                 <cds-header-nav-item href="/datasets">
                     Datasets
@@ -41,45 +45,7 @@ import { metricFields } from "../lib/dashboard";
                 </cds-link>
             </div>
             <noscript>Enable JavaScript to view imported metrics.</noscript>
-            <cds-tile>
-                <div class="controls">
-                    <div class="field">
-                        <label for="dataset">Dataset</label>
-                        <select id="dataset" disabled></select>
-                    </div>
-                    <div class="field host-field">
-                        <label for="host">Host</label>
-                        <select
-                            id="host"
-                            aria-describedby="host-hint"
-                            disabled
-                        ></select>
-                        <div id="host-filter" class="field" hidden>
-                            <label for="host-search">Filter hosts</label>
-                            <input
-                                id="host-search"
-                                type="search"
-                                maxlength="255"
-                                placeholder="Type a hostname"
-                            />
-                        </div>
-                        <p id="host-hint" class="meta" role="status"></p>
-                    </div>
-                    <div class="field">
-                        <label for="range">Time range</label>
-                        <select id="range" disabled>
-                            <option value="all">All imported readings</option>
-                            <option value="1h">Last hour of data</option>
-                            <option value="24h">Last 24 hours of data</option>
-                            <option value="7d">Last 7 days of data</option>
-                            <option value="30d">Last 30 days of data</option>
-                        </select>
-                    </div>
-                </div>
-                <p class="meta">
-                    Ranges end at the selected host’s latest imported reading.
-                </p>
-            </cds-tile>
+            <DashboardControls />
             <p id="status" role="status" aria-live="polite">
                 Loading datasets…
             </p>
@@ -200,52 +166,9 @@ import { metricFields } from "../lib/dashboard";
         font-size: 0.875rem;
         line-height: 1.5;
     }
-    .controls,
     .grid {
         display: grid;
         gap: 1rem;
-    }
-    .controls {
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
-    }
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        min-width: 0;
-    }
-    label {
-        font-size: 0.75rem;
-        color: var(--cds-text-secondary, #525252);
-    }
-    select,
-    input {
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-        height: 2.5rem;
-        padding: 0 0.75rem;
-        border: 0;
-        border-bottom: 1px solid var(--cds-border-strong, #8d8d8d);
-        background: var(--cds-field-01, #f4f4f4);
-        color: var(--cds-text-primary, #161616);
-        font: inherit;
-        font-size: 0.875rem;
-    }
-    select:focus,
-    input:focus {
-        outline: 2px solid var(--cds-focus, #0f62fe);
-        outline-offset: -2px;
-    }
-    #host-hint:empty {
-        display: none;
-    }
-    #host-hint {
-        font-size: 0.75rem;
-    }
-    select,
-    input {
-        border-radius: 0;
     }
     #results {
         display: flex;
