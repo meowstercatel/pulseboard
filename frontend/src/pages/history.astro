@@ -1,0 +1,773 @@
+---
+import "../styles/carbon.scss";
+import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import DashboardControls from "../components/DashboardControls.astro";
+import { metricFields } from "../lib/dashboardControls";
+
+const steps = ["0–20", "20–40", "40–60", "60–80", "80–100"];
+---
+
+<HtmlTemplate title="History · PulseBoard">
+    <main>
+        <cds-header aria-label="PulseBoard">
+            <cds-header-name href="/overview">PulseBoard</cds-header-name>
+            <cds-header-nav menu-bar-label="PulseBoard">
+                <cds-header-nav-item href="/overview" data-dataset-link>
+                    Overview
+                </cds-header-nav-item>
+                <cds-header-nav-item href="/history" data-dataset-link>
+                    History
+                </cds-header-nav-item>
+                <cds-header-nav-item href="/datasets">
+                    Datasets
+                </cds-header-nav-item>
+                <cds-header-menu menu-label="Account" trigger-content="Account">
+                    <cds-header-menu-item href="/settings">
+                        Settings
+                    </cds-header-menu-item>
+                    <cds-header-menu-item href="/buy">
+                        License
+                    </cds-header-menu-item>
+                    <cds-header-menu-item href="javascript:void 0" id="logout">
+                        Log out
+                    </cds-header-menu-item>
+                </cds-header-menu>
+            </cds-header-nav>
+        </cds-header>
+        <section class="content">
+            <div class="page-header">
+                <div>
+                    <h1>History</h1>
+                    <p class="meta">All times are UTC.</p>
+                </div>
+            </div>
+            <noscript>Enable JavaScript to view imported metrics.</noscript>
+            <DashboardControls />
+            <p id="status" role="status" aria-live="polite">
+                Loading datasets…
+            </p>
+            <p id="dashboard-error" role="alert" hidden></p>
+            <cds-button id="retry" kind="secondary" size="sm" hidden>
+                Retry
+            </cds-button>
+            <div id="results" hidden>
+                <div class="page-header">
+                    <h2 id="selection-title"></h2>
+                    <p class="meta" id="summary"></p>
+                </div>
+                <cds-tile>
+                    <h3>Statistics</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Metric</th>
+                                    <th scope="col">Min</th>
+                                    <th scope="col">Avg</th>
+                                    <th scope="col">Max</th>
+                                    <th scope="col">p95</th>
+                                    <th scope="col">Time above 80%</th>
+                                    <th scope="col">Time above 90%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stats-rows"></tbody>
+                        </table>
+                    </div>
+                </cds-tile>
+                <div class="grid charts">
+                    {metricFields.map(([field, label, unit]) => (
+                        <cds-tile>
+                            <div class="page-header">
+                                <h3>{label}</h3>
+                                <span class="meta">{unit}</span>
+                            </div>
+                            <ul class="legend meta">
+                                <li>
+                                    <span class="key max" aria-hidden="true" />
+                                    Maximum
+                                </li>
+                                <li>
+                                    <span class="key avg" aria-hidden="true" />
+                                    Average
+                                </li>
+                                <li>
+                                    <span
+                                        class="key spike"
+                                        aria-hidden="true"
+                                    />
+                                    Spike
+                                </li>
+                                <li>
+                                    <span class="key band" aria-hidden="true" />
+                                    No readings
+                                </li>
+                            </ul>
+                            <div class="history-chart" id={`chart-${field}`} />
+                            <details>
+                                <summary>View as table</summary>
+                                <div class="table-wrap">
+                                    <table>
+                                        <caption>
+                                            {label} per bucket ({unit}). Empty
+                                            buckets are left out.
+                                        </caption>
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">
+                                                    Bucket start (UTC)
+                                                </th>
+                                                <th scope="col">Readings</th>
+                                                <th scope="col">Avg</th>
+                                                <th scope="col">Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id={`chart-rows-${field}`} />
+                                    </table>
+                                </div>
+                            </details>
+                        </cds-tile>
+                    ))}
+                </div>
+                <div class="grid lists">
+                    <cds-tile>
+                        <h3>Gaps</h3>
+                        <p class="meta" id="gap-note"></p>
+                        <p id="gap-empty"></p>
+                        <div class="table-wrap" id="gap-table" hidden>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Start (UTC)</th>
+                                        <th scope="col">End (UTC)</th>
+                                        <th scope="col">Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gap-rows"></tbody>
+                            </table>
+                        </div>
+                    </cds-tile>
+                    <cds-tile>
+                        <h3>Spikes</h3>
+                        <p class="meta">
+                            Buckets whose maximum is far above the median of the
+                            surrounding 12 hours.
+                        </p>
+                        <p id="spike-empty"></p>
+                        <div class="table-wrap" id="spike-table" hidden>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Metric</th>
+                                        <th scope="col">Start (UTC)</th>
+                                        <th scope="col">End (UTC)</th>
+                                        <th scope="col">Peak</th>
+                                        <th scope="col">Typical</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="spike-rows"></tbody>
+                            </table>
+                        </div>
+                    </cds-tile>
+                </div>
+                <cds-tile>
+                    <div class="page-header">
+                        <h3>Hour × weekday</h3>
+                        <div class="field inline">
+                            <label for="heatmap-metric">Metric</label>
+                            <select id="heatmap-metric">
+                                <option value="cpuPercent">CPU usage</option>
+                                <option value="ramPercent">RAM usage</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="meta">
+                        Average of 1-hour buckets over the selected range.
+                    </p>
+                    <p id="heatmap-status" role="status"></p>
+                    <div id="heatmap-content">
+                        <div class="heatmap-wrap">
+                            <div id="heatmap" role="img"></div>
+                            <div
+                                id="heatmap-tooltip"
+                                class="tooltip"
+                                aria-hidden="true"
+                                hidden
+                            ></div>
+                        </div>
+                        <ul class="legend meta">
+                            {steps.map((label, i) => (
+                                <li>
+                                    <span
+                                        class={`key cell step-${i}`}
+                                        aria-hidden="true"
+                                    />
+                                    {label}%
+                                </li>
+                            ))}
+                            <li>
+                                <span
+                                    class="key cell empty"
+                                    aria-hidden="true"
+                                />
+                                No readings
+                            </li>
+                        </ul>
+                        <details>
+                            <summary>View as table</summary>
+                            <div class="table-wrap">
+                                <table>
+                                    <caption id="heatmap-caption"></caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Weekday</th>
+                                            {Array.from(
+                                                { length: 24 },
+                                                (_, h) => (
+                                                    <th scope="col">
+                                                        {String(h).padStart(
+                                                            2,
+                                                            "0",
+                                                        )}
+                                                    </th>
+                                                ),
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody id="heatmap-rows"></tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </div>
+                </cds-tile>
+                <cds-tile>
+                    <div class="page-header">
+                        <h3>Compare hosts</h3>
+                        <div class="selects">
+                            <div class="field inline">
+                                <label for="compare-metric">Metric</label>
+                                <select id="compare-metric"></select>
+                            </div>
+                            <div class="field inline">
+                                <label for="compare-series">Series</label>
+                                <select id="compare-series">
+                                    <option value="avg">Average</option>
+                                    <option value="max">Maximum</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="compare-status" class="meta" role="status"></p>
+                    <div id="compare-content" hidden>
+                        <ul class="legend meta" id="compare-legend"></ul>
+                        <div class="history-chart" id="compare-chart"></div>
+                        <details>
+                            <summary>View as table</summary>
+                            <div class="table-wrap">
+                                <table>
+                                    <caption id="compare-caption"></caption>
+                                    <thead id="compare-head"></thead>
+                                    <tbody id="compare-rows"></tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </div>
+                </cds-tile>
+            </div>
+        </section>
+    </main>
+</HtmlTemplate>
+<style>
+    main {
+        width: 100%;
+    }
+    .content {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 5rem 2rem 2rem;
+    }
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    h1 {
+        margin: 0;
+    }
+    h2 {
+        font-size: 1.5rem;
+        overflow-wrap: anywhere;
+    }
+    h3 {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .meta {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    #results {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .grid {
+        display: grid;
+        gap: 1rem;
+    }
+    .charts {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+    }
+    .lists {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    }
+    cds-tile {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+    .selects {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 10rem;
+    }
+    label {
+        font-size: 0.75rem;
+        color: var(--cds-text-secondary, #525252);
+    }
+    select {
+        height: 2.5rem;
+        padding: 0 0.75rem;
+        border: 0;
+        border-bottom: 1px solid var(--cds-border-strong, #8d8d8d);
+        border-radius: 0;
+        background: var(--cds-field-02, #fff);
+        color: var(--cds-text-primary, #161616);
+        font: inherit;
+        font-size: 0.875rem;
+    }
+    select:focus {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: -2px;
+    }
+
+    /* Series colours: blue 60 for one host; for compared hosts a fixed Carbon
+       order checked for lightness, chroma and colour-blind separation. */
+    .history-chart,
+    .legend {
+        --avg: #0f62fe;
+        --spike: #da1e28;
+        --host-0: #0f62fe;
+        --host-1: #ee538b;
+        --host-2: #198038;
+        --host-3: #a56eff;
+        --host-4: #b28600;
+        --host-5: #009d9a;
+        --host-6: #fa4d56;
+        --host-7: #6929c4;
+        --host-8: #1192e8;
+        --host-9: #8a3800;
+    }
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.75rem;
+    }
+    .legend li,
+    .legend :global(li) {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+    .key,
+    .legend :global(.swatch) {
+        display: inline-block;
+        width: 1rem;
+        flex-shrink: 0;
+    }
+    .key.avg,
+    .key.max {
+        border-top: 2px solid var(--avg);
+    }
+    .key.max {
+        border-top-style: dashed;
+    }
+    .key.spike {
+        width: 10px;
+        height: 10px;
+        border: 2px solid var(--spike);
+        border-radius: 50%;
+        box-sizing: border-box;
+    }
+    .key.band {
+        height: 0.75rem;
+        background: rgb(198 198 198 / 0.35);
+    }
+    .key.cell {
+        height: 0.75rem;
+    }
+    .legend :global(.swatch) {
+        border-top: 2px solid;
+    }
+    .legend :global(.swatch.host-0) {
+        color: var(--host-0);
+    }
+    .legend :global(.swatch.host-1) {
+        color: var(--host-1);
+    }
+    .legend :global(.swatch.host-2) {
+        color: var(--host-2);
+    }
+    .legend :global(.swatch.host-3) {
+        color: var(--host-3);
+    }
+    .legend :global(.swatch.host-4) {
+        color: var(--host-4);
+    }
+    .legend :global(.swatch.host-5) {
+        color: var(--host-5);
+    }
+    .legend :global(.swatch.host-6) {
+        color: var(--host-6);
+    }
+    .legend :global(.swatch.host-7) {
+        color: var(--host-7);
+    }
+    .legend :global(.swatch.host-8) {
+        color: var(--host-8);
+    }
+    .legend :global(.swatch.host-9) {
+        color: var(--host-9);
+    }
+
+    /* Charts drawn by historyChart.ts */
+    .history-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .history-chart :global(.body) {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .history-chart :global(.y-axis) {
+        position: relative;
+        width: 2.75rem;
+        flex-shrink: 0;
+    }
+    .history-chart :global(.y-axis span),
+    .history-chart :global(.x-axis span) {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+    .history-chart :global(.y-axis span) {
+        position: absolute;
+        right: 0;
+        transform: translateY(-50%);
+    }
+    .history-chart :global(.plot) {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        height: 10rem;
+        cursor: crosshair;
+        outline-offset: 4px;
+    }
+    .history-chart :global(svg) {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+    .history-chart :global(.grid) {
+        stroke: var(--cds-border-subtle, #e0e0e0);
+        stroke-width: 1;
+        vector-effect: non-scaling-stroke;
+    }
+    .history-chart :global(.band) {
+        fill: #c6c6c6;
+        fill-opacity: 0.35;
+    }
+    .history-chart :global(.line) {
+        fill: none;
+        stroke: var(--avg);
+        stroke-width: 2;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+    }
+    .history-chart :global(.line.max) {
+        stroke-width: 1.5;
+        stroke-dasharray: 4 3;
+    }
+    .history-chart :global(.line.host-1) {
+        stroke: var(--host-1);
+    }
+    .history-chart :global(.line.host-2) {
+        stroke: var(--host-2);
+    }
+    .history-chart :global(.line.host-3) {
+        stroke: var(--host-3);
+    }
+    .history-chart :global(.line.host-4) {
+        stroke: var(--host-4);
+    }
+    .history-chart :global(.line.host-5) {
+        stroke: var(--host-5);
+    }
+    .history-chart :global(.line.host-6) {
+        stroke: var(--host-6);
+    }
+    .history-chart :global(.line.host-7) {
+        stroke: var(--host-7);
+    }
+    .history-chart :global(.line.host-8) {
+        stroke: var(--host-8);
+    }
+    .history-chart :global(.line.host-9) {
+        stroke: var(--host-9);
+    }
+    .history-chart :global(.marker) {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        box-sizing: border-box;
+        border: 2px solid var(--spike);
+        border-radius: 50%;
+        background: var(--cds-layer-01, #f4f4f4);
+        box-shadow: 0 0 0 2px var(--cds-layer-01, #f4f4f4);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+    .history-chart :global(.crosshair) {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--cds-text-secondary, #525252);
+        pointer-events: none;
+    }
+    .history-chart :global(.dot) {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--avg);
+        box-shadow: 0 0 0 2px var(--cds-layer-01, #f4f4f4);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+    .history-chart :global(.dot.host-1) {
+        background: var(--host-1);
+    }
+    .history-chart :global(.dot.host-2) {
+        background: var(--host-2);
+    }
+    .history-chart :global(.dot.host-3) {
+        background: var(--host-3);
+    }
+    .history-chart :global(.dot.host-4) {
+        background: var(--host-4);
+    }
+    .history-chart :global(.dot.host-5) {
+        background: var(--host-5);
+    }
+    .history-chart :global(.dot.host-6) {
+        background: var(--host-6);
+    }
+    .history-chart :global(.dot.host-7) {
+        background: var(--host-7);
+    }
+    .history-chart :global(.dot.host-8) {
+        background: var(--host-8);
+    }
+    .history-chart :global(.dot.host-9) {
+        background: var(--host-9);
+    }
+    .history-chart :global(.tooltip),
+    .tooltip {
+        position: absolute;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        padding: 0.375rem 0.625rem;
+        background: var(--cds-background-inverse, #393939);
+        color: var(--cds-text-inverse, #fff);
+        font-size: 0.75rem;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+    .history-chart :global(.tooltip-value) {
+        font-size: 0.875rem;
+        white-space: pre-line;
+        font-variant-numeric: tabular-nums;
+    }
+    .history-chart :global(.x-axis) {
+        position: relative;
+        height: 1rem;
+        margin-inline-start: 3.25rem;
+    }
+    .history-chart :global(.x-axis span) {
+        position: absolute;
+        transform: translateX(-50%);
+    }
+    .history-chart :global(.x-axis span:first-child) {
+        transform: none;
+    }
+    .history-chart :global(.x-axis span:last-child) {
+        transform: translateX(-100%);
+    }
+
+    /* Heatmap: Carbon blue 20–80, light to dark; hatching marks no data */
+    .heatmap-wrap {
+        position: relative;
+        overflow-x: auto;
+        /* room for the tooltip above the first row */
+        padding-top: 1rem;
+    }
+    #heatmap {
+        display: grid;
+        grid-template-columns: 2.5rem repeat(24, minmax(1.25rem, 1fr));
+        gap: 2px;
+        min-width: 36rem;
+        font-size: 0.75rem;
+        color: var(--cds-text-secondary, #525252);
+    }
+    #heatmap :global(.hour) {
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+    #heatmap :global(.day) {
+        align-self: center;
+    }
+    #heatmap :global(.cell) {
+        height: 1.5rem;
+    }
+    :global(.cell.step-0) {
+        background: #d0e2ff;
+    }
+    :global(.cell.step-1) {
+        background: #78a9ff;
+    }
+    :global(.cell.step-2) {
+        background: #4589ff;
+    }
+    :global(.cell.step-3) {
+        background: #0f62fe;
+    }
+    :global(.cell.step-4) {
+        background: #002d9c;
+    }
+    :global(.cell.empty) {
+        background: repeating-linear-gradient(
+            135deg,
+            #c6c6c6 0 1px,
+            #fff 1px 5px
+        );
+    }
+
+    #dashboard-error {
+        border-left: 3px solid var(--cds-support-error, #da1e28);
+        padding: 1rem;
+    }
+    [hidden],
+    .history-chart :global([hidden]) {
+        display: none !important;
+    }
+    #heatmap-content,
+    #compare-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    #status:empty,
+    #heatmap-status:empty,
+    #compare-status:empty,
+    #gap-empty:empty,
+    #spike-empty:empty {
+        display: none;
+    }
+    summary {
+        cursor: pointer;
+        padding: 0.75rem 0;
+    }
+    .table-wrap {
+        overflow: auto;
+        max-height: 24rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        font-variant-numeric: tabular-nums;
+    }
+    th,
+    table :global(td),
+    table :global(th) {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+        white-space: nowrap;
+    }
+    th,
+    table :global(th) {
+        font-weight: 600;
+    }
+    table :global(tbody th) {
+        font-weight: 400;
+    }
+    caption {
+        text-align: left;
+        padding: 0.75rem;
+    }
+    @media (max-width: 600px) {
+        .content {
+            padding: 4.5rem 1rem 2rem;
+        }
+    }
+</style>
+<script>
+    import "@carbon/web-components/es/components/ui-shell/index.js";
+    import "@carbon/web-components/es/components/tile/index.js";
+    import "@carbon/web-components/es/components/button/index.js";
+    import { logout, requireLicense } from "../lib/auth";
+    import { initHistory } from "../lib/historyPage";
+    document.getElementById("logout")?.addEventListener("click", logout);
+    requireLicense().then((user) => {
+        if (user) void initHistory();
+    });
+    // One tooltip for the heatmap's cells.
+    const grid = document.getElementById("heatmap")!;
+    const tip = document.getElementById("heatmap-tooltip")!;
+    grid.addEventListener("pointerover", (event) => {
+        const cell = (event.target as HTMLElement).closest<HTMLElement>(
+            ".cell",
+        );
+        if (!cell?.dataset.tip) return;
+        tip.textContent = cell.dataset.tip;
+        tip.hidden = false;
+        // Above the cell, centred on it and kept inside the grid.
+        const left =
+            cell.offsetLeft + cell.offsetWidth / 2 - tip.offsetWidth / 2;
+        tip.style.left = `${Math.max(0, Math.min(left, grid.offsetWidth - tip.offsetWidth))}px`;
+        tip.style.top = `${cell.offsetTop - tip.offsetHeight - 4}px`;
+    });
+    grid.addEventListener("pointerleave", () => (tip.hidden = true));
+</script>
