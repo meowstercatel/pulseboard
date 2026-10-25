@@ -56,9 +56,13 @@ const pl = lang === "pl";
     }
     .legal {
         box-sizing: border-box;
-        max-width: 46rem;
-        margin: 0 auto;
-        padding: 1.5rem 1.25rem 4rem;
+        width: 100%;
+        padding: 1.5rem 40px 4rem;
+    }
+    @media (max-width: 600px) {
+        .legal {
+            padding-inline: 18px;
+        }
     }
     header {
         display: flex;
