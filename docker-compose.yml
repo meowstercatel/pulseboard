@@ -63,6 +63,22 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Daily pg_dump at 03:00 UTC, see "Backups & restore" in backend/README.md
+  backup:
+    build: ./scripts/backup
+    restart: unless-stopped
+    init: true
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-pulseboard}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      PGDATABASE: ${POSTGRES_DB:-pulseboard}
+    volumes:
+      - ${BACKUP_DIR:-/var/backups/pulseboard}/${COMPOSE_PROJECT_NAME:-pulseboard}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
   # Fake SMTP server + web inbox for staging
   mailpit:
     image: axllent/mailpit
