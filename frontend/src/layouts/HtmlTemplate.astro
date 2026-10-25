@@ -1,5 +1,7 @@
 ---
 import BuildBadge from "../components/BuildBadge.astro";
+// Same file carbon.scss uses for body text, so the preload is reused
+import plexSans from "@ibm/plex/IBM-Plex-Sans/fonts/split/woff2/IBMPlexSans-Regular-Latin1.woff2?url";
 
 interface Props {
     title?: string;
@@ -15,6 +17,13 @@ const { title = "PulseBoard", description, lang = "en" } = Astro.props;
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width" />
+        <link
+            rel="preload"
+            href={plexSans}
+            as="font"
+            type="font/woff2"
+            crossorigin
+        />
         <meta name="generator" content={Astro.generator} />
         <title>{title}</title>
         {description && <meta name="description" content={description} />}

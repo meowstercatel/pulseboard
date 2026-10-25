@@ -1,7 +1,29 @@
+// Only the page-level parts of Carbon. The web components bring their own
+// styles in shadow DOM, so the component CSS in @carbon/styles is never used.
 @use "@carbon/styles/scss/config" with (
-    $font-path: "@ibm/plex"
+    $font-path: "@ibm/plex",
+    $css--font-face: false,
+    $font-display: swap
 );
-@use "@carbon/styles";
+@use "@carbon/styles/scss/reset";
+@use "@carbon/styles/scss/fonts/mono";
+@use "@carbon/styles/scss/fonts/sans";
+@use "@carbon/styles/scss/layer/layer-tokens";
+@use "@carbon/styles/scss/utilities/layout";
+
+// Pi covers punctuation and arrows (’ — → ↗), Latin2 the Polish legal pages.
+// Browsers only download a subset when the page uses one of its characters.
+$sans-ranges: (Pi, Latin2, Latin1);
+@include mono.regular(normal, (Latin1));
+@include sans.light(normal, $sans-ranges);
+@include sans.regular(normal, $sans-ranges);
+@include sans.semibold(normal, $sans-ranges);
+
+// Sizing and layer tokens the components read from the page
+:root {
+    @include layout.emit-layout-tokens();
+    @include layer-tokens.emit-layer-tokens(1);
+}
 
 :root {
     --pulse-control-radius: 3px;
