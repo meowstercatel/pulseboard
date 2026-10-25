@@ -61,6 +61,29 @@ reports the total and sampling mode; the UI warns that sampling can omit peaks.
 KPIs use the exact final reading; the expandable table contains the same points
 as the charts. Times are displayed in UTC and values to at most three decimals.
 
+The same owners can read aggregates over the same `host` and `range` selection:
+
+- `/api/datasets/:id/stats?host=<hostname>&range=…` returns, for each of
+  `cpuPercent`, `ramPercent`, `diskPercent`, `netInMbps` and `netOutMbps`, the
+  reading count, `min`, `avg`, `max` and `p95` (`percentile_cont(0.95)`). The
+  three percentage metrics also return `shareAbove80` and `shareAbove90`, the
+  fraction (0–1) of readings strictly above 80% and 90%. With no readings,
+  every value except the count is `null`.
+- `/api/datasets/:id/history?host=<hostname>&range=…&bucket=5m|1h|1d` returns
+  the `avg` and `max` of each metric per bucket. Buckets are aligned to UTC
+  clock boundaries and cover the first to the last reading in the range. Empty
+  buckets have `count: 0` and `null` values, so gaps stay visible. The default
+  bucket is `5m` for `1h` and `24h`, `1h` for `7d` and `30d`, and for `all` the
+  finest bucket that fits. A request over 2,000 buckets returns 400 with
+  `buckets` and `maxBuckets`. For fixed ranges the count comes from the range
+  length (`7d` with `5m` is always rejected); for `all` it comes from the
+  host's data span.
+
+`backend/tests/integration/dashboard.test.ts` checks exact statistics on a known
+fixture, range and host isolation, empty hosts, per-bucket values across a gap,
+default and partial buckets, invalid buckets and the bucket limit. The existing
+authorization and owner-isolation checks also cover both endpoints.
+
 For manual verification with the built app and a disposable licensed account:
 
 1. Use `sc instructions browser`, then `sc browser open <app-url>/datasets`.
@@ -74,6 +97,12 @@ For manual verification with the built app and a disposable licensed account:
 5. Import a second, single-reading CSV and switch datasets. Verify a visible
    point, exact timestamp, and the single-reading explanation.
 6. Capture the metrics and charts with `sc browser screenshot --out <path>`.
+7. With the session cookie, request
+   `/api/datasets/<id>/stats?host=web-01&range=24h`. Expect 97 readings with
+   CPU min 22.2, max 48 and p95 46.3. Import
+   `samples/gaps-and-anomalies-14d.csv` and request
+   `/api/datasets/<id>/history?host=web-01&bucket=1h`. Expect empty buckets
+   from `2026-09-04T09:00:00.000Z` to `2026-09-04T14:00:00.000Z`.
 
 Browser control uses documented `sc browser` commands. The existing Playwright
 suite remains available for CI; manual `sc` verification does not run that suite.
