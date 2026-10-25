@@ -9,6 +9,7 @@ import {
     vi,
 } from "vitest";
 import { createApp } from "../../src/app.js";
+import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
 import { sendMail } from "../../src/mail/mailer.js";
 import { mockStripe } from "../../../tests/stripe.mjs";
@@ -96,6 +97,14 @@ describe("registration and sessions", () => {
         const row = await db.orm.public.User.where({ id: user.id }).first();
         expect(row?.passwordHash).toMatch(/^scrypt\$/);
         expect(row?.passwordHash).not.toContain(password);
+        const token = cookie.slice("session=".length);
+        const sessions = await db.orm.public.Session.where({
+            userId: user.id,
+        }).all();
+        expect(sessions.map((session) => session.id)).toEqual([
+            sessionIdFor(token),
+        ]);
+        expect(JSON.stringify(sessions)).not.toContain(token);
         const me = await request("auth/me", undefined, cookie);
         expect(me.status).toBe(200);
         expect(await me.json()).toEqual({ user });
@@ -155,7 +164,11 @@ describe("registration and sessions", () => {
 
     it("rejects missing, unknown and expired sessions", async () => {
         const { cookie } = await register();
-        const id = cookie.slice("session=".length);
+        const id = sessionIdFor(cookie.slice("session=".length));
+        // a leaked database row can't be replayed as a cookie
+        expect(
+            (await request("auth/me", undefined, `session=${id}`)).status,
+        ).toBe(401);
         await db.orm.public.Session.where({ id }).update({
             expiresAt: new Date(Date.now() - 1000).toISOString(),
         });

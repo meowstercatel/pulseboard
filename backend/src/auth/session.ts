@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { db } from "../prisma/db.js";
@@ -30,12 +30,17 @@ export function toAuthUser(user: UserRow): AuthUser {
 
 export type AuthEnv = { Variables: { user: AuthUser; sessionId: string } };
 
+// Only the SHA-256 of the cookie is stored, so a database leak can't be replayed
+export function sessionIdFor(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+}
+
 export async function createSession(c: Context, userId: number) {
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
     await db.orm.public.Session.create({
-        id: token,
+        id: sessionIdFor(token),
         userId,
         expiresAt: expiresAt.toISOString(),
     });
@@ -53,7 +58,7 @@ export async function getSessionUser(c: Context): Promise<AuthUser | null> {
     const token = getCookie(c, COOKIE_NAME);
     if (!token) return null;
 
-    const id = token;
+    const id = sessionIdFor(token);
     const session = await db.orm.public.Session.where({ id })
         .include("user")
         .first();
@@ -70,7 +75,7 @@ export async function getSessionUser(c: Context): Promise<AuthUser | null> {
 export async function destroySession(c: Context) {
     const token = getCookie(c, COOKIE_NAME);
     if (token) {
-        await db.orm.public.Session.where({ id: token }).delete();
+        await db.orm.public.Session.where({ id: sessionIdFor(token) }).delete();
     }
     deleteCookie(c, COOKIE_NAME, { path: "/" });
 }
@@ -79,7 +84,7 @@ export const requireAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const user = await getSessionUser(c);
     if (!user) return c.json({ error: "Not logged in" }, 401);
     c.set("user", user);
-    c.set("sessionId", getCookie(c, COOKIE_NAME)!);
+    c.set("sessionId", sessionIdFor(getCookie(c, COOKIE_NAME)!));
     await next();
 };
 

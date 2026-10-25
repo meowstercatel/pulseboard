@@ -44,7 +44,7 @@ model OAuthAccount {
 }
 
 model Session {
-  // the session token, same value as the cookie
+  // SHA-256 (hex) of the session token; only the cookie holds the token itself
   id        String   @id
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
