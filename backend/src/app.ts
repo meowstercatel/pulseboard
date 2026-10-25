@@ -1,5 +1,8 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Hono } from "hono";
 import { csrf } from "hono/csrf";
+import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import { checkPublicUrl } from "./auth/publicUrl.js";
 import { auth } from "./routes/auth.js";
@@ -51,6 +54,24 @@ export function createApp() {
 
     const staticDir = process.env["STATIC_DIR"];
     if (staticDir) app.use("/*", staticFiles(staticDir));
-    app.get("/", (c) => c.text("Hello Hono!"));
+
+    app.notFound(async (c) => {
+        if (c.req.path.startsWith("/api/")) {
+            return c.json({ error: "Not found" }, 404);
+        }
+        const page = staticDir
+            ? await readFile(join(staticDir, "404.html"), "utf8").catch(
+                  () => null,
+              )
+            : null;
+        return page ? c.html(page, 404) : c.text("Not found", 404);
+    });
+    app.onError((err, c) => {
+        if (err instanceof HTTPException) return err.getResponse();
+        console.error(`${c.req.method} ${c.req.path} failed`, err);
+        return c.req.path.startsWith("/api/")
+            ? c.json({ error: "Something went wrong. Try again later" }, 500)
+            : c.text("Something went wrong. Try again later", 500);
+    });
     return app;
 }
