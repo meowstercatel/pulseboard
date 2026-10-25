@@ -4,7 +4,7 @@ import { sendMail } from "../mail/mailer.js";
 import { passwordResetTemplate } from "../mail/passwordResetTemplate.js";
 import { db } from "../prisma/db.js";
 import { hashPassword } from "./password.js";
-import { trustedPublicUrl } from "./publicUrl.js";
+import { publicUrl } from "./publicUrl.js";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000;
 // Padding so the response time doesn't reveal whether the account exists
@@ -21,11 +21,7 @@ export async function requestPasswordReset(c: Context, email: string) {
 }
 
 async function createAndSendReset(c: Context, email: string) {
-    const linkPrefix = trustedPublicUrl(c, "/reset-password?token=");
-    if (!linkPrefix) {
-        console.error("Set PUBLIC_URL to send password reset emails");
-        return;
-    }
+    const linkPrefix = publicUrl(c, "/reset-password?token=");
     const token = randomBytes(32).toString("base64url");
     const user = await db.transaction(async (tx) => {
         // no-op update to lock the user row until commit

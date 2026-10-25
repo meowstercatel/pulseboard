@@ -591,33 +591,35 @@ describe("password reset", () => {
     });
 
     it("never mails a link built from a forged Host header", async () => {
-        const { email } = await register();
+        const { email, cookie } = await register();
         mail.mockClear();
-        vi.spyOn(console, "error").mockImplementation(() => {});
-        const forged = (headers: Record<string, string> = {}) =>
-            app.request("http://evil.example/api/auth/password-reset", {
-                method: "POST",
-                headers: {
-                    "content-type": "application/json",
-                    "x-forwarded-for": ip,
-                    ...headers,
-                },
-                body: JSON.stringify({ email }),
-            });
         try {
             vi.stubEnv("NODE_ENV", "production");
-            vi.stubEnv("PUBLIC_URL", "");
-            expect((await forged()).status).toBe(204);
-            expect(mail).not.toHaveBeenCalled();
-
             vi.stubEnv("PUBLIC_URL", "https://pulseboard.example");
-            expect((await forged({ host: "evil.example" })).status).toBe(204);
-            expect(mail.mock.calls.at(-1)?.[0].text).toContain(
-                "https://pulseboard.example/reset-password?token=",
+            const prodApp = createApp();
+            const forged = (path: string, body: unknown) =>
+                prodApp.request(`http://evil.example/api/${path}`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/json",
+                        "x-forwarded-for": ip,
+                        host: "evil.example",
+                        cookie,
+                    },
+                    body: JSON.stringify(body),
+                });
+            expect(
+                (await forged("auth/password-reset", { email })).status,
+            ).toBe(204);
+            expect((await forged("auth/verify-email/resend", {})).status).toBe(
+                204,
             );
-            expect(mail.mock.calls.at(-1)?.[0].html).not.toContain(
-                "evil.example",
-            );
+            expect(mail).toHaveBeenCalledTimes(2);
+            for (const [message] of mail.mock.calls) {
+                expect(message.text).toContain("https://pulseboard.example/");
+                expect(message.text).not.toContain("evil.example");
+                expect(message.html).not.toContain("evil.example");
+            }
         } finally {
             vi.unstubAllEnvs();
         }

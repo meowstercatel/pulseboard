@@ -1,6 +1,16 @@
 import { Hono } from "hono";
-import { expect, it, vi } from "vitest";
-import { publicUrl } from "../../src/auth/publicUrl.js";
+import { afterEach, expect, it, vi } from "vitest";
+import { checkPublicUrl, publicUrl } from "../../src/auth/publicUrl.js";
+
+afterEach(() => {
+    vi.unstubAllEnvs();
+});
+
+function linkFor(url: string) {
+    const app = new Hono();
+    app.get("/", (c) => c.text(publicUrl(c, "/verify-email?token=abc")));
+    return app.request(url);
+}
 
 it.each([
     ["", "http://internal.test/verify-email?token=abc"],
@@ -13,10 +23,32 @@ it.each([
         "https://pulseboard.example/verify-email?token=abc",
     ],
 ])("builds links with PUBLIC_URL=%s", async (origin, expected) => {
+    vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("PUBLIC_URL", origin);
-    const app = new Hono();
-    app.get("/", (c) => c.text(publicUrl(c, "/verify-email?token=abc")));
-    expect(await (await app.request("http://internal.test/")).text()).toBe(
+    expect(await (await linkFor("http://internal.test/")).text()).toBe(
         expected,
     );
+});
+
+it("never falls back to the request host in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PUBLIC_URL", "");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await linkFor("http://evil.example/")).status).toBe(500);
+});
+
+it("refuses to start in production without a valid PUBLIC_URL", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PUBLIC_URL", "");
+    expect(() => checkPublicUrl()).toThrow("PUBLIC_URL must be set");
+    vi.stubEnv("PUBLIC_URL", "pulseboard.example");
+    expect(() => checkPublicUrl()).toThrow("not a valid URL");
+    vi.stubEnv("PUBLIC_URL", "https://pulseboard.example/");
+    expect(() => checkPublicUrl()).not.toThrow();
+});
+
+it("starts without PUBLIC_URL outside production", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PUBLIC_URL", "");
+    expect(() => checkPublicUrl()).not.toThrow();
 });

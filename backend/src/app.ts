@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { csrf } from "hono/csrf";
 import { secureHeaders } from "hono/secure-headers";
+import { checkPublicUrl } from "./auth/publicUrl.js";
 import { auth } from "./routes/auth.js";
 import { billing } from "./routes/billing.js";
 import { dashboard } from "./routes/dashboard.js";
@@ -10,6 +11,7 @@ import { staticFiles } from "./static.js";
 
 // Importing the app does not open a port or run startup database updates.
 export function createApp() {
+    checkPublicUrl();
     const app = new Hono();
     app.use(
         secureHeaders({

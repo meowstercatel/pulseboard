@@ -1,19 +1,25 @@
 import type { Context } from "hono";
 
-// Set PUBLIC_URL when the request URL differs from the public one (e.g. behind
-// a reverse proxy, or the Astro dev proxy).
-export function publicUrl(c: Context, path: string): string {
-    const base = process.env["PUBLIC_URL"] || new URL(c.req.url).origin;
-    return `${base.replace(/\/$/, "")}${path}`;
+// The Host header is attacker-controlled, so production builds every link from
+// PUBLIC_URL. Elsewhere (local dev, tests) the request origin is good enough.
+function configuredPublicUrl(): string | undefined {
+    const value = process.env["PUBLIC_URL"];
+    if (value) return value;
+    if (process.env["NODE_ENV"] === "production") {
+        throw new Error("PUBLIC_URL must be set in production");
+    }
+    return undefined;
 }
 
-// The Host header is attacker-controlled, so in production only PUBLIC_URL is trusted
-export function trustedPublicUrl(c: Context, path: string): string | null {
-    if (
-        !process.env["PUBLIC_URL"] &&
-        process.env["NODE_ENV"] === "production"
-    ) {
-        return null;
+// Called once at startup so a missing or malformed PUBLIC_URL stops the deploy
+export function checkPublicUrl() {
+    const value = configuredPublicUrl();
+    if (value && !URL.canParse(value)) {
+        throw new Error(`PUBLIC_URL is not a valid URL: ${value}`);
     }
-    return publicUrl(c, path);
+}
+
+export function publicUrl(c: Context, path: string): string {
+    const base = configuredPublicUrl() ?? new URL(c.req.url).origin;
+    return `${base.replace(/\/$/, "")}${path}`;
 }
