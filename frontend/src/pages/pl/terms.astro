@@ -1,5 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
+import { contactEmail } from "../../lib/legal";
 ---
 
 <LegalLayout
@@ -12,7 +13,8 @@ import LegalLayout from "../../layouts/LegalLayout.astro";
     <p>
         PulseBoard to usługa online do przesyłania metryk serwerów w formacie
         CSV i przeglądania ich w postaci dashboardów. Usługę świadczy PulseBoard
-        („my”).
+        („my”). Możesz się z nami kontaktować pod adresem{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
     </p>
     <p>
         Niniejszy regulamin określa zasady korzystania z PulseBoard i jest
@@ -63,8 +65,7 @@ import LegalLayout from "../../layouts/LegalLayout.astro";
         końcowymi w złotych polskich (PLN) i zawierają należne podatki.
         Płatności obsługuje Stripe; możesz zapłacić metodami dostępnymi przy
         płatności. Umowa o licencję zostaje zawarta z chwilą potwierdzenia
-        płatności, a z licencji można korzystać od razu. Potwierdzenie zakupu
-        wysyłamy e-mailem.
+        płatności, a z licencji można korzystać od razu.
     </p>
 
     <h2>4. Licencje, odnawianie i anulowanie</h2>
@@ -175,12 +176,13 @@ import LegalLayout from "../../layouts/LegalLayout.astro";
     </p>
     <p>
         Gdy prawo odstąpienia przysługuje, możesz z niego skorzystać, wysyłając
-        nam przed upływem terminu jednoznaczne oświadczenie. Możesz skorzystać z
-        poniższego wzoru, ale nie jest to obowiązkowe:
+        nam przed upływem terminu jednoznaczne oświadczenie e-mailem na adres{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Możesz skorzystać
+        z poniższego wzoru, ale nie jest to obowiązkowe:
     </p>
     <blockquote>
         <p>
-            Adresat: PulseBoard
+            Adresat: PulseBoard, {contactEmail}
             <br />
             Niniejszym informuję o odstąpieniu od umowy o świadczenie
             następującej usługi: PulseBoard (subskrypcja / licencja dożywotnia).
@@ -198,11 +200,13 @@ import LegalLayout from "../../layouts/LegalLayout.astro";
     <h2>8. Reklamacje</h2>
     <p>
         Jeśli PulseBoard nie działa zgodnie z regulaminem, możesz złożyć
-        reklamację, kontaktując się z nami. Opisz problem i podaj adres e-mail
-        swojego konta. Odpowiemy w ciągu 14 dni. Konsumentom przysługują
-        uprawnienia określone w ustawie o prawach konsumenta w przypadku braku
-        zgodności treści cyfrowej lub usługi cyfrowej z umową, w tym prawo do
-        doprowadzenia do zgodności, obniżenia ceny lub odstąpienia od umowy.
+        reklamację e-mailem na adres{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Opisz problem i
+        podaj adres e-mail swojego konta. Odpowiemy w ciągu 14 dni. Konsumentom
+        przysługują uprawnienia określone w ustawie o prawach konsumenta w
+        przypadku braku zgodności treści cyfrowej lub usługi cyfrowej z umową, w
+        tym prawo do doprowadzenia do zgodności, obniżenia ceny lub odstąpienia
+        od umowy.
     </p>
     <p>
         Konsument może także skorzystać z pozasądowych sposobów rozpatrywania

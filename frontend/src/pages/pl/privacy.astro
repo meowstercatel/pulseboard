@@ -1,5 +1,6 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
+import { contactEmail } from "../../lib/legal";
 ---
 
 <LegalLayout
@@ -16,7 +17,11 @@ import LegalLayout from "../../layouts/LegalLayout.astro";
     </p>
 
     <h2>1. Kto odpowiada za Twoje dane</h2>
-    <p>Administratorem Twoich danych osobowych jest PulseBoard („my”).</p>
+    <p>
+        Administratorem Twoich danych osobowych jest PulseBoard („my”). We
+        wszystkich sprawach dotyczących danych napisz do nas na adres{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+    </p>
 
     <h2>2. Jakie dane zbieramy</h2>
     <h3>Dane konta</h3>
@@ -208,10 +213,11 @@ import LegalLayout from "../../layouts/LegalLayout.astro";
     </ul>
     <p>
         Aby skorzystać z prawa, którego nie możesz wykonać w ustawieniach,
-        skontaktuj się z nami. Odpowiemy w ciągu miesiąca. Masz także prawo
-        wnieść skargę do Prezesa Urzędu Ochrony Danych Osobowych (ul. Stawki 2,
-        00-193 Warszawa) lub do organu ochrony danych w państwie UE, w którym
-        mieszkasz.
+        napisz do nas na adres{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Odpowiemy w ciągu
+        miesiąca. Masz także prawo wnieść skargę do Prezesa Urzędu Ochrony
+        Danych Osobowych (ul. Stawki 2, 00-193 Warszawa) lub do organu ochrony
+        danych w państwie UE, w którym mieszkasz.
     </p>
 
     <h2>9. Bezpieczeństwo</h2>

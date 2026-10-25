@@ -4,3 +4,5 @@ export const lastUpdated = {
     en: "25 October 2026",
     pl: "25 października 2026",
 };
+
+export const contactEmail = "kontakt@pulseboard.franek.rynkiewicz.pl";

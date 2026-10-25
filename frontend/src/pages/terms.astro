@@ -1,5 +1,6 @@
 ---
 import LegalLayout from "../layouts/LegalLayout.astro";
+import { contactEmail } from "../lib/legal";
 ---
 
 <LegalLayout
@@ -12,7 +13,8 @@ import LegalLayout from "../layouts/LegalLayout.astro";
     <p>
         PulseBoard is an online service for uploading server metrics in CSV
         format and viewing them as dashboards. It is provided by PulseBoard
-        ("we", "us").
+        ("we", "us"). You can contact us at{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
     </p>
     <p>
         These terms set out the rules for using PulseBoard and serve as the
@@ -61,8 +63,7 @@ import LegalLayout from "../layouts/LegalLayout.astro";
         Polish zloty (PLN), including any taxes due. Payments are processed by
         Stripe; you can pay with the methods shown at checkout. The contract for
         a licence is concluded when your payment is confirmed, and you can use
-        your licence immediately afterwards. We send a confirmation of your
-        purchase by email.
+        your licence immediately afterwards.
     </p>
 
     <h2>4. Licences, renewal and cancellation</h2>
@@ -171,12 +172,13 @@ import LegalLayout from "../layouts/LegalLayout.astro";
     </p>
     <p>
         Where the right of withdrawal applies, you can use it by sending us a
-        clear statement before the period ends. You can use this model form, but
-        you do not have to:
+        clear statement by email to{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a> before the period
+        ends. You can use this model form, but you do not have to:
     </p>
     <blockquote>
         <p>
-            To: PulseBoard
+            To: PulseBoard, {contactEmail}
             <br />
             I hereby give notice that I withdraw from my contract for the
             following service: PulseBoard (subscription / lifetime licence).
@@ -194,12 +196,13 @@ import LegalLayout from "../layouts/LegalLayout.astro";
     <h2>8. Complaints</h2>
     <p>
         If PulseBoard does not work as described in these terms, you can file a
-        complaint by contacting us. Please describe the problem and tell us the
-        email address of your account. We will reply within 14 days. Consumers
-        have the rights set out in the Polish Consumer Rights Act for digital
-        content and digital services that do not conform to the contract,
-        including the right to have them brought into conformity, to a price
-        reduction or to terminate the contract.
+        complaint by email to{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Please describe
+        the problem and tell us the email address of your account. We will reply
+        within 14 days. Consumers have the rights set out in the Polish Consumer
+        Rights Act for digital content and digital services that do not conform
+        to the contract, including the right to have them brought into
+        conformity, to a price reduction or to terminate the contract.
     </p>
     <p>
         If you are a consumer, you may also use out-of-court ways of resolving
