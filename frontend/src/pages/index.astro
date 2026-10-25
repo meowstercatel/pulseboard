@@ -47,20 +47,41 @@ const features = [
                 <a class="nav-feature" href="#features">
                     Features
                 </a>
-                <a href="/login">
-                    Log in <span aria-hidden="true">↗</span>
-                </a>
-                <cds-button
-                    class="nav-register"
-                    kind="tertiary"
-                    size="md"
-                    href="/register"
-                >
-                    Register{" "}
-                    <span slot="icon" aria-hidden="true">
-                        →
-                    </span>
-                </cds-button>
+                <div class="nav-account" data-auth="pending">
+                    <div class="nav-guest">
+                        <a href="/login">
+                            Log in <span aria-hidden="true">↗</span>
+                        </a>
+                        <cds-button
+                            class="nav-register"
+                            kind="tertiary"
+                            size="md"
+                            href="/register"
+                        >
+                            Register{" "}
+                            <span slot="icon" aria-hidden="true">
+                                →
+                            </span>
+                        </cds-button>
+                    </div>
+                    <div class="nav-user">
+                        <span class="nav-user-name" id="nav-user-name"></span>
+                        <a href="/" id="nav-logout">
+                            Log out
+                        </a>
+                        <cds-button
+                            id="nav-dashboard"
+                            kind="tertiary"
+                            size="md"
+                            href="/overview"
+                        >
+                            Go to dashboard{" "}
+                            <span slot="icon" aria-hidden="true">
+                                →
+                            </span>
+                        </cds-button>
+                    </div>
+                </div>
             </nav>
         </header>
         <main id="main">
@@ -183,6 +204,10 @@ const features = [
                 PulseBoard
             </a>
             <span>A little clarity for your corner of the internet.</span>
+            <nav class="legal" aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
         </footer>
     </div>
 </HtmlTemplate>
@@ -252,8 +277,36 @@ const features = [
         gap: 34px;
         font-size: 12px;
     }
-    nav > a > span {
+    nav a > span {
         margin-left: 8px;
+    }
+    /* Both sets share one grid cell, so the nav keeps the wider one's size
+       while /api/auth/me is pending and when either set is revealed */
+    .nav-account {
+        display: grid;
+        justify-items: end;
+        align-items: center;
+    }
+    .nav-guest,
+    .nav-user {
+        grid-area: 1 / 1;
+        display: flex;
+        align-items: center;
+        gap: 34px;
+    }
+    .nav-account[data-auth="pending"] > *,
+    .nav-account[data-auth="guest"] > .nav-user,
+    .nav-account[data-auth="user"] > .nav-guest {
+        visibility: hidden;
+    }
+    /* Fixed width so filling in the name can't move the nav */
+    .nav-user-name {
+        width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: right;
+        color: var(--cds-text-secondary, #525252);
     }
     cds-button {
         flex-shrink: 0;
@@ -448,6 +501,11 @@ const features = [
     .footer > a:last-child {
         font-size: 11px;
     }
+    .footer .legal {
+        display: flex;
+        gap: 16px;
+        font-size: 11px;
+    }
     .skip-link {
         position: fixed;
         top: -100px;
@@ -502,8 +560,13 @@ const features = [
         .brand {
             font-size: 19px;
         }
-        nav {
+        nav,
+        .nav-guest,
+        .nav-user {
             gap: 12px;
+        }
+        .nav-user-name {
+            width: 90px;
         }
         nav .nav-feature {
             display: none;
@@ -587,4 +650,31 @@ const features = [
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
+</script>
+
+<script>
+    import { accountDestination, currentUser, logout } from "../lib/auth";
+
+    const account = document.querySelector<HTMLElement>(".nav-account")!;
+
+    // A hung request counts as a failure: show the logged-out buttons
+    const timeout = new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), 5000),
+    );
+
+    Promise.race([currentUser(), timeout]).then((user) => {
+        if (user) {
+            const name = document.getElementById("nav-user-name")!;
+            name.textContent = name.title = user.username || user.email;
+            document
+                .getElementById("nav-dashboard")!
+                .setAttribute("href", accountDestination(user));
+        }
+        account.dataset["auth"] = user ? "user" : "guest";
+    });
+
+    document.getElementById("nav-logout")!.addEventListener("click", (e) => {
+        e.preventDefault();
+        logout();
+    });
 </script>

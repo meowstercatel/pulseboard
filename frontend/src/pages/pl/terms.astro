@@ -1,0 +1,282 @@
+---
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import { contactEmail } from "../../lib/legal";
+---
+
+<LegalLayout
+    title="Regulamin"
+    description="Zasady korzystania z PulseBoard i płatności."
+    lang="pl"
+    alternate="/terms"
+>
+    <h2>1. O regulaminie</h2>
+    <p>
+        PulseBoard to usługa online do przesyłania metryk serwerów w formacie
+        CSV i przeglądania ich w postaci dashboardów. Usługę świadczy PulseBoard
+        („my”). Możesz się z nami kontaktować pod adresem{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+    </p>
+    <p>
+        Niniejszy regulamin określa zasady korzystania z PulseBoard i jest
+        regulaminem świadczenia usług drogą elektroniczną w rozumieniu ustawy o
+        świadczeniu usług drogą elektroniczną. Jest dostępny w języku polskim i
+        angielskim. W razie rozbieżności rozstrzyga wersja polska. Zasady
+        przetwarzania danych osobowych opisuje{" "}
+        <a href="/pl/privacy">Polityka prywatności</a>.
+    </p>
+    <p>
+        <strong>Konsument</strong> to osoba fizyczna dokonująca zakupu w celu
+        niezwiązanym bezpośrednio z jej działalnością gospodarczą lub zawodową.
+        Postanowienia dotyczące konsumentów (sekcje 7 i 8 oraz części sekcji 10
+        dotyczące konsumentów) stosuje się także do osoby fizycznej prowadzącej
+        jednoosobową działalność gospodarczą, która kupuje PulseBoard w celu
+        nieposiadającym dla niej charakteru zawodowego, w rozumieniu ustawy o
+        prawach konsumenta.
+    </p>
+
+    <h2>2. Konto i wymagania techniczne</h2>
+    <p>
+        Korzystanie z PulseBoard wymaga konta. Możesz zarejestrować się adresem
+        e-mail i hasłem albo przez Google lub Facebook. Przed zakupem licencji
+        musisz potwierdzić adres e-mail. Musisz podawać prawdziwe dane, chronić
+        swoje hasło i odpowiadasz za działania wykonywane na Twoim koncie.
+    </p>
+    <p>
+        Potrzebne są: dostęp do internetu, aktualna przeglądarka internetowa z
+        włączoną obsługą JavaScript i plików cookie oraz konto e-mail. Założenie
+        konta jest bezpłatne. Umowa o prowadzenie bezpłatnego konta zostaje
+        zawarta z chwilą rejestracji i trwa do jej zakończenia przez Ciebie lub
+        przez nas zgodnie z sekcją 11.
+    </p>
+
+    <h2>3. Plany, ceny i płatności</h2>
+    <p>Korzystanie z dashboardów wymaga płatnej licencji. Oferujemy:</p>
+    <ul>
+        <li>
+            <strong>Subskrypcję</strong>: 19 PLN miesięcznie, płatne z góry za
+            każdy miesiąc;
+        </li>
+        <li>
+            <strong>Licencję dożywotnią</strong>: jednorazowa płatność 199 PLN.
+        </li>
+    </ul>
+    <p>
+        Obie dają dostęp do wszystkich funkcji PulseBoard. Ceny są cenami
+        końcowymi w złotych polskich (PLN) i zawierają należne podatki.
+        Płatności obsługuje Stripe; możesz zapłacić metodami dostępnymi przy
+        płatności. Umowa o licencję zostaje zawarta z chwilą potwierdzenia
+        płatności, a z licencji można korzystać od razu.
+    </p>
+
+    <h2>4. Licencje, odnawianie i anulowanie</h2>
+    <p>
+        Licencja jest osobista: możesz korzystać z PulseBoard na własne potrzeby
+        lub na potrzeby swojej firmy, ale nie możesz odsprzedawać ani
+        udostępniać innym dostępu do swojego konta.
+    </p>
+    <h3>Subskrypcja</h3>
+    <p>
+        Subskrypcja odnawia się automatycznie co miesiąc, a Stripe pobiera
+        płatność na początku każdego okresu, dopóki jej nie anulujesz. Możesz ją
+        anulować w dowolnym momencie w portalu klienta Stripe, który otwiera
+        przycisk <strong>Manage subscription</strong> na stronie z planami.
+        Możesz tam też zmienić metodę płatności. Po anulowaniu zachowujesz
+        dostęp do końca opłaconego okresu, a kolejne płatności nie są pobierane.
+        Nie zwracamy opłat za niewykorzystaną część miesiąca, chyba że wymagają
+        tego przepisy prawa.
+    </p>
+    <p>
+        Jeśli płatność za kolejny okres się nie powiedzie, Stripe może ponowić
+        próbę. Jeśli płatności nadal nie uda się pobrać, subskrypcja wygasa, a
+        płatne funkcje zostają zablokowane do czasu ponownego wykupienia
+        subskrypcji. Twoje zbiory danych przechowujemy do czasu ich usunięcia.
+    </p>
+    <p>
+        Możemy zmienić cenę subskrypcji na kolejne okresy. Poinformujemy Cię o
+        tym e-mailem co najmniej 30 dni przed zastosowaniem nowej ceny i możesz
+        przed tym terminem anulować subskrypcję.
+    </p>
+    <h3>Licencja dożywotnia</h3>
+    <p>
+        Licencja dożywotnia daje dostęp przez cały okres prowadzenia przez nas
+        PulseBoard, bez dalszych opłat. Jeśli kupisz ją, mając aktywną
+        subskrypcję, subskrypcja zostanie automatycznie anulowana.
+    </p>
+    <h3>Usunięcie konta</h3>
+    <p>
+        Konto możesz usunąć w dowolnym momencie w ustawieniach konta. Kończy to
+        umowę, anuluje aktywną subskrypcję i trwale usuwa Twoje dane zgodnie z
+        Polityką prywatności. Samo usunięcie konta nie uprawnia do zwrotu
+        płatności.
+    </p>
+
+    <h2>5. Limity przesyłania</h2>
+    <p>Na każdym koncie można przechowywać:</p>
+    <ul>
+        <li>jednocześnie do 5 zbiorów danych;</li>
+        <li>pliki CSV o rozmiarze do 25 MB każdy;</li>
+        <li>do 500 000 wierszy w jednym pliku.</li>
+    </ul>
+    <p>
+        Pliki przekraczające te limity lub niezgodne z oczekiwanym formatem CSV
+        są odrzucane. Możemy zmienić limity. Jeśli je obniżymy, nie usuniemy z
+        tego powodu danych przesłanych wcześniej.
+    </p>
+
+    <h2>6. Zasady korzystania</h2>
+    <p>Zabronione jest:</p>
+    <ul>
+        <li>przesyłanie danych, do których korzystania nie masz prawa;</li>
+        <li>
+            przesyłanie treści o charakterze bezprawnym, złośliwego
+            oprogramowania lub danych osobowych innych osób bez podstawy
+            prawnej;
+        </li>
+        <li>
+            próby uzyskania dostępu do kont lub danych innych użytkowników oraz
+            testowanie, obchodzenie lub łamanie naszych zabezpieczeń i limitów;
+        </li>
+        <li>
+            przeciążanie usługi, np. masowymi zautomatyzowanymi żądaniami, lub
+            zakłócanie korzystania z niej innym użytkownikom;
+        </li>
+        <li>
+            kopiowanie, odsprzedawanie lub dekompilowanie usługi, z wyjątkiem
+            przypadków dozwolonych przez prawo.
+        </li>
+    </ul>
+    <p>
+        Przesłane dane pozostają Twoją własnością. Pozwalasz nam je przechowywać
+        i przetwarzać wyłącznie w celu świadczenia PulseBoard na Twoją rzecz.
+    </p>
+
+    <h2 id="withdrawal">7. Prawo odstąpienia od umowy (konsumenci)</h2>
+    <p>
+        Konsumentowi co do zasady przysługuje prawo odstąpienia od umowy
+        zawartej na odległość w terminie 14 dni od jej zawarcia, bez podawania
+        przyczyny.
+    </p>
+    <p>
+        <strong>
+            Przed płatnością prosimy o wyraźną zgodę na rozpoczęcie świadczenia
+            PulseBoard od razu, przed upływem 14-dniowego terminu, oraz o
+            przyjęcie do wiadomości, że w ten sposób traci się prawo odstąpienia
+            od umowy. Bez tej zgody przejście do płatności nie jest możliwe. Po
+            jej wyrażeniu i rozpoczęciu płatnego dostępu prawo odstąpienia od
+            tego zakupu wygasa
+        </strong>{" "}
+        (art. 38 ust. 1 pkt 13 ustawy o prawach konsumenta). Przechowujemy
+        informację o tym, kiedy zgoda została wyrażona.
+    </p>
+    <p>
+        Jeżeli mimo to bezwzględnie obowiązujące przepisy przyznają prawo
+        odstąpienia od umowy, której wykonanie rozpoczęło się na Twoje żądanie,
+        zapłacisz za świadczenie spełnione do chwili odstąpienia,
+        proporcjonalnie do pełnej ceny.
+    </p>
+    <p>
+        Gdy prawo odstąpienia przysługuje, możesz z niego skorzystać, wysyłając
+        nam przed upływem terminu jednoznaczne oświadczenie e-mailem na adres{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Możesz skorzystać
+        z poniższego wzoru, ale nie jest to obowiązkowe:
+    </p>
+    <blockquote>
+        <p>
+            Adresat: PulseBoard, {contactEmail}
+            <br />
+            Niniejszym informuję o odstąpieniu od umowy o świadczenie
+            następującej usługi: PulseBoard (subskrypcja / licencja dożywotnia).
+            <br />
+            Data zamówienia: …<br />
+            Imię i nazwisko oraz adres e-mail konta: …<br />
+            Data: …
+        </p>
+    </blockquote>
+    <p>
+        Należną kwotę zwrócimy w ciągu 14 dni od otrzymania oświadczenia, przy
+        użyciu tej samej metody płatności, bez ponoszenia przez Ciebie kosztów.
+    </p>
+
+    <h2>8. Reklamacje</h2>
+    <p>
+        Jeśli PulseBoard nie działa zgodnie z regulaminem, możesz złożyć
+        reklamację e-mailem na adres{" "}
+        <a href={`mailto:${contactEmail}`}>{contactEmail}</a>. Opisz problem i
+        podaj adres e-mail swojego konta. Odpowiemy w ciągu 14 dni. Konsumentom
+        przysługują uprawnienia określone w ustawie o prawach konsumenta w
+        przypadku braku zgodności treści cyfrowej lub usługi cyfrowej z umową, w
+        tym prawo do doprowadzenia do zgodności, obniżenia ceny lub odstąpienia
+        od umowy.
+    </p>
+    <p>
+        Konsument może także skorzystać z pozasądowych sposobów rozpatrywania
+        reklamacji, np. zwracając się do miejskiego lub powiatowego rzecznika
+        konsumentów albo do Wojewódzkiego Inspektoratu Inspekcji Handlowej.
+        Więcej informacji znajduje się na stronie{" "}
+        <a href="https://uokik.gov.pl" rel="noopener">
+            uokik.gov.pl
+        </a>
+        .
+    </p>
+
+    <h2>9. Dostępność i zmiany usługi</h2>
+    <p>
+        Dokładamy starań, aby PulseBoard był dostępny przez cały czas, ale mogą
+        wystąpić przerwy związane z konserwacją, aktualizacjami lub awariami
+        niezależnymi od nas. Możemy ulepszać i zmieniać funkcje, o ile płatna
+        usługa zachowa funkcje opisane w regulaminie lub zmiany nie pogorszą jej
+        dla Ciebie.
+    </p>
+    <p>
+        Regularnie wykonujemy kopie zapasowe bazy danych, ale PulseBoard nie
+        jest usługą kopii zapasowych. Przechowuj własne kopie przesyłanych
+        plików CSV.
+    </p>
+
+    <h2>10. Odpowiedzialność</h2>
+    <p>
+        PulseBoard wyświetla przesłane przez Ciebie dane. Nie monitoruje Twoich
+        serwerów, a prognozy są szacunkami. Odpowiadasz za decyzje podejmowane
+        na ich podstawie.
+    </p>
+    <p>
+        Wobec klientów biznesowych, do których nie stosuje się przepisów o
+        ochronie konsumentów, nasza odpowiedzialność jest ograniczona do kwoty
+        zapłaconej nam w ciągu 12 miesięcy przed zdarzeniem, które wyrządziło
+        szkodę, i nie obejmuje utraconych korzyści ani utraty danych.
+    </p>
+    <p>
+        Regulamin nie wyłącza ani nie ogranicza naszej odpowiedzialności w
+        zakresie, w jakim prawo na to nie pozwala, w tym za szkody wyrządzone
+        umyślnie, ani nie ogranicza praw przysługujących konsumentom na
+        podstawie bezwzględnie obowiązujących przepisów.
+    </p>
+
+    <h2>11. Zakończenie umowy</h2>
+    <p>
+        Możesz zakończyć umowę w każdej chwili, usuwając konto. Możemy zawiesić
+        lub zamknąć konto, które poważnie lub wielokrotnie narusza regulamin, w
+        miarę możliwości po wcześniejszym ostrzeżeniu e-mailem. Jeśli zamkniemy
+        konto z płatną licencją z innego powodu niż naruszenie regulaminu, w tym
+        w razie zakończenia prowadzenia PulseBoard, poinformujemy Cię o tym co
+        najmniej 30 dni wcześniej i zwrócimy opłatę za niewykorzystaną część
+        okresu subskrypcji.
+    </p>
+
+    <h2>12. Zmiany regulaminu</h2>
+    <p>
+        Możemy zmienić regulamin z ważnych przyczyn, takich jak zmiana
+        przepisów, naszych usług lub sposobu ich świadczenia. Poinformujemy Cię
+        o tym e-mailem co najmniej 14 dni przed wejściem zmian w życie. Jeśli
+        ich nie akceptujesz, możesz przed tym terminem anulować subskrypcję lub
+        usunąć konto. Zmiany nie dotyczą zakupów dokonanych wcześniej.
+    </p>
+
+    <h2>13. Prawo właściwe i spory</h2>
+    <p>
+        Regulamin podlega prawu polskiemu. Konsument mieszkający w innym
+        państwie UE zachowuje ochronę przyznaną mu przez bezwzględnie
+        obowiązujące przepisy konsumenckie tego państwa. Spory rozstrzyga sąd
+        właściwy zgodnie z ogólnymi przepisami.
+    </p>
+</LegalLayout>

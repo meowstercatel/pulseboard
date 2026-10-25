@@ -327,7 +327,7 @@ describe("email verification and licenses", () => {
         ).toBe(400);
         const checkout = await request(
             "billing/checkout",
-            { plan: "lifetime" },
+            { plan: "lifetime", withdrawalWaiver: true },
             cookie,
         );
         expect(checkout.status).toBe(200);
@@ -351,11 +351,28 @@ describe("email verification and licenses", () => {
             (
                 await request(
                     "billing/checkout",
-                    { plan: "subscription" },
+                    { plan: "subscription", withdrawalWaiver: true },
                     cookie,
                 )
             ).status,
         ).toBe(409);
+    });
+
+    it("refuses checkout without the withdrawal waiver", async () => {
+        const { cookie, user } = await register();
+        await request("auth/verify-email", { token: lastToken() });
+        for (const body of [
+            { plan: "lifetime" },
+            { plan: "lifetime", withdrawalWaiver: "true" },
+        ]) {
+            const response = await request("billing/checkout", body, cookie);
+            expect(response.status).toBe(400);
+            expect((await response.json()).error).toEqual(expect.any(String));
+        }
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.withdrawalWaiverAt,
+        ).toBeNull();
     });
 
     it("rejects another account's checkout and does not grant an unpaid license", async () => {
@@ -363,7 +380,7 @@ describe("email verification and licenses", () => {
         await request("auth/verify-email", { token: lastToken() });
         const checkout = await request(
             "billing/checkout",
-            { plan: "lifetime" },
+            { plan: "lifetime", withdrawalWaiver: true },
             cookie,
         );
         expect(checkout.status).toBe(200);

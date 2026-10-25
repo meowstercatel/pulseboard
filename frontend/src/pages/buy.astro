@@ -49,7 +49,16 @@ const plans = [
         </header>
         <cds-link href="/settings">Account settings</cds-link>
         <h3>Choose a plan</h3>
-        <div class="licenses">
+        <cds-checkbox
+            id="waiver"
+            name="withdrawalWaiver"
+            invalid-text="Tick this box to continue to checkout."
+        >
+            I agree to immediate delivery of the digital content and acknowledge
+            that I lose my 14-day right of withdrawal once delivery starts. See
+            the <a href="/terms">Terms</a>.
+        </cds-checkbox>
+        <div class="licenses" data-locked>
             {plans.map((plan) => (
                 <section class:list={["license", { featured: plan.badge }]}>
                     {plan.badge && (
@@ -76,7 +85,10 @@ const plans = [
         <cds-button id="manage" size="md" kind="tertiary" hidden>
             Manage subscription
         </cds-button>
-        <p class="note">Payments are processed by Stripe.</p>
+        <p class="note">
+            Payments are processed by Stripe. See our{" "}
+            <a href="/privacy">Privacy Policy</a>.
+        </p>
     </main>
 </HtmlTemplate>
 
@@ -168,6 +180,18 @@ const plans = [
         width: 100%;
         max-width: none;
     }
+    #waiver {
+        font-size: 0.875rem;
+    }
+    #waiver a,
+    .note a {
+        color: var(--cds-link-primary, #0f62fe);
+    }
+    /* dimmed but still clickable, so a click explains why */
+    .licenses[data-locked] cds-button {
+        filter: grayscale(1);
+        opacity: 0.5;
+    }
     /* the component's own display style would override the attribute */
     cds-button[hidden] {
         display: none;
@@ -176,6 +200,7 @@ const plans = [
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
+    import "@carbon/web-components/es/components/checkbox/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
     import "@carbon/web-components/es/components/link/index.js";
     import { requireVerifiedUser } from "../lib/auth";
@@ -187,6 +212,10 @@ const plans = [
         type: string;
     };
     const manage = document.getElementById("manage") as Button;
+    const waiver = document.getElementById("waiver") as HTMLElement & {
+        checked: boolean;
+        invalid: boolean;
+    };
     const buttons = document.querySelectorAll<Button>("cds-button[data-plan]");
 
     requireVerifiedUser().then((user) => {
@@ -220,8 +249,20 @@ const plans = [
         location.href = res.url;
     }
 
+    const licenses = document.querySelector<HTMLElement>(".licenses")!;
+    waiver.addEventListener("cds-checkbox-changed", () => {
+        licenses.toggleAttribute("data-locked", !waiver.checked);
+        if (waiver.checked) waiver.invalid = false;
+    });
+
     for (const button of buttons) {
         button.addEventListener("click", () => {
+            // the buyer must waive the right of withdrawal before checkout
+            if (!waiver.checked) {
+                waiver.invalid = true;
+                waiver.focus();
+                return;
+            }
             const plan = button.dataset["plan"] as "subscription" | "lifetime";
             redirect(checkout(plan), [...buttons]);
         });

@@ -13,6 +13,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                 <cds-link id="back-link" href="/overview">
                     Overview
                 </cds-link>
+                <cds-link id="history-link" href="/history">
+                    History
+                </cds-link>
                 <cds-button id="logout" kind="ghost" size="sm">
                     Log out
                 </cds-button>
@@ -401,6 +404,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
             const back = document.getElementById("back-link")!;
             back.setAttribute("href", "/buy");
             back.textContent = "License";
+            document.getElementById("history-link")!.hidden = true;
         }
         document.getElementById("loading")!.hidden = true;
         document.getElementById("settings")!.hidden = false;
