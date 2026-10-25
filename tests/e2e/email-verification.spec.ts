@@ -137,7 +137,10 @@ test("unverified login stays restricted; replaced and used links recover clearly
             data: { email, password },
         });
         await page.request.post("/api/auth/delete-account", {
-            data: { confirmation: "delete my account" },
+            data: {
+                confirmation: "delete my account",
+                currentPassword: password,
+            },
         });
         const messages = await (
             await request.get(`${mailpit}/api/v1/search`, {

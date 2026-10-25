@@ -324,6 +324,31 @@ describe("email verification and licenses", () => {
         ).toBe(200);
     });
 
+    it("signs out other devices when the email changes", async () => {
+        const { email, cookie } = await register();
+        const other = sessionCookie(
+            await request("auth/login", { email, password }),
+        );
+        expect(
+            (await request("auth/profile", { email, username: "Bob" }, cookie))
+                .status,
+        ).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(200);
+
+        const changed = await request(
+            "auth/profile",
+            {
+                email: `api-${randomUUID()}@example.com`,
+                username: "Bob",
+                currentPassword: password,
+            },
+            cookie,
+        );
+        expect(changed.status).toBe(200);
+        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(401);
+    });
+
     it("guards checkout and grants a lifetime license only after confirmation", async () => {
         expect(
             (await request("billing/checkout", { plan: "lifetime" })).status,
@@ -425,12 +450,26 @@ describe("email verification and licenses", () => {
                 )
             ).status,
         ).toBe(400);
+        for (const currentPassword of [undefined, "wrong password!"]) {
+            const response = await request(
+                "auth/delete-account",
+                { confirmation: "delete my account", currentPassword },
+                cookie,
+            );
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({
+                error: "Current password is incorrect",
+            });
+        }
         expect((await request("auth/me", undefined, cookie)).status).toBe(200);
         expect(
             (
                 await request(
                     "auth/delete-account",
-                    { confirmation: "delete my account" },
+                    {
+                        confirmation: "delete my account",
+                        currentPassword: password,
+                    },
                     cookie,
                 )
             ).status,
@@ -447,6 +486,36 @@ describe("email verification and licenses", () => {
             }).first(),
         ).toBeNull();
         expect((await request("auth/me", undefined, cookie)).status).toBe(401);
+    });
+
+    it("asks social-only accounts to sign in again before deleting", async () => {
+        const { user, cookie } = await register();
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: null,
+        });
+        const signedInAt = (minutesAgo: number) =>
+            db.orm.public.Session.where({ userId: user.id }).updateAll({
+                createdAt: new Date(
+                    Date.now() - minutesAgo * 60_000,
+                ).toISOString(),
+            });
+        const confirm = { confirmation: "delete my account" };
+
+        await signedInAt(11);
+        const stale = await request("auth/delete-account", confirm, cookie);
+        expect(stale.status).toBe(403);
+        expect((await stale.json()).error).toContain("Sign in again");
+        expect(
+            await db.orm.public.User.where({ id: user.id }).first(),
+        ).not.toBeNull();
+
+        await signedInAt(1);
+        expect(
+            (await request("auth/delete-account", confirm, cookie)).status,
+        ).toBe(204);
+        expect(
+            await db.orm.public.User.where({ id: user.id }).first(),
+        ).toBeNull();
     });
 });
 
@@ -666,7 +735,7 @@ describe("password reset", () => {
         await requestReset(email);
         await request(
             "auth/delete-account",
-            { confirmation: "delete my account" },
+            { confirmation: "delete my account", currentPassword: password },
             cookie,
         );
         expect(

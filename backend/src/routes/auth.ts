@@ -31,6 +31,8 @@ const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 256;
 
 const MINUTE = 60 * 1000;
+// Social-only accounts prove it's them by signing in again shortly before deleting
+const REAUTH_WINDOW_MS = 10 * MINUTE;
 // Every login request from one IP, to slow down credential stuffing
 const loginIpLimiter = new RateLimiter(30, 15 * MINUTE);
 // Failed logins per account, to stop password guessing spread across many IPs
@@ -243,6 +245,30 @@ auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
             400,
         );
     }
+    if (current.passwordHash) {
+        if (
+            !validPassword(body.currentPassword) ||
+            !(await verifyPassword(body.currentPassword, current.passwordHash))
+        ) {
+            return c.json({ error: "Current password is incorrect" }, 400);
+        }
+    } else {
+        const session = await db.orm.public.Session.where({
+            id: c.get("sessionId"),
+        }).first();
+        if (
+            !session ||
+            Date.now() - new Date(session.createdAt).getTime() >
+                REAUTH_WINDOW_MS
+        ) {
+            return c.json(
+                {
+                    error: "Sign in again with Google or Facebook, then delete your account within 10 minutes",
+                },
+                403,
+            );
+        }
+    }
 
     // Foreign keys atomically cascade to sessions, OAuth links, datasets, and metrics.
     const deleted = await db.orm.public.User.where({
@@ -307,25 +333,33 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     try {
         // Avoid applying a change authorized with a password that just changed,
         // or writing back an old email (and its verified state) over a newer one.
-        const user = await db.orm.public.User.where({
-            id: current.id,
-            email: current.email,
-            passwordHash: current.passwordHash,
-        }).update(
-            email === current.email
-                ? { email, username }
-                : // the new address has to be verified again
-                  { email, username, emailVerifiedAt: null },
-        );
+        const user = await db.transaction(async (tx) => {
+            const updated = await tx.orm.public.User.where({
+                id: current.id,
+                email: current.email,
+                passwordHash: current.passwordHash,
+            }).update(
+                email === current.email
+                    ? { email, username }
+                    : // the new address has to be verified again
+                      { email, username, emailVerifiedAt: null },
+            );
+            if (!updated || email === current.email) return updated;
+            await tx.orm.public.PasswordReset.where({
+                userId: updated.id,
+            }).deleteAll();
+            // Keep this device signed in and revoke every other session atomically.
+            await tx.orm.public.Session.where({ userId: updated.id })
+                .where((session) => session.id.neq(c.get("sessionId")))
+                .deleteAll();
+            return updated;
+        });
         if (!user)
             return c.json(
                 { error: "Your account changed. Reload and try again" },
                 409,
             );
         if (email !== current.email) {
-            await db.orm.public.PasswordReset.where({
-                userId: user.id,
-            }).deleteAll();
             await trySendVerificationEmail(c, user.id);
         }
         return c.json({ user: toAuthUser(user) });
