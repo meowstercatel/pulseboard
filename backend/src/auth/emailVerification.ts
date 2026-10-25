@@ -61,9 +61,13 @@ export async function trySendVerificationEmail(c: Context, userId: number) {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// Only Google's verified email proves the address (see linksByEmail)
+const PROVES_EMAIL = "google";
+
 // Verifies an account whose address a provider just proved. Anything set up
-// before that may be an attacker's, so the password, sessions and links made
-// with another address go. Returns null if it was verified meanwhile.
+// before that may be an attacker's, so the password, sessions, links made
+// with another address and Facebook links go. Returns null if it was verified
+// meanwhile.
 export async function claimUnverifiedUser(
     tx: Tx,
     { id, email }: { id: number; email: string },
@@ -82,12 +86,16 @@ export async function claimUnverifiedUser(
     await tx.orm.public.OAuthAccount.where({ userId: id })
         .where((a) => a.email.isNull())
         .deleteAll();
+    await tx.orm.public.OAuthAccount.where({ userId: id })
+        .where((a) => a.provider.neq(PROVES_EMAIL))
+        .deleteAll();
     return user;
 }
 
-// Accounts linked to Google/Facebook before verification existed: the
-// provider already verified the address the link was made with, so if the
-// account still uses that address it counts as verified.
+// Accounts linked to Google before verification existed: Google already
+// verified the address the link was made with, so if the account still uses
+// that address it counts as verified. Facebook links don't count: Facebook
+// sign-ups stay unverified until the emailed link is used.
 export async function verifyOAuthLinkedUsers() {
     const users = db.orm.public.User.where((u) => u.emailVerifiedAt.isNull())
         .where((u) => u.oauthAccounts.some())
@@ -95,14 +103,18 @@ export async function verifyOAuthLinkedUsers() {
         .all();
     let count = 0;
     for await (const user of users) {
-        if (!user.oauthAccounts.some((a) => a.email === user.email)) continue;
+        if (
+            !user.oauthAccounts.some(
+                (a) => a.provider === PROVES_EMAIL && a.email === user.email,
+            )
+        )
+            continue;
         const updated = await db.transaction((tx) =>
             claimUnverifiedUser(tx, user),
         );
         if (updated) count++;
     }
-    if (count)
-        console.log(`Marked ${count} Google/Facebook user(s) as verified`);
+    if (count) console.log(`Marked ${count} Google user(s) as verified`);
 }
 
 // Returns the verified user, or null if the token is unknown, expired, or was

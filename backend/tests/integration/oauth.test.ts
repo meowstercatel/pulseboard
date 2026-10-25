@@ -21,6 +21,7 @@ vi.hoisted(() => {
 
 import { createApp } from "../../src/app.js";
 import { verifyOAuthLinkedUsers } from "../../src/auth/emailVerification.js";
+import { sendMail } from "../../src/mail/mailer.js";
 import { db } from "../../src/prisma/db.js";
 
 vi.mock("../../src/mail/mailer.js", () => ({
@@ -28,6 +29,7 @@ vi.mock("../../src/mail/mailer.js", () => ({
 }));
 
 const app = createApp();
+const mail = vi.mocked(sendMail);
 const password = "Correct horse battery staple!";
 const facebookTakenError =
     "An account with this email already exists. Log in with your password or Google.";
@@ -41,6 +43,7 @@ beforeAll(() => {
 });
 beforeEach(() => {
     ip = `198.51.100.${++ipSequence}`;
+    mail.mockClear();
 });
 afterEach(async () => {
     nock.cleanAll();
@@ -276,12 +279,19 @@ describe("Facebook sign-in", () => {
         expect(location).toBe("/buy");
         const user = await trackUserByEmail(email);
         expect(user).toMatchObject({ username: "Alice", passwordHash: null });
-        expect(user!.emailVerifiedAt).not.toBeNull();
+        // Facebook doesn't prove the address: verified by email, like a sign-up
+        expect(user!.emailVerifiedAt).toBeNull();
+        expect(mail).toHaveBeenCalledOnce();
+        expect(mail.mock.calls[0]![0]).toMatchObject({ to: email });
         expect(await oauthAccounts(user!.id)).toMatchObject([
             { provider: "facebook", providerUserId: facebookId, email },
         ]);
         const me = await request("auth/me", undefined, cookie);
-        expect((await me.json()).user).toMatchObject({ id: user!.id, email });
+        expect((await me.json()).user).toMatchObject({
+            id: user!.id,
+            email,
+            emailVerified: false,
+        });
     });
 
     it("signs in an account already linked to the Facebook ID", async () => {
@@ -296,9 +306,56 @@ describe("Facebook sign-in", () => {
 
         expect(location).toBe("/buy");
         const me = await request("auth/me", undefined, cookie);
-        expect((await me.json()).user).toMatchObject({ id: user!.id, email });
+        expect((await me.json()).user).toMatchObject({
+            id: user!.id,
+            email,
+            emailVerified: false,
+        });
         expect(await oauthAccounts(user!.id)).toHaveLength(1);
+        // only the sign-up sends a link
+        expect(mail).toHaveBeenCalledOnce();
     });
+
+    it("loses an account it made with someone else's address to their Google sign-in", async () => {
+        const email = `oauth-${randomUUID()}@example.com`;
+        const facebookId = `fb-${randomUUID()}`;
+        mockFacebook({ id: facebookId, email });
+        const { cookie: facebookCookie } = await signIn("facebook");
+        const { id } = (await trackUserByEmail(email))!;
+
+        mockGoogle({ sub: `g-${randomUUID()}`, email });
+        const { cookie } = await signIn("google");
+
+        const me = await request("auth/me", undefined, cookie);
+        expect((await me.json()).user).toMatchObject({
+            id,
+            emailVerified: true,
+        });
+        expect(await oauthAccounts(id)).toMatchObject([{ provider: "google" }]);
+        expect(
+            (await request("auth/me", undefined, facebookCookie)).status,
+        ).toBe(401);
+
+        mockFacebook({ id: facebookId, email });
+        const again = await signIn("facebook");
+        expect(again.location).toBe(
+            `/login?oauth_error=${encodeURIComponent(facebookTakenError)}`,
+        );
+        expect(again.cookie).toBeUndefined();
+    });
+});
+
+describe("provider names", () => {
+    it.each(["constructor", "__proto__", "toString"])(
+        "treats %s as an unknown provider",
+        async (name) => {
+            expect((await request(`auth/oauth/${name}`)).status).toBe(404);
+            expect(
+                (await request(`auth/oauth/${name}/callback?code=x&state=y`))
+                    .status,
+            ).toBe(404);
+        },
+    );
 });
 
 describe("startup verification of old links", () => {
@@ -321,5 +378,23 @@ describe("startup verification of old links", () => {
         expect((await loginWithPassword(email)).status).toBe(401);
         expect((await request("auth/me", undefined, cookie)).status).toBe(401);
         expect(await oauthAccounts(id)).toMatchObject([{ email }]);
+    });
+
+    it("doesn't count a Facebook link as proof of the address", async () => {
+        const { email, id, cookie } = await register(false);
+        await db.orm.public.OAuthAccount.create({
+            provider: "facebook",
+            providerUserId: `fb-${randomUUID()}`,
+            userId: id,
+            email,
+        });
+
+        await verifyOAuthLinkedUsers();
+
+        const user = await db.orm.public.User.where({ id }).first();
+        expect(user!.emailVerifiedAt).toBeNull();
+        expect((await loginWithPassword(email)).status).toBe(200);
+        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
+        expect(await oauthAccounts(id)).toHaveLength(1);
     });
 });

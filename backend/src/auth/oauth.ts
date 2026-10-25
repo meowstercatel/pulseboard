@@ -10,7 +10,8 @@ export type OAuthProfile = {
 
 export type OAuthProvider = {
     clientId: string;
-    // whether a verified email may sign in to an existing account with it
+    // whether its verified email proves the address: it may then sign in to an
+    // existing account with it, and new accounts start out verified
     linksByEmail: boolean;
     // the URL to send the browser to; `verifier` is the PKCE code verifier
     authorizeUrl(redirectUri: string, state: string, verifier: string): string;
@@ -141,8 +142,8 @@ function facebook(appId: string, appSecret: string): OAuthProvider {
             return {
                 id: String(me.id),
                 email: typeof me.email === "string" ? me.email : null,
-                // Facebook has no verified flag, so its email is only trusted
-                // for new accounts, never to link an existing one
+                // Facebook has no verified flag, so its email never links an
+                // existing account, and new accounts must verify it by email
                 emailVerified: typeof me.email === "string",
                 name: typeof me.name === "string" ? me.name : null,
             };
@@ -152,7 +153,8 @@ function facebook(appId: string, appSecret: string): OAuthProvider {
 
 function configured(): Record<string, OAuthProvider> {
     const env = process.env;
-    const providers: Record<string, OAuthProvider> = {};
+    // no prototype, so /oauth/constructor isn't a provider
+    const providers: Record<string, OAuthProvider> = Object.create(null);
     if (env["GOOGLE_CLIENT_ID"] && env["GOOGLE_CLIENT_SECRET"]) {
         providers["google"] = google(
             env["GOOGLE_CLIENT_ID"],
