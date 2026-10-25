@@ -5,6 +5,7 @@ package-lock.json
 .sc/
 backend/src/prisma/contract.json
 backend/src/prisma/contract.d.ts
+backend/migrations/
 coverage/
 playwright-report/
 test-results/

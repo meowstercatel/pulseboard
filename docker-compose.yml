@@ -14,13 +14,12 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: brings the database schema up to the Prisma contract, then exits.
-  # Applies additive and widening changes; refuses destructive ones (e.g. drops).
+  # One-shot: applies the pending migrations in backend/migrations, then exits.
   migrate:
     build:
       context: .
       target: backend
-    command: ["pnpm", "prisma", "db", "update", "--no-interactive"]
+    command: ["pnpm", "prisma", "db", "migrate", "--no-interactive"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}
     depends_on:
