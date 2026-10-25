@@ -1,0 +1,982 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.Dataset",
+    "label": "Create table \"Dataset\"",
+    "summary": "Creates table \"Dataset\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "Dataset"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"Dataset\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Dataset\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"Dataset\"",
+        "sql": "CREATE TABLE \"public\".\"Dataset\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"endsAt\" timestamptz,\n  \"fileName\" text,\n  \"id\" SERIAL NOT NULL,\n  \"name\" text NOT NULL,\n  \"ownerId\" int4 NOT NULL,\n  \"rowCount\" int4 DEFAULT 0 NOT NULL,\n  \"startsAt\" timestamptz,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"Dataset\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Dataset\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.EmailVerification",
+    "label": "Create table \"EmailVerification\"",
+    "summary": "Creates table \"EmailVerification\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "EmailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"EmailVerification\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"EmailVerification\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"EmailVerification\"",
+        "sql": "CREATE TABLE \"public\".\"EmailVerification\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"tokenHash\" text NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"tokenHash\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"EmailVerification\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"EmailVerification\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.Metric",
+    "label": "Create table \"Metric\"",
+    "summary": "Creates table \"Metric\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "Metric"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"Metric\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"Metric\"",
+        "sql": "CREATE TABLE \"public\".\"Metric\" (\n  \"cpuPercent\" float8 NOT NULL,\n  \"datasetId\" int4 NOT NULL,\n  \"diskPercent\" float8 NOT NULL,\n  \"host\" text NOT NULL,\n  \"id\" BIGSERIAL NOT NULL,\n  \"netInMbps\" float8 NOT NULL,\n  \"netOutMbps\" float8 NOT NULL,\n  \"ramPercent\" float8 NOT NULL,\n  \"timestamp\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"Metric\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.OAuthAccount",
+    "label": "Create table \"OAuthAccount\"",
+    "summary": "Creates table \"OAuthAccount\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "OAuthAccount"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"OAuthAccount\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"OAuthAccount\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"OAuthAccount\"",
+        "sql": "CREATE TABLE \"public\".\"OAuthAccount\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text,\n  \"id\" SERIAL NOT NULL,\n  \"provider\" text NOT NULL,\n  \"providerUserId\" text NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"OAuthAccount\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"OAuthAccount\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.PasswordReset",
+    "label": "Create table \"PasswordReset\"",
+    "summary": "Creates table \"PasswordReset\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "PasswordReset"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"PasswordReset\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"PasswordReset\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"PasswordReset\"",
+        "sql": "CREATE TABLE \"public\".\"PasswordReset\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"tokenHash\" text NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"tokenHash\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"PasswordReset\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"PasswordReset\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.Session",
+    "label": "Create table \"Session\"",
+    "summary": "Creates table \"Session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "Session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"Session\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Session\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"Session\"",
+        "sql": "CREATE TABLE \"public\".\"Session\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"id\" text NOT NULL,\n  \"userId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"Session\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Session\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.User",
+    "label": "Create table \"User\"",
+    "summary": "Creates table \"User\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"User\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"User\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"User\"",
+        "sql": "CREATE TABLE \"public\".\"User\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"emailVerifiedAt\" timestamptz,\n  \"id\" SERIAL NOT NULL,\n  \"licensePlan\" text,\n  \"licensedAt\" timestamptz,\n  \"passwordHash\" text,\n  \"stripeCustomerId\" text,\n  \"stripeSubscriptionId\" text,\n  \"subscriptionStatus\" text,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"username\" text,\n  \"withdrawalWaiverAt\" timestamptz,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"User\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"User\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.OAuthAccount.OAuthAccount_provider_providerUserId_key",
+    "label": "Add unique constraint on \"OAuthAccount\" (provider, providerUserId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "OAuthAccount_provider_providerUserId_key",
+        "table": "OAuthAccount"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"OAuthAccount_provider_providerUserId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "OAuthAccount_provider_providerUserId_key",
+          "public",
+          "\"public\".\"OAuthAccount\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"OAuthAccount_provider_providerUserId_key\"",
+        "sql": "ALTER TABLE \"public\".\"OAuthAccount\" ADD CONSTRAINT \"OAuthAccount_provider_providerUserId_key\" UNIQUE (\"provider\", \"providerUserId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"OAuthAccount_provider_providerUserId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "OAuthAccount_provider_providerUserId_key",
+          "public",
+          "\"public\".\"OAuthAccount\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.User.User_email_key",
+    "label": "Add unique constraint on \"User\" (email)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "User_email_key",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"User_email_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "User_email_key",
+          "public",
+          "\"public\".\"User\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"User_email_key\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ADD CONSTRAINT \"User_email_key\" UNIQUE (\"email\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"User_email_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "User_email_key",
+          "public",
+          "\"public\".\"User\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.User.User_stripeCustomerId_key",
+    "label": "Add unique constraint on \"User\" (stripeCustomerId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "User_stripeCustomerId_key",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"User_stripeCustomerId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "User_stripeCustomerId_key",
+          "public",
+          "\"public\".\"User\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"User_stripeCustomerId_key\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ADD CONSTRAINT \"User_stripeCustomerId_key\" UNIQUE (\"stripeCustomerId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"User_stripeCustomerId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "User_stripeCustomerId_key",
+          "public",
+          "\"public\".\"User\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.Dataset.Dataset_ownerId_idx_e2d0c1ef",
+    "label": "Create index \"Dataset_ownerId_idx_e2d0c1ef\" on \"Dataset\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "Dataset_ownerId_idx_e2d0c1ef",
+        "table": "Dataset"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"Dataset_ownerId_idx_e2d0c1ef\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Dataset_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"Dataset_ownerId_idx_e2d0c1ef\"",
+        "sql": "CREATE INDEX \"Dataset_ownerId_idx_e2d0c1ef\" ON \"public\".\"Dataset\" (\"ownerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"Dataset_ownerId_idx_e2d0c1ef\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Dataset_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.EmailVerification.EmailVerification_userId_idx_a489d58a",
+    "label": "Create index \"EmailVerification_userId_idx_a489d58a\" on \"EmailVerification\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "EmailVerification_userId_idx_a489d58a",
+        "table": "EmailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"EmailVerification_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"EmailVerification_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"EmailVerification_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"EmailVerification_userId_idx_a489d58a\" ON \"public\".\"EmailVerification\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"EmailVerification_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"EmailVerification_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.Metric.Metric_datasetId_host_timestamp_idx_212b6df2",
+    "label": "Create index \"Metric_datasetId_host_timestamp_idx_212b6df2\" on \"Metric\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "Metric_datasetId_host_timestamp_idx_212b6df2",
+        "table": "Metric"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"Metric_datasetId_host_timestamp_idx_212b6df2\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric_datasetId_host_timestamp_idx_212b6df2\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"Metric_datasetId_host_timestamp_idx_212b6df2\"",
+        "sql": "CREATE INDEX \"Metric_datasetId_host_timestamp_idx_212b6df2\" ON \"public\".\"Metric\" (\"datasetId\", \"host\", \"timestamp\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"Metric_datasetId_host_timestamp_idx_212b6df2\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric_datasetId_host_timestamp_idx_212b6df2\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.Metric.Metric_datasetId_idx_086b843b",
+    "label": "Create index \"Metric_datasetId_idx_086b843b\" on \"Metric\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "Metric_datasetId_idx_086b843b",
+        "table": "Metric"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"Metric_datasetId_idx_086b843b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric_datasetId_idx_086b843b\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"Metric_datasetId_idx_086b843b\"",
+        "sql": "CREATE INDEX \"Metric_datasetId_idx_086b843b\" ON \"public\".\"Metric\" (\"datasetId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"Metric_datasetId_idx_086b843b\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric_datasetId_idx_086b843b\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.Metric.Metric_datasetId_timestamp_idx_11a2fef8",
+    "label": "Create index \"Metric_datasetId_timestamp_idx_11a2fef8\" on \"Metric\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "Metric_datasetId_timestamp_idx_11a2fef8",
+        "table": "Metric"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"Metric_datasetId_timestamp_idx_11a2fef8\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric_datasetId_timestamp_idx_11a2fef8\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"Metric_datasetId_timestamp_idx_11a2fef8\"",
+        "sql": "CREATE INDEX \"Metric_datasetId_timestamp_idx_11a2fef8\" ON \"public\".\"Metric\" (\"datasetId\", \"timestamp\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"Metric_datasetId_timestamp_idx_11a2fef8\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Metric_datasetId_timestamp_idx_11a2fef8\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.OAuthAccount.OAuthAccount_userId_idx_a489d58a",
+    "label": "Create index \"OAuthAccount_userId_idx_a489d58a\" on \"OAuthAccount\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "OAuthAccount_userId_idx_a489d58a",
+        "table": "OAuthAccount"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"OAuthAccount_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"OAuthAccount_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"OAuthAccount_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"OAuthAccount_userId_idx_a489d58a\" ON \"public\".\"OAuthAccount\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"OAuthAccount_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"OAuthAccount_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.PasswordReset.PasswordReset_userId_idx_a489d58a",
+    "label": "Create index \"PasswordReset_userId_idx_a489d58a\" on \"PasswordReset\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "PasswordReset_userId_idx_a489d58a",
+        "table": "PasswordReset"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"PasswordReset_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"PasswordReset_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"PasswordReset_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"PasswordReset_userId_idx_a489d58a\" ON \"public\".\"PasswordReset\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"PasswordReset_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"PasswordReset_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.Session.Session_userId_idx_a489d58a",
+    "label": "Create index \"Session_userId_idx_a489d58a\" on \"Session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "Session_userId_idx_a489d58a",
+        "table": "Session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"Session_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Session_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"Session_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"Session_userId_idx_a489d58a\" ON \"public\".\"Session\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"Session_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Session_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.Dataset.Dataset_ownerId_fkey",
+    "label": "Add foreign key \"Dataset_ownerId_fkey\" on \"Dataset\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "Dataset_ownerId_fkey",
+        "table": "Dataset"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"Dataset_ownerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Dataset_ownerId_fkey",
+          "public",
+          "\"public\".\"Dataset\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"Dataset_ownerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"Dataset\"\nADD CONSTRAINT \"Dataset_ownerId_fkey\"\nFOREIGN KEY (\"ownerId\")\nREFERENCES \"public\".\"User\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"Dataset_ownerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Dataset_ownerId_fkey",
+          "public",
+          "\"public\".\"Dataset\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.EmailVerification.EmailVerification_userId_fkey",
+    "label": "Add foreign key \"EmailVerification_userId_fkey\" on \"EmailVerification\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "EmailVerification_userId_fkey",
+        "table": "EmailVerification"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"EmailVerification_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "EmailVerification_userId_fkey",
+          "public",
+          "\"public\".\"EmailVerification\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"EmailVerification_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"EmailVerification\"\nADD CONSTRAINT \"EmailVerification_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"User\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"EmailVerification_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "EmailVerification_userId_fkey",
+          "public",
+          "\"public\".\"EmailVerification\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.Metric.Metric_datasetId_fkey",
+    "label": "Add foreign key \"Metric_datasetId_fkey\" on \"Metric\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "Metric_datasetId_fkey",
+        "table": "Metric"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"Metric_datasetId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Metric_datasetId_fkey",
+          "public",
+          "\"public\".\"Metric\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"Metric_datasetId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"Metric\"\nADD CONSTRAINT \"Metric_datasetId_fkey\"\nFOREIGN KEY (\"datasetId\")\nREFERENCES \"public\".\"Dataset\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"Metric_datasetId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Metric_datasetId_fkey",
+          "public",
+          "\"public\".\"Metric\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.OAuthAccount.OAuthAccount_userId_fkey",
+    "label": "Add foreign key \"OAuthAccount_userId_fkey\" on \"OAuthAccount\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "OAuthAccount_userId_fkey",
+        "table": "OAuthAccount"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"OAuthAccount_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "OAuthAccount_userId_fkey",
+          "public",
+          "\"public\".\"OAuthAccount\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"OAuthAccount_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"OAuthAccount\"\nADD CONSTRAINT \"OAuthAccount_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"User\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"OAuthAccount_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "OAuthAccount_userId_fkey",
+          "public",
+          "\"public\".\"OAuthAccount\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.PasswordReset.PasswordReset_userId_fkey",
+    "label": "Add foreign key \"PasswordReset_userId_fkey\" on \"PasswordReset\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "PasswordReset_userId_fkey",
+        "table": "PasswordReset"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"PasswordReset_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "PasswordReset_userId_fkey",
+          "public",
+          "\"public\".\"PasswordReset\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"PasswordReset_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"PasswordReset\"\nADD CONSTRAINT \"PasswordReset_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"User\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"PasswordReset_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "PasswordReset_userId_fkey",
+          "public",
+          "\"public\".\"PasswordReset\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.Session.Session_userId_fkey",
+    "label": "Add foreign key \"Session_userId_fkey\" on \"Session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "Session_userId_fkey",
+        "table": "Session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"Session_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Session_userId_fkey",
+          "public",
+          "\"public\".\"Session\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"Session_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"Session\"\nADD CONSTRAINT \"Session_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"User\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"Session_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "Session_userId_fkey",
+          "public",
+          "\"public\".\"Session\""
+        ]
+      }
+    ]
+  }
+]

@@ -1,11 +1,22 @@
 ```
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ```
 open http://localhost:3000
 ```
+
+## Changing the database schema
+
+The schema is applied with migrations from `migrations/`, never with `prisma db update`.
+
+1. Edit `src/prisma/contract.prisma`.
+2. `pnpm prisma contract emit`
+3. `pnpm prisma migration plan --name <what-changed>` writes a new folder under `migrations/app/`. Review it and commit it together with the contract.
+4. On deploy, the `migrate` service runs `prisma db migrate` before the server starts.
+
+`pnpm prisma migration status --db $DATABASE_URL` shows what is pending on a database. The tests apply the same migrations and then run `prisma db verify`, so a contract change without a migration fails them.
 
 ## Backups & restore
 

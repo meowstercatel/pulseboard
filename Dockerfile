@@ -5,8 +5,8 @@ ARG NODE_VERSION=24
 # ---- frontend: build the static Astro site ----
 FROM node:${NODE_VERSION}-alpine AS frontend
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 COPY frontend/ ./
 # shown in the corner on non-main deployments, see BuildBadge.astro
 ARG GIT_BRANCH=
@@ -16,7 +16,8 @@ ENV PUBLIC_GIT_BRANCH=$GIT_BRANCH \
 RUN npm run build
 
 # ---- backend: install all deps and compile TypeScript ----
-# This stage also keeps the Prisma CLI, so docker compose uses it to run `prisma db init`.
+# This stage also keeps the Prisma CLI and backend/migrations, so docker compose
+# uses it to run `prisma db migrate`.
 FROM node:${NODE_VERSION}-alpine AS backend
 RUN corepack enable
 WORKDIR /app/backend
