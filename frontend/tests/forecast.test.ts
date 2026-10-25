@@ -63,9 +63,14 @@ function forecastFor(
             holdoutHours: horizon === "30d" ? 360 : 168,
             holdoutShorterThanHorizon: horizon === "30d",
             scores: [
-                { model: "linear-trend", mae: 2.5, mape: 3.1 },
-                { model: "hour-of-week-trend", mae: 1.23, mape: 1.9 },
-                { model: "holt-winters", mae: 1.8, mape: 2.4 },
+                { model: "linear-trend", mae: 2.5, mape: 3.1, skipped: null },
+                {
+                    model: "hour-of-week-trend",
+                    mae: 1.23,
+                    mape: 1.9,
+                    skipped: null,
+                },
+                { model: "holt-winters", mae: 1.8, mape: 2.4, skipped: null },
             ],
         },
         band: { level: 0.8 },
@@ -282,6 +287,30 @@ describe("forecast page", () => {
         ).toBe("4");
     });
 
+    it("keeps loading hosts when the metric or horizon changes meanwhile", async () => {
+        let resolveHosts!: (r: Response) => void;
+        const fetch = api({
+            "/hosts": () =>
+                new Promise<Response>((resolve) => (resolveHosts = resolve)),
+        });
+        const loading = initForecast(doc);
+        await flush();
+        expect(el("status").textContent).toBe("Loading hosts…");
+        change("horizon", "24h");
+        change("metric", "diskPercent");
+        resolveHosts(
+            Response.json({ hosts: ["web-01", "new-01"], hasMore: false }),
+        );
+        await loading;
+        await flush();
+        expect((el("host") as HTMLSelectElement).value).toBe("web-01");
+        expect(el("results").hidden).toBe(false);
+        // the first selection already uses the new options
+        expect(urls(fetch).filter((u) => u.includes("/forecast"))).toEqual([
+            "/api/datasets/1/forecast?host=web-01&metric=diskPercent&horizon=24h",
+        ]);
+    });
+
     it("refetches the forecast for a new metric or horizon, not the capacity", async () => {
         const fetch = api();
         await initForecast(doc);
@@ -374,6 +403,19 @@ describe("forecast page", () => {
     });
 });
 
+it("counts only the models the backtest could score", () => {
+    const f = forecastFor("web-01", "diskPercent", "7d");
+    f.backtest.scores[2] = {
+        model: "holt-winters",
+        mae: null,
+        mape: null,
+        skipped: "needs 14 days of training",
+    };
+    expect(describeModel(f)[0]).toBe(
+        "Model: a trend plus the usual level for each hour of the week, the most accurate of 2 models tested.",
+    );
+});
+
 it("describes a backtest shorter than the horizon", () => {
     const f = forecastFor("web-01", "diskPercent", "30d");
     expect(describeModel(f)).toEqual([
@@ -386,7 +428,14 @@ it("describes a backtest shorter than the horizon", () => {
             ...f,
             backtest: {
                 ...f.backtest,
-                scores: [{ model: "hour-of-week-trend", mae: 0.5, mape: null }],
+                scores: [
+                    {
+                        model: "hour-of-week-trend",
+                        mae: 0.5,
+                        mape: null,
+                        skipped: null,
+                    },
+                ],
             },
         })[1],
     ).toBe(

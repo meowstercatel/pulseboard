@@ -36,7 +36,13 @@ export type Forecast = {
         origins: number;
         holdoutHours: number;
         holdoutShorterThanHorizon: boolean;
-        scores: { model: ModelName; mae: number | null; mape: number | null }[];
+        scores: {
+            model: ModelName;
+            mae: number | null;
+            mape: number | null;
+            // why the model couldn't be tested, e.g. too little training data
+            skipped: string | null;
+        }[];
     };
     band: { level: number };
     points: {
@@ -104,7 +110,7 @@ export function describeModel(f: Forecast) {
                   ? ""
                   : `, or ${number(score.mape)}% of the actual value (MAPE)`);
     return [
-        `Model: ${modelNames[f.model]}, the most accurate of ${f.backtest.scores.length} models tested.`,
+        `Model: ${modelNames[f.model]}, the most accurate of ${f.backtest.scores.filter((s) => s.skipped === null).length} models tested.`,
         `${tested}${error}.`,
         ...(f.backtest.holdoutShorterThanHorizon
             ? [

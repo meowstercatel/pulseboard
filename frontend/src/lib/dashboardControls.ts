@@ -266,9 +266,13 @@ export function initSelection(hooks: SelectionHooks, doc: Document = document) {
         void loadSelection();
     });
     range?.addEventListener("change", () => void loadSelection());
-    // A page's own options, marked data-reloads-selection, reload it too.
+    // A page's own options, marked data-reloads-selection, reload it too. While
+    // hosts are loading there is no selection yet: reloading then would cancel
+    // the host request, and the next selection reads the new value anyway.
     doc.querySelectorAll("[data-reloads-selection]").forEach((select) =>
-        select.addEventListener("change", () => void loadSelection()),
+        select.addEventListener("change", () => {
+            if (selectedHost) void loadSelection();
+        }),
     );
     retry.addEventListener("click", () => retryAction?.());
     return loadDatasets();

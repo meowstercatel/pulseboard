@@ -1,3 +1,4 @@
+import { setImmediate } from "node:timers/promises";
 import { Hono } from "hono";
 import { requireAuth, requireLicense, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
@@ -477,10 +478,12 @@ dashboard.get("/:id/capacity", async (c) => {
             ramPercent: "pg/float8@1",
         })
         .build();
-    const hosts = new Map<
-        string,
-        { start: number; disk: Map<number, number>; ram: Map<number, number> }
-    >();
+    type Readings = {
+        start: number;
+        disk: Map<number, number>;
+        ram: Map<number, number>;
+    };
+    const hosts = new Map<string, Readings>();
     for await (const row of db.runtime().query(plan)) {
         const t = Date.parse(row.start);
         let host = hosts.get(row.host);
@@ -492,7 +495,7 @@ dashboard.get("/:id/capacity", async (c) => {
         host.ram.set(t, row.ramPercent);
     }
 
-    const rows = [...hosts].flatMap(([host, readings]) => {
+    const forecastHost = ([host, readings]: [string, Readings]) => {
         const end = Math.max(...readings.disk.keys());
         const hours = (end - readings.start) / HOUR_MS + 1;
         return capacityMetrics.map((metric) => {
@@ -521,7 +524,14 @@ dashboard.get("/:id/capacity", async (c) => {
                 thresholds: result.thresholds!,
             };
         });
-    });
+    };
+    const rows: ReturnType<typeof forecastHost> = [];
+    for (const entry of hosts) {
+        rows.push(...forecastHost(entry));
+        // A forecast takes ~10 ms and a large dataset has hundreds of hosts:
+        // let other requests run between hosts instead of blocking for seconds.
+        await setImmediate();
+    }
 
     // [100%, 90%, 80%] as ms; already above is 0, never within the horizon is Infinity.
     const urgency = (row: (typeof rows)[number]) =>
