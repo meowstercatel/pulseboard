@@ -72,6 +72,9 @@ describe("stripe webhook", () => {
             emailVerifiedAt: new Date().toISOString(),
         });
         userIds.add(user.id);
+        await db.orm.public.User.where({ id: user.id }).update({
+            stripeCustomerId: `cus_test_${user.id}`,
+        });
         return user.id;
     }
 
@@ -86,6 +89,7 @@ describe("stripe webhook", () => {
                     object: "checkout.session",
                     mode: "payment",
                     payment_status: "paid",
+                    customer: `cus_test_${userId}`,
                     client_reference_id: String(userId),
                     metadata: { plan: "lifetime" },
                     subscription: null,

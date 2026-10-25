@@ -108,7 +108,16 @@ async function fulfillCheckout(
     }
     const userId = Number(session.client_reference_id);
     const user = await db.orm.public.User.where({ id: userId }).first();
-    if (!user || user.licensePlan === "lifetime") return;
+    // /checkout always sets both; a session made any other way (e.g. a Payment
+    // Link, whose URL can carry any client_reference_id) grants nothing
+    if (
+        !user ||
+        user.licensePlan === "lifetime" ||
+        !user.stripeCustomerId ||
+        idOf(session.customer) !== user.stripeCustomerId
+    ) {
+        return;
+    }
 
     await db.orm.public.User.where({ id: userId }).update({
         licensePlan: "lifetime",
