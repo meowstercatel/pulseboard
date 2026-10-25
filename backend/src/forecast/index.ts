@@ -76,6 +76,8 @@ export function forecast(
     const ranked = result.scores
         .map((score, i) => ({ score, model: models[i]! }))
         .filter(({ score }) => score.skipped === null);
+    if (ranked.length === 0)
+        throw new Error("No model has enough training data to backtest");
     const chosen = ranked.reduce((best, entry) =>
         (entry.score.mae ?? Infinity) < (best.score.mae ?? Infinity)
             ? entry

@@ -204,6 +204,19 @@ describe("forecast", () => {
         expect(result.model).not.toBe("holt-winters");
     });
 
+    it("explains instead of crashing when every model is skipped", () => {
+        expect(() =>
+            forecast(
+                series(14, (i) => 20 + weekly(i)),
+                {
+                    horizonHours: 168,
+                    percent: true,
+                    models: [holtWinters],
+                },
+            ),
+        ).toThrow("No model has enough training data to backtest");
+    });
+
     it("refuses fewer than 14 days of readings, counting only hours with data", () => {
         // 20 days long but only half the hours have readings
         const sparse = series(20, (i) => (i % 2 ? 10 : null));
