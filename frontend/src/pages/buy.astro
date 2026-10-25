@@ -58,7 +58,7 @@ const plans = [
             that I lose my 14-day right of withdrawal once delivery starts. See
             the <a href="/terms">Terms</a>.
         </cds-checkbox>
-        <div class="licenses">
+        <div class="licenses" data-locked>
             {plans.map((plan) => (
                 <section class:list={["license", { featured: plan.badge }]}>
                     {plan.badge && (
@@ -183,6 +183,11 @@ const plans = [
     #waiver a {
         color: var(--cds-link-primary, #0f62fe);
     }
+    /* dimmed but still clickable, so a click explains why */
+    .licenses[data-locked] cds-button {
+        filter: grayscale(1);
+        opacity: 0.5;
+    }
     /* the component's own display style would override the attribute */
     cds-button[hidden] {
         display: none;
@@ -240,7 +245,9 @@ const plans = [
         location.href = res.url;
     }
 
+    const licenses = document.querySelector<HTMLElement>(".licenses")!;
     waiver.addEventListener("cds-checkbox-changed", () => {
+        licenses.toggleAttribute("data-locked", !waiver.checked);
         if (waiver.checked) waiver.invalid = false;
     });
 
