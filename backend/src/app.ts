@@ -1,4 +1,3 @@
-import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { csrf } from "hono/csrf";
 import { secureHeaders } from "hono/secure-headers";
@@ -7,6 +6,7 @@ import { billing } from "./routes/billing.js";
 import { dashboard } from "./routes/dashboard.js";
 import { datasets } from "./routes/datasets.js";
 import { oauth } from "./routes/oauth.js";
+import { staticFiles } from "./static.js";
 
 // Importing the app does not open a port or run startup database updates.
 export function createApp() {
@@ -48,7 +48,7 @@ export function createApp() {
     app.get("/health", (c) => c.json({ ok: true }));
 
     const staticDir = process.env["STATIC_DIR"];
-    if (staticDir) app.use("/*", serveStatic({ root: staticDir }));
+    if (staticDir) app.use("/*", staticFiles(staticDir));
     app.get("/", (c) => c.text("Hello Hono!"));
     return app;
 }

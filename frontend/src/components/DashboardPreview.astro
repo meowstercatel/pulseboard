@@ -242,7 +242,14 @@ const services = [
 </style>
 
 <script>
-    import "@carbon/web-components/es/components/tile/index.js";
-    import "@carbon/web-components/es/components/tag/index.js";
-    import "@carbon/web-components/es/components/progress-bar/index.js";
+    import { whenVisible } from "../lib/whenVisible";
+
+    // The demo's components load once it is about to scroll into view
+    const dashboard = document.querySelector(".dashboard");
+    if (dashboard)
+        whenVisible(dashboard, () => {
+            import("@carbon/web-components/es/components/tile/index.js");
+            import("@carbon/web-components/es/components/tag/index.js");
+            import("@carbon/web-components/es/components/progress-bar/index.js");
+        });
 </script>
