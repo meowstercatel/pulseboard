@@ -1,6 +1,5 @@
 ---
 import LegalLayout from "../layouts/LegalLayout.astro";
-import { seller } from "../lib/legal";
 ---
 
 <LegalLayout
@@ -17,11 +16,7 @@ import { seller } from "../lib/legal";
     </p>
 
     <h2>1. Who is responsible for your data</h2>
-    <p>
-        The controller of your personal data is {seller.name}, {seller.address},
-        NIP {seller.nip} ("we", "us"). For anything related to your data,
-        contact us at <a href={`mailto:${seller.email}`}>{seller.email}</a>.
-    </p>
+    <p>The controller of your personal data is PulseBoard ("we", "us").</p>
 
     <h2>2. What data we collect</h2>
     <h3>Account data</h3>
@@ -96,7 +91,7 @@ import { seller } from "../lib/legal";
     <ul>
         <li>
             <strong>Oracle</strong> (Oracle Cloud Infrastructure), which hosts
-            our server and database in {seller.hostingRegion}, as our processor;
+            our server and database, as our processor;
         </li>
         <li>
             <strong>Stripe</strong>, which processes payments and manages
@@ -200,12 +195,11 @@ import { seller } from "../lib/legal";
         </li>
     </ul>
     <p>
-        To use any right that you cannot use from your settings, email us at{" "}
-        <a href={`mailto:${seller.email}`}>{seller.email}</a>. We will reply
-        within one month. You also have the right to lodge a complaint with the
-        President of the Personal Data Protection Office (Prezes Urzędu Ochrony
-        Danych Osobowych, ul. Stawki 2, 00-193 Warszawa) or with the data
-        protection authority in your EU country of residence.
+        To use any right that you cannot use from your settings, contact us. We
+        will reply within one month. You also have the right to lodge a
+        complaint with the President of the Personal Data Protection Office
+        (Prezes Urzędu Ochrony Danych Osobowych, ul. Stawki 2, 00-193 Warszawa)
+        or with the data protection authority in your EU country of residence.
     </p>
 
     <h2>9. Security</h2>

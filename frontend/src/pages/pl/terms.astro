@@ -1,6 +1,5 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { seller } from "../../lib/legal";
 ---
 
 <LegalLayout
@@ -12,10 +11,8 @@ import { seller } from "../../lib/legal";
     <h2>1. O regulaminie</h2>
     <p>
         PulseBoard to usługa online do przesyłania metryk serwerów w formacie
-        CSV i przeglądania ich w postaci dashboardów. Usługę świadczy{" "}
-        {seller.name}, {seller.address}, NIP {seller.nip} („my”). Możesz się z
-        nami kontaktować pod adresem{" "}
-        <a href={`mailto:${seller.email}`}>{seller.email}</a>.
+        CSV i przeglądania ich w postaci dashboardów. Usługę świadczy PulseBoard
+        („my”).
     </p>
     <p>
         Niniejszy regulamin określa zasady korzystania z PulseBoard i jest
@@ -178,13 +175,12 @@ import { seller } from "../../lib/legal";
     </p>
     <p>
         Gdy prawo odstąpienia przysługuje, możesz z niego skorzystać, wysyłając
-        nam przed upływem terminu jednoznaczne oświadczenie, np. e-mailem na
-        adres <a href={`mailto:${seller.email}`}>{seller.email}</a>. Możesz
-        skorzystać z poniższego wzoru, ale nie jest to obowiązkowe:
+        nam przed upływem terminu jednoznaczne oświadczenie. Możesz skorzystać z
+        poniższego wzoru, ale nie jest to obowiązkowe:
     </p>
     <blockquote>
         <p>
-            Adresat: {seller.name}, {seller.address}, {seller.email}
+            Adresat: PulseBoard
             <br />
             Niniejszym informuję o odstąpieniu od umowy o świadczenie
             następującej usługi: PulseBoard (subskrypcja / licencja dożywotnia).
@@ -202,13 +198,11 @@ import { seller } from "../../lib/legal";
     <h2>8. Reklamacje</h2>
     <p>
         Jeśli PulseBoard nie działa zgodnie z regulaminem, możesz złożyć
-        reklamację e-mailem na adres{" "}
-        <a href={`mailto:${seller.email}`}>{seller.email}</a>. Opisz problem i
-        podaj adres e-mail swojego konta. Odpowiemy w ciągu 14 dni. Konsumentom
-        przysługują uprawnienia określone w ustawie o prawach konsumenta w
-        przypadku braku zgodności treści cyfrowej lub usługi cyfrowej z umową, w
-        tym prawo do doprowadzenia do zgodności, obniżenia ceny lub odstąpienia
-        od umowy.
+        reklamację, kontaktując się z nami. Opisz problem i podaj adres e-mail
+        swojego konta. Odpowiemy w ciągu 14 dni. Konsumentom przysługują
+        uprawnienia określone w ustawie o prawach konsumenta w przypadku braku
+        zgodności treści cyfrowej lub usługi cyfrowej z umową, w tym prawo do
+        doprowadzenia do zgodności, obniżenia ceny lub odstąpienia od umowy.
     </p>
     <p>
         Konsument może także skorzystać z pozasądowych sposobów rozpatrywania

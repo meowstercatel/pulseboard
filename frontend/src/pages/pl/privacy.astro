@@ -1,6 +1,5 @@
 ---
 import LegalLayout from "../../layouts/LegalLayout.astro";
-import { seller } from "../../lib/legal";
 ---
 
 <LegalLayout
@@ -17,12 +16,7 @@ import { seller } from "../../lib/legal";
     </p>
 
     <h2>1. Kto odpowiada za Twoje dane</h2>
-    <p>
-        Administratorem Twoich danych osobowych jest {seller.name},{" "}
-        {seller.address}, NIP {seller.nip} („my”). We wszystkich sprawach
-        dotyczących danych możesz się z nami kontaktować pod adresem{" "}
-        <a href={`mailto:${seller.email}`}>{seller.email}</a>.
-    </p>
+    <p>Administratorem Twoich danych osobowych jest PulseBoard („my”).</p>
 
     <h2>2. Jakie dane zbieramy</h2>
     <h3>Dane konta</h3>
@@ -103,8 +97,7 @@ import { seller } from "../../lib/legal";
     <ul>
         <li>
             <strong>Oracle</strong> (Oracle Cloud Infrastructure), które hostuje
-            nasz serwer i bazę danych w lokalizacji {seller.hostingRegion}, jako
-            nasz podmiot przetwarzający;
+            nasz serwer i bazę danych, jako nasz podmiot przetwarzający;
         </li>
         <li>
             <strong>Stripe</strong>, które obsługuje płatności i subskrypcje.
@@ -215,11 +208,10 @@ import { seller } from "../../lib/legal";
     </ul>
     <p>
         Aby skorzystać z prawa, którego nie możesz wykonać w ustawieniach,
-        napisz do nas na adres{" "}
-        <a href={`mailto:${seller.email}`}>{seller.email}</a>. Odpowiemy w ciągu
-        miesiąca. Masz także prawo wnieść skargę do Prezesa Urzędu Ochrony
-        Danych Osobowych (ul. Stawki 2, 00-193 Warszawa) lub do organu ochrony
-        danych w państwie UE, w którym mieszkasz.
+        skontaktuj się z nami. Odpowiemy w ciągu miesiąca. Masz także prawo
+        wnieść skargę do Prezesa Urzędu Ochrony Danych Osobowych (ul. Stawki 2,
+        00-193 Warszawa) lub do organu ochrony danych w państwie UE, w którym
+        mieszkasz.
     </p>
 
     <h2>9. Bezpieczeństwo</h2>
