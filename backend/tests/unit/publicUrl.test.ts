@@ -41,8 +41,15 @@ it("refuses to start in production without a valid PUBLIC_URL", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("PUBLIC_URL", "");
     expect(() => checkPublicUrl()).toThrow("PUBLIC_URL must be set");
-    vi.stubEnv("PUBLIC_URL", "pulseboard.example");
-    expect(() => checkPublicUrl()).toThrow("not a valid URL");
+    for (const value of [
+        "pulseboard.example",
+        "pulseboard.example:443",
+        "localhost:3000",
+        "ftp://pulseboard.example",
+    ]) {
+        vi.stubEnv("PUBLIC_URL", value);
+        expect(() => checkPublicUrl()).toThrow("not a valid URL");
+    }
     vi.stubEnv("PUBLIC_URL", "https://pulseboard.example/");
     expect(() => checkPublicUrl()).not.toThrow();
 });

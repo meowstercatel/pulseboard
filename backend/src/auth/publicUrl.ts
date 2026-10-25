@@ -14,9 +14,16 @@ function configuredPublicUrl(): string | undefined {
 // Called once at startup so a missing or malformed PUBLIC_URL stops the deploy
 export function checkPublicUrl() {
     const value = configuredPublicUrl();
-    if (value && !URL.canParse(value)) {
+    if (value && !isHttpUrl(value)) {
         throw new Error(`PUBLIC_URL is not a valid URL: ${value}`);
     }
+}
+
+// URL.canParse alone accepts "pulseboard.example:443" (scheme "pulseboard.example:")
+function isHttpUrl(value: string): boolean {
+    if (!URL.canParse(value)) return false;
+    const { protocol, host } = new URL(value);
+    return (protocol === "https:" || protocol === "http:") && host !== "";
 }
 
 export function publicUrl(c: Context, path: string): string {
