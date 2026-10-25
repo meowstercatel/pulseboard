@@ -256,8 +256,9 @@ describe("history page", () => {
     // Routes API requests to sample-backed responses; overrides win.
     function api(
         overrides: Record<string, () => Response | Promise<Response>> = {},
+        endsAt = "2026-09-14T23:45:00.000Z",
     ) {
-        const fetch = vi.fn((input: string) => {
+        const fetch = vi.fn((input: string, _init?: RequestInit) => {
             const url = new URL(input, "http://localhost");
             const key = Object.keys(overrides).find((k) => input.includes(k));
             if (key) return Promise.resolve(overrides[key]!());
@@ -269,7 +270,7 @@ describe("history page", () => {
                                 id: 1,
                                 name: "gaps",
                                 startsAt: "2026-09-01T00:00:00.000Z",
-                                endsAt: "2026-09-14T23:45:00.000Z",
+                                endsAt,
                             },
                         ],
                         limits: {},
@@ -313,7 +314,7 @@ describe("history page", () => {
             <p id="gap-note"></p><p id="gap-empty"></p><div id="gap-table">${table("gap")}</div>
             <p id="spike-empty"></p><div id="spike-table">${table("spike")}</div>
             <select id="heatmap-metric"><option value="cpuPercent">CPU</option><option value="ramPercent">RAM</option></select>
-            <p id="heatmap-status"></p><div id="heatmap-content"><div id="heatmap"></div><table><caption id="heatmap-caption"></caption><tbody id="heatmap-rows"></tbody></table></div>
+            <p id="heatmap-status"></p><div id="heatmap-content"><div id="heatmap"></div><div id="heatmap-tooltip" hidden></div><table><caption id="heatmap-caption"></caption><tbody id="heatmap-rows"></tbody></table></div>
             <select id="compare-metric"></select><select id="compare-series"><option value="avg">Average</option><option value="max">Maximum</option></select>
             <p id="compare-status"></p><div id="compare-content"><ul id="compare-legend"></ul><div id="compare-chart"></div>
             <table><caption id="compare-caption"></caption><thead id="compare-head"></thead><tbody id="compare-rows"></tbody></table></div></div>`;
@@ -352,10 +353,16 @@ describe("history page", () => {
         expect(cpu.querySelectorAll(".marker")).toHaveLength(2);
         expect(cpu.innerHTML).not.toMatch(/NaN|Infinity/);
         expect(el("chart-rows-cpuPercent").children).toHaveLength(330);
-        // 1h buckets already: the heatmap reuses them without a second request.
+        // 1h buckets already: the heatmap reuses them, and the comparison reuses
+        // the selected host's, so only db-01's history is fetched again.
         expect(
-            fetch.mock.calls.filter(([u]) => u.includes("/history?")),
-        ).toHaveLength(3);
+            fetch.mock.calls
+                .map(([u]) => u)
+                .filter((u) => u.includes("/history?")),
+        ).toEqual([
+            "/api/datasets/1/history?host=web-01&range=all&bucket=1h",
+            "/api/datasets/1/history?host=db-01&range=all&bucket=1h",
+        ]);
         expect(texts("heatmap-rows")).toHaveLength(7);
         expect(el("heatmap").querySelectorAll(".cell")).toHaveLength(168);
         expect(el("heatmap-caption").textContent).toContain("CPU usage");
@@ -364,9 +371,10 @@ describe("history page", () => {
             new window.Event("change") as unknown as Event,
         );
         expect(el("heatmap-caption").textContent).toContain("RAM usage");
+        // Compared hosts are in name order.
         expect(
             [...el("compare-legend").children].map((li) => li.textContent),
-        ).toEqual(["web-01", "db-01"]);
+        ).toEqual(["db-01", "web-01"]);
         expect(el("compare-chart").querySelectorAll(".dot")).toHaveLength(2);
         expect(texts("compare-rows")[0]).toHaveLength(3);
         expect(
@@ -415,7 +423,7 @@ describe("history page", () => {
         expect(el("heatmap-content").hidden).toBe(true);
     });
 
-    it("compares at most 10 hosts", async () => {
+    it("compares at most 10 hosts and always includes the selected one", async () => {
         const hosts = Array.from(
             { length: 12 },
             (_, i) => `host-${String(i).padStart(2, "0")}`,
@@ -425,7 +433,116 @@ describe("history page", () => {
         await flush();
         expect(el("compare-legend").children).toHaveLength(10);
         expect(el("compare-status").textContent).toBe(
-            "Showing the first 10 of 12 hosts, sorted by name.",
+            "Showing 10 of 12 hosts: host-00 and the first 9 others by name.",
+        );
+        (el("host") as HTMLSelectElement).value = "host-11";
+        el("host").dispatchEvent(
+            new window.Event("change") as unknown as Event,
+        );
+        await flush();
+        await flush();
+        const legend = [...el("compare-legend").children].map(
+            (li) => li.textContent,
+        );
+        expect(legend).toHaveLength(10);
+        expect(legend.at(-1)).toBe("host-11");
+        expect(legend).not.toContain("host-09");
+    });
+
+    it("stops loading compared hosts after one fails", async () => {
+        const hosts = Array.from(
+            { length: 10 },
+            (_, i) => `host-${String(i).padStart(2, "0")}`,
+        );
+        const fetch = api({
+            "hosts?q=": () => Response.json({ hosts, hasMore: false }),
+            "history?host=host-01": () =>
+                Response.json(
+                    { error: "Database unavailable" },
+                    { status: 500 },
+                ),
+        });
+        await initHistory(doc);
+        await flush();
+        await flush();
+        expect(el("compare-status").textContent).toBe("Database unavailable");
+        expect(el("compare-content").hidden).toBe(true);
+        // host-00 comes from the main request; the 4 workers start host-01..04,
+        // and none starts another host once host-01 has failed.
+        const compared = fetch.mock.calls.filter(
+            ([u]) => u.includes("/history?") && !u.includes("host=host-00"),
+        );
+        expect(compared.length).toBeLessThanOrEqual(4);
+        const signals = fetch.mock.calls
+            .filter(([u]) => /host=host-0[2-4]/.test(u))
+            .map(([, init]) => init!.signal!);
+        expect(signals.every((signal) => signal.aborted)).toBe(true);
+    });
+
+    it("keeps the loading message when compare options change before data arrives", async () => {
+        // The page's host list and the comparison's use the same URL; only the
+        // second request (the comparison's) never answers.
+        let hostLists = 0;
+        api({
+            "hosts?q=": () =>
+                ++hostLists === 1
+                    ? Response.json({
+                          hosts: ["web-01", "db-01"],
+                          hasMore: false,
+                      })
+                    : new Promise<Response>(() => {}),
+        });
+        await initHistory(doc);
+        await flush();
+        expect(el("compare-status").textContent).toBe("Loading hosts…");
+        (el("compare-series") as HTMLSelectElement).value = "max";
+        el("compare-series").dispatchEvent(
+            new window.Event("change") as unknown as Event,
+        );
+        expect(el("compare-status").textContent).toBe("Loading hosts…");
+    });
+
+    it("explains instead of requesting a heatmap over more than 2,000 hours", async () => {
+        const long = {
+            ...sample.get("web-01")!,
+            bucket: "1d",
+            from: "2026-01-01T00:00:00.000Z",
+            to: "2026-09-14T23:45:00.000Z",
+        };
+        const fetch = api(
+            { "bucket=1d": () => Response.json(long) },
+            "2026-09-14T23:45:00.000Z",
+        );
+        // A dataset starting in January needs 1d buckets for "all".
+        vi.mocked(fetch).mockImplementationOnce(() =>
+            Promise.resolve(
+                Response.json({
+                    datasets: [
+                        {
+                            id: 1,
+                            name: "long",
+                            startsAt: "2026-01-01T00:00:00.000Z",
+                            endsAt: "2026-09-14T23:45:00.000Z",
+                        },
+                    ],
+                    limits: {},
+                }),
+            ),
+        );
+        await initHistory(doc);
+        expect(fetch.mock.calls.some(([u]) => u.includes("bucket=1h"))).toBe(
+            false,
+        );
+        expect(el("heatmap-status").textContent).toBe(
+            "The heatmap needs 1-hour buckets, and this host’s full history spans 6,168 hours, more than the limit of 2,000. Choose the last 30 days of data to see it.",
+        );
+        // Changing the metric keeps the explanation.
+        (el("heatmap-metric") as HTMLSelectElement).value = "ramPercent";
+        el("heatmap-metric").dispatchEvent(
+            new window.Event("change") as unknown as Event,
+        );
+        expect(el("heatmap-status").textContent).toContain(
+            "Choose the last 30 days",
         );
     });
 

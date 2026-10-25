@@ -136,9 +136,16 @@ export function renderHistoryChart(
     const xAxis = el("div", "x-axis");
     xAxis.setAttribute("aria-hidden", "true");
     if (times.length) {
-        const ends = span
-            ? [0, Math.floor(times.length / 2), times.length - 1]
-            : [0];
+        // The middle label goes on the sample nearest the middle of the span.
+        const middle = start + span / 2;
+        const centre = times.reduce(
+            (best, t, i) =>
+                Math.abs(t - middle) < Math.abs(times[best]! - middle)
+                    ? i
+                    : best,
+            0,
+        );
+        const ends = span ? [...new Set([0, centre, times.length - 1])] : [0];
         for (const i of ends) {
             const tick = el("span", "", chart.axisLabel(times[i]!));
             tick.style.left = `${(x(times[i]!) / W) * 100}%`;

@@ -760,7 +760,10 @@ const steps = ["0–20", "20–40", "40–60", "60–80", "80–100"];
         const cell = (event.target as HTMLElement).closest<HTMLElement>(
             ".cell",
         );
-        if (!cell?.dataset.tip) return;
+        if (!cell?.dataset.tip) {
+            tip.hidden = true;
+            return;
+        }
         tip.textContent = cell.dataset.tip;
         tip.hidden = false;
         // Above the cell, centred on it and kept inside the grid.

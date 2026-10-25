@@ -56,16 +56,29 @@ export function pickBucket(
     dataset: { startsAt: string | null; endsAt: string | null },
 ): BucketSize {
     const sizes = Object.keys(bucketSizes) as BucketSize[];
-    const count = (ms: number) => {
-        if (range !== "all") return Math.floor(rangeMs[range]! / ms) + 1;
-        if (!dataset.startsAt || !dataset.endsAt) return 1;
-        return (
-            Math.floor(Date.parse(dataset.endsAt) / ms) -
-            Math.floor(Date.parse(dataset.startsAt) / ms) +
-            1
-        );
-    };
-    return sizes.find((s) => count(bucketSizes[s]) <= MAX_BUCKETS) ?? "1d";
+    return (
+        sizes.find(
+            (s) =>
+                bucketCount(range, dataset.startsAt, dataset.endsAt, s) <=
+                MAX_BUCKETS,
+        ) ?? "1d"
+    );
+}
+
+// Buckets the API would return: from the range length, or for "all" from the
+// first to the last reading, aligned to UTC bucket boundaries.
+export function bucketCount(
+    range: string,
+    from: string | null,
+    to: string | null,
+    bucket: BucketSize,
+) {
+    const ms = bucketSizes[bucket];
+    if (range !== "all") return Math.floor(rangeMs[range]! / ms) + 1;
+    if (!from || !to) return 1;
+    return (
+        Math.floor(Date.parse(to) / ms) - Math.floor(Date.parse(from) / ms) + 1
+    );
 }
 
 // Usual distance between filled buckets: the bucket size, or the reading

@@ -10,11 +10,13 @@ import {
     type Selection,
 } from "./dashboardControls";
 import {
+    bucketCount,
     duration,
     filled,
     findGaps,
     findSpikes,
     heatmap,
+    MAX_BUCKETS,
     niceMax,
     pickBucket,
     utc,
@@ -199,6 +201,7 @@ export function initHistory(doc: Document = document) {
         const rows = byId("heatmap-rows");
         grid.replaceChildren();
         rows.replaceChildren();
+        byId("heatmap-tooltip").hidden = true;
         byId("heatmap-content").hidden = !heatmapData;
         byId("heatmap-status").textContent = error;
         if (!heatmapData) return;
@@ -342,37 +345,56 @@ export function initHistory(doc: Document = document) {
     }
 
     async function loadCompare(
-        { dataset, range }: Selection,
-        bucket: BucketSize,
+        { dataset, host, range }: Selection,
+        selected: History,
         request: Request,
     ) {
         renderCompare("Loading hosts…");
+        // Stops the remaining requests when one fails or a new selection starts.
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        request.signal.addEventListener("abort", abort);
         try {
             const { hosts, hasMore } = await dashboardGet<{
                 hosts: string[];
                 hasMore: boolean;
-            }>(`/api/datasets/${dataset.id}/hosts?q=`, request.signal);
-            const shown = hosts.slice(0, MAX_COMPARED_HOSTS);
-            const histories: History[] = new Array(shown.length);
+            }>(`/api/datasets/${dataset.id}/hosts?q=`, controller.signal);
+            // The selected host is always compared, in name order with the rest.
+            const others = hosts.filter((h) => h !== host);
+            const shown = [
+                host,
+                ...others.slice(0, MAX_COMPARED_HOSTS - 1),
+            ].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+            const histories = shown.map((h) =>
+                h === host ? selected : null,
+            ) as (History | null)[];
+            const pending = shown.flatMap((h, i) => (h === host ? [] : [i]));
             // Four requests at a time.
-            let next = 0;
             await Promise.all(
-                Array.from({ length: Math.min(4, shown.length) }, async () => {
-                    while (next < shown.length) {
-                        const i = next++;
-                        histories[i] = await dashboardGet<History>(
-                            `/api/datasets/${dataset.id}/history?${new URLSearchParams({ host: shown[i]!, range, bucket })}`,
-                            request.signal,
-                        );
-                    }
-                }),
+                Array.from(
+                    { length: Math.min(4, pending.length) },
+                    async () => {
+                        // Checked as well as aborting, in case a transport ignores the signal.
+                        while (pending.length && !controller.signal.aborted) {
+                            const i = pending.shift()!;
+                            histories[i] = await dashboardGet<History>(
+                                `/api/datasets/${dataset.id}/history?${new URLSearchParams({ host: shown[i]!, range, bucket: selected.bucket })}`,
+                                controller.signal,
+                            ).catch((reason: unknown) => {
+                                abort();
+                                throw reason;
+                            });
+                        }
+                    },
+                ),
             );
             if (!request.current()) return;
+            const total = hasMore ? "more than 100" : String(others.length + 1);
             compared = {
-                histories,
+                histories: histories as History[],
                 note:
-                    hosts.length > shown.length || hasMore
-                        ? `Showing the first ${MAX_COMPARED_HOSTS} of ${hasMore ? "more than 100" : hosts.length} hosts, sorted by name.`
+                    hasMore || others.length + 1 > shown.length
+                        ? `Showing ${shown.length} of ${total} hosts: ${host} and the first ${shown.length - 1} others by name.`
                         : "",
             };
             renderCompare("");
@@ -384,12 +406,19 @@ export function initHistory(doc: Document = document) {
                     ? reason.message
                     : "Can't reach the server",
             );
+        } finally {
+            request.signal.removeEventListener("abort", abort);
         }
     }
 
-    heatmapMetric.addEventListener("change", () => renderHeatmap());
-    compareMetric.addEventListener("change", () => renderCompare(""));
-    compareSeries.addEventListener("change", () => renderCompare(""));
+    // Before data arrives a change would wipe a loading or error message.
+    heatmapMetric.addEventListener("change", () => {
+        if (heatmapData) renderHeatmap();
+    });
+    for (const select of [compareMetric, compareSeries])
+        select.addEventListener("change", () => {
+            if (compared) renderCompare("");
+        });
 
     return initSelection(
         {
@@ -402,21 +431,34 @@ export function initHistory(doc: Document = document) {
                     extra: Record<string, string> = {},
                 ) =>
                     `/api/datasets/${dataset.id}/${path}?${new URLSearchParams({ host, range, ...extra })}`;
-                const [stats, history, hourly] = await Promise.all([
+                const [stats, history] = await Promise.all([
                     dashboardGet<Stats>(url("stats"), request.signal),
                     dashboardGet<History>(
                         url("history", { bucket }),
                         request.signal,
                     ),
+                ]);
+                if (!request.current()) return;
+                // The heatmap needs 1h buckets, counted like the API counts them.
+                const hours = bucketCount(
+                    range,
+                    history.from,
+                    history.to,
+                    "1h",
+                );
+                const hourly =
                     bucket === "1h"
                         ? null
-                        : dashboardGet<History>(
-                              url("history", { bucket: "1h" }),
-                              request.signal,
-                          ).catch((reason: unknown) =>
-                              reason instanceof Error ? reason : new Error(),
-                          ),
-                ]);
+                        : hours > MAX_BUCKETS
+                          ? new Error(
+                                `The heatmap needs 1-hour buckets, and this host’s full history spans ${number(hours)} hours, more than the limit of ${number(MAX_BUCKETS)}. Choose the last 30 days of data to see it.`,
+                            )
+                          : await dashboardGet<History>(
+                                url("history", { bucket: "1h" }),
+                                request.signal,
+                            ).catch((reason: unknown) =>
+                                reason instanceof Error ? reason : new Error(),
+                            );
                 if (!request.current()) return;
                 const readings = stats.metrics.cpuPercent.count;
                 if (!readings)
@@ -436,7 +478,7 @@ export function initHistory(doc: Document = document) {
                     heatmapData = hourly ?? history;
                     renderHeatmap();
                 }
-                void loadCompare(selection, bucket, request);
+                void loadCompare(selection, history, request);
             },
         },
         doc,
