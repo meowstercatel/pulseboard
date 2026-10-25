@@ -8,7 +8,10 @@ import {
     type OAuthProfile,
     type OAuthProvider,
 } from "../auth/oauth.js";
-import { claimUnverifiedUser } from "../auth/emailVerification.js";
+import {
+    claimUnverifiedUser,
+    trySendVerificationEmail,
+} from "../auth/emailVerification.js";
 import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
 import { publicUrl } from "../auth/publicUrl.js";
 import { createSession, type AuthEnv } from "../auth/session.js";
@@ -46,13 +49,17 @@ async function resolveUser(
     if (linked) {
         const { user } = linked;
         // Covers links made before email verification existed
-        if (!user.emailVerifiedAt && linked.email === user.email) {
+        if (
+            linksByEmail &&
+            !user.emailVerifiedAt &&
+            linked.email === user.email
+        ) {
             const updated = await db.transaction((tx) =>
                 claimUnverifiedUser(tx, user),
             );
-            if (updated) return updated;
+            if (updated) return { user: updated, created: false };
         }
-        return user;
+        return { user, created: false };
     }
 
     const email = profile.email?.trim().toLowerCase();
@@ -64,6 +71,7 @@ async function resolveUser(
 
     return db.transaction(async (tx) => {
         let user = await tx.orm.public.User.where({ email }).first();
+        const created = !user;
         if (user && !linksByEmail) {
             throw new OAuthError(
                 "An account with this email already exists. Log in with your password or Google.",
@@ -81,7 +89,10 @@ async function resolveUser(
                 email,
                 username: profile.name,
                 passwordHash: null,
-                emailVerifiedAt: new Date().toISOString(),
+                // Facebook doesn't prove the address, so like a password
+                // sign-up the account stays unverified until the emailed link
+                // (or a Google sign-in with it) does
+                emailVerifiedAt: linksByEmail ? new Date().toISOString() : null,
             });
         }
         await tx.orm.public.OAuthAccount.create({
@@ -90,7 +101,7 @@ async function resolveUser(
             userId: user.id,
             email,
         });
-        return user;
+        return { user, created };
     });
 }
 
@@ -146,7 +157,7 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
         return fail(c, `${label} sign-in expired, please try again`);
     }
 
-    let user;
+    let user, created;
     try {
         const profile = await provider.fetchProfile(
             code,
@@ -154,11 +165,11 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
             verifier,
         );
         try {
-            user = await resolveUser(name, provider, profile);
+            ({ user, created } = await resolveUser(name, provider, profile));
         } catch (err) {
             // Lost a race with a parallel sign-in that created the same rows
             if (!isUniqueViolation(err)) throw err;
-            user = await resolveUser(name, provider, profile);
+            ({ user, created } = await resolveUser(name, provider, profile));
         }
     } catch (err) {
         if (err instanceof OAuthError) return fail(c, err.message);
@@ -166,6 +177,8 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
         return fail(c, `Couldn't sign in with ${label}`);
     }
 
+    if (created && !user.emailVerifiedAt)
+        await trySendVerificationEmail(c, user.id);
     await createSession(c, user.id);
     return c.redirect(user.licensePlan ? "/overview" : "/buy");
 });
