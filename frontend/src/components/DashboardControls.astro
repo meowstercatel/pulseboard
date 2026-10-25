@@ -1,6 +1,7 @@
 ---
 // Dataset, host and time-range selectors driven by initSelection() in
-// src/lib/dashboardControls.ts.
+// src/lib/dashboardControls.ts. `range={false}` leaves out the time range.
+const { range = true } = Astro.props;
 ---
 
 <cds-tile>
@@ -23,20 +24,24 @@
             </div>
             <p id="host-hint" class="meta" role="status"></p>
         </div>
-        <div class="field">
-            <label for="range">Time range</label>
-            <select id="range" disabled>
-                <option value="all">All imported readings</option>
-                <option value="1h">Last hour of data</option>
-                <option value="24h">Last 24 hours of data</option>
-                <option value="7d">Last 7 days of data</option>
-                <option value="30d">Last 30 days of data</option>
-            </select>
-        </div>
+        {range && (
+            <div class="field">
+                <label for="range">Time range</label>
+                <select id="range" disabled>
+                    <option value="all">All imported readings</option>
+                    <option value="1h">Last hour of data</option>
+                    <option value="24h">Last 24 hours of data</option>
+                    <option value="7d">Last 7 days of data</option>
+                    <option value="30d">Last 30 days of data</option>
+                </select>
+            </div>
+        )}
     </div>
-    <p class="meta">
-        Ranges end at the selected host’s latest imported reading.
-    </p>
+    {range && (
+        <p class="meta">
+            Ranges end at the selected host’s latest imported reading.
+        </p>
+    )}
 </cds-tile>
 <style>
     cds-tile {

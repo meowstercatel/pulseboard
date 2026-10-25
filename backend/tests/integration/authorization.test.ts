@@ -74,6 +74,7 @@ const DATASET_ROUTES: Record<string, { path: string; ownerStatus: number }> = {
         path: "forecast?host=web&metric=cpuPercent&horizon=24h",
         ownerStatus: 422,
     },
+    "GET /api/datasets/:id/capacity": { path: "capacity", ownerStatus: 200 },
     "DELETE /api/datasets/:id": { path: "", ownerStatus: 204 },
 };
 
