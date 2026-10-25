@@ -183,6 +183,10 @@ const features = [
                 PulseBoard
             </a>
             <span>A little clarity for your corner of the internet.</span>
+            <nav class="legal" aria-label="Legal">
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </nav>
         </footer>
     </div>
 </HtmlTemplate>
@@ -446,6 +450,11 @@ const features = [
         font-size: 11px;
     }
     .footer > a:last-child {
+        font-size: 11px;
+    }
+    .footer .legal {
+        display: flex;
+        gap: 16px;
         font-size: 11px;
     }
     .skip-link {

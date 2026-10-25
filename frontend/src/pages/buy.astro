@@ -85,7 +85,10 @@ const plans = [
         <cds-button id="manage" size="md" kind="tertiary" hidden>
             Manage subscription
         </cds-button>
-        <p class="note">Payments are processed by Stripe.</p>
+        <p class="note">
+            Payments are processed by Stripe. See our{" "}
+            <a href="/privacy">Privacy Policy</a>.
+        </p>
     </main>
 </HtmlTemplate>
 
@@ -180,7 +183,8 @@ const plans = [
     #waiver {
         font-size: 0.875rem;
     }
-    #waiver a {
+    #waiver a,
+    .note a {
         color: var(--cds-link-primary, #0f62fe);
     }
     /* dimmed but still clickable, so a click explains why */

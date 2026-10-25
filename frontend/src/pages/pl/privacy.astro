@@ -1,0 +1,243 @@
+---
+import LegalLayout from "../../layouts/LegalLayout.astro";
+import { seller } from "../../lib/legal";
+---
+
+<LegalLayout
+    title="Polityka prywatności"
+    description="Jak PulseBoard zbiera, wykorzystuje i chroni Twoje dane osobowe."
+    lang="pl"
+    alternate="/privacy"
+>
+    <p>
+        Ta polityka wyjaśnia, jakie dane osobowe zbiera PulseBoard, w jakim
+        celu, komu je udostępnia, jak długo je przechowuje i jakie prawa Ci
+        przysługują. Została przygotowana zgodnie z ogólnym rozporządzeniem o
+        ochronie danych (RODO).
+    </p>
+
+    <h2>1. Kto odpowiada za Twoje dane</h2>
+    <p>
+        Administratorem Twoich danych osobowych jest {seller.name},{" "}
+        {seller.address}, NIP {seller.nip} („my”). We wszystkich sprawach
+        dotyczących danych możesz się z nami kontaktować pod adresem{" "}
+        <a href={`mailto:${seller.email}`}>{seller.email}</a>.
+    </p>
+
+    <h2>2. Jakie dane zbieramy</h2>
+    <h3>Dane konta</h3>
+    <ul>
+        <li>adres e-mail oraz, jeśli go podasz, nazwę użytkownika;</li>
+        <li>
+            jeśli rejestrujesz się hasłem, jego skrót wygenerowany algorytmem
+            scrypt (nigdy nie przechowujemy samego hasła);
+        </li>
+        <li>informację, czy i kiedy adres e-mail został potwierdzony;</li>
+        <li>
+            krótkotrwałe linki do potwierdzenia adresu e-mail i resetu hasła, z
+            których przechowujemy wyłącznie skrót.
+        </li>
+    </ul>
+    <h3>Logowanie przez Google i Facebook</h3>
+    <p>
+        Jeśli zdecydujesz się zalogować przez Google lub Facebook, otrzymujemy
+        identyfikator Twojego konta u tego dostawcy, adres e-mail oraz imię i
+        nazwisko (używane jako nazwa użytkownika). Nie otrzymujemy Twojego hasła
+        i niczego nie publikujemy w Twoim imieniu.
+    </p>
+    <h3>Przesyłane dane</h3>
+    <p>
+        Przesyłane przez Ciebie pliki CSV zawierają metryki serwerów: znaczniki
+        czasu, nazwy hostów oraz odczyty procesora, pamięci, dysku i sieci.
+        Przechowujemy je, aby wyświetlać Twoje dashboardy. Nie są przeznaczone
+        do przechowywania danych osobowych. Jeśli nazwy hostów pozwalają
+        zidentyfikować osoby, odpowiadasz za to, by mieć prawo do ich
+        przesłania.
+    </p>
+    <h3>Dane płatności</h3>
+    <p>
+        Płatności obsługuje Stripe. Przechowujemy identyfikatory klienta i
+        subskrypcji w Stripe, kupiony plan, jego status i datę rozpoczęcia oraz
+        moment wyrażenia zgody na natychmiastowe dostarczenie i zrzeczenia się
+        prawa odstąpienia od umowy. Nigdy nie widzimy ani nie przechowujemy
+        pełnego numeru Twojej karty.
+    </p>
+    <h3>Dane techniczne</h3>
+    <p>
+        Twój adres IP jest przez krótki czas przechowywany w pamięci serwera,
+        aby ograniczać powtarzane próby logowania, rejestracji i weryfikacji.
+        Nie jest zapisywany w naszej bazie danych. Przechowujemy też rekord
+        sesji, dzięki któremu nie musisz logować się ponownie (zob.{" "}
+        <a href="#cookies">Pliki cookie</a>).
+    </p>
+
+    <h2>3. W jakim celu i na jakiej podstawie przetwarzamy dane</h2>
+    <ul>
+        <li>
+            <strong>Świadczenie usługi PulseBoard</strong> (konto, logowanie,
+            dashboardy, licencje i e-maile dotyczące konta): wykonanie zawartej
+            z Tobą umowy, art. 6 ust. 1 lit. b RODO.
+        </li>
+        <li>
+            <strong>Prowadzenie dokumentacji księgowej i podatkowej</strong>{" "}
+            dotyczącej płatności: wypełnienie naszych obowiązków prawnych, art.
+            6 ust. 1 lit. c RODO.
+        </li>
+        <li>
+            <strong>Zapewnienie bezpieczeństwa PulseBoard</strong> (limity prób,
+            zapobieganie nadużyciom){" "}
+            <strong>oraz ustalenie, dochodzenie lub obrona roszczeń</strong>, w
+            tym wykazanie wyrażenia zgody na natychmiastowe dostarczenie: nasz
+            prawnie uzasadniony interes, art. 6 ust. 1 lit. f RODO.
+        </li>
+    </ul>
+    <p>
+        Podanie adresu e-mail jest niezbędne do założenia konta. Bez niego nie
+        możemy świadczyć usługi. Nie podejmujemy wobec Ciebie decyzji opartych
+        wyłącznie na zautomatyzowanym przetwarzaniu i nie stosujemy
+        profilowania.
+    </p>
+
+    <h2>4. Komu przekazujemy dane</h2>
+    <p>Nie sprzedajemy Twoich danych. Przekazujemy je wyłącznie:</p>
+    <ul>
+        <li>
+            <strong>Oracle</strong> (Oracle Cloud Infrastructure), które hostuje
+            nasz serwer i bazę danych w lokalizacji {seller.hostingRegion}, jako
+            nasz podmiot przetwarzający;
+        </li>
+        <li>
+            <strong>Stripe</strong>, które obsługuje płatności i subskrypcje.
+            Stripe działa częściowo jako nasz podmiot przetwarzający, a
+            częściowo jako odrębny administrator, np. w zakresie zapobiegania
+            oszustwom i własnych obowiązków prawnych;
+        </li>
+        <li>
+            <strong>naszemu dostawcy usług wysyłki e-maili</strong>, który w
+            naszym imieniu wysyła e-maile weryfikacyjne i e-maile resetu hasła,
+            jako podmiot przetwarzający;
+        </li>
+        <li>
+            <strong>Google lub Meta (Facebook)</strong>, tylko jeśli zdecydujesz
+            się logować za ich pomocą;
+        </li>
+        <li>organom publicznym, gdy wymaga tego prawo.</li>
+    </ul>
+
+    <h2>5. Przekazywanie danych poza Europejski Obszar Gospodarczy</h2>
+    <p>
+        Stripe, Google i Meta należą do grup z siedzibą w Stanach Zjednoczonych
+        i mogą przetwarzać dane w tym kraju. Podstawą takiego przekazania jest
+        decyzja Komisji Europejskiej stwierdzająca odpowiedni stopień ochrony w
+        ramach EU–US Data Privacy Framework lub standardowe klauzule umowne
+        przyjęte przez Komisję. Możesz poprosić nas o więcej informacji o tych
+        zabezpieczeniach.
+    </p>
+
+    <h2>6. Jak długo przechowujemy dane</h2>
+    <ul>
+        <li>
+            <strong>Dane konta i przesłane zbiory danych</strong>: do czasu ich
+            usunięcia przez Ciebie lub usunięcia konta. Pojedynczy zbiór danych
+            możesz usunąć w każdej chwili.
+        </li>
+        <li>
+            <strong>Sesje</strong>: do 30 dni lub do wylogowania.
+        </li>
+        <li>
+            <strong>Linki potwierdzające adres e-mail</strong>: 24 godziny.{" "}
+            <strong>Linki resetu hasła</strong>: 1 godzina.
+        </li>
+        <li>
+            <strong>Kopie zapasowe</strong>: codzienne kopie bazy danych
+            przechowujemy przez 7 dni, a cotygodniowe przez 4 tygodnie. Usunięte
+            dane znikają z kopii zapasowych w ciągu około 5 tygodni.
+        </li>
+        <li>
+            <strong>Dokumentacja płatności</strong>: Stripe i my przechowujemy
+            ją tak długo, jak wymagają tego przepisy podatkowe i o
+            rachunkowości, zwykle 5 lat od końca roku, w którym dokonano
+            płatności.
+        </li>
+    </ul>
+
+    <h2 id="cookies">7. Pliki cookie</h2>
+    <p>PulseBoard używa tylko dwóch plików cookie, oba są niezbędne:</p>
+    <ul>
+        <li>
+            <code>session</code> pozwala nie logować się przy każdej wizycie.
+            Jest ważny 30 dni i ma atrybut HttpOnly, więc skrypty na stronie nie
+            mogą go odczytać.
+        </li>
+        <li>
+            <code>oauth_state</code> jest ustawiany na 10 minut podczas
+            logowania przez Google lub Facebook, aby chronić to logowanie przed
+            podszyciem.
+        </li>
+    </ul>
+    <p>
+        Nie używamy analitycznych, reklamowych ani śledzących plików cookie.
+        Ponieważ te pliki są niezbędne do działania usługi, nie wymagają Twojej
+        zgody. Strony płatności i portalu klienta Stripe są prowadzone przez
+        Stripe i mogą ustawiać własne pliki cookie; zob. politykę prywatności
+        Stripe.
+    </p>
+
+    <h2>8. Twoje prawa</h2>
+    <p>Masz prawo do:</p>
+    <ul>
+        <li>
+            <strong>dostępu</strong> do swoich danych i otrzymania ich kopii;
+        </li>
+        <li>
+            ich <strong>sprostowania</strong>. Adres e-mail i nazwę użytkownika
+            możesz zmienić samodzielnie w ustawieniach konta;
+        </li>
+        <li>
+            <strong>usunięcia danych</strong>. Konto możesz usunąć samodzielnie
+            w ustawieniach konta. Spowoduje to trwałe usunięcie konta, sesji,
+            linków logowania i wszystkich Twoich zbiorów danych oraz anulowanie
+            aktywnej subskrypcji w Stripe. Dokumentację płatności, którą musimy
+            przechowywać z mocy prawa, przechowujemy zgodnie z opisem powyżej;
+        </li>
+        <li>
+            <strong>przenoszenia danych</strong>, czyli otrzymania przekazanych
+            nam danych w ustrukturyzowanym formacie nadającym się do odczytu
+            maszynowego;
+        </li>
+        <li>
+            <strong>ograniczenia</strong> przetwarzania;
+        </li>
+        <li>
+            <strong>sprzeciwu</strong> wobec przetwarzania opartego na naszym
+            prawnie uzasadnionym interesie.
+        </li>
+    </ul>
+    <p>
+        Aby skorzystać z prawa, którego nie możesz wykonać w ustawieniach,
+        napisz do nas na adres{" "}
+        <a href={`mailto:${seller.email}`}>{seller.email}</a>. Odpowiemy w ciągu
+        miesiąca. Masz także prawo wnieść skargę do Prezesa Urzędu Ochrony
+        Danych Osobowych (ul. Stawki 2, 00-193 Warszawa) lub do organu ochrony
+        danych w państwie UE, w którym mieszkasz.
+    </p>
+
+    <h2>9. Bezpieczeństwo</h2>
+    <p>
+        Połączenia z PulseBoard są szyfrowane. Hasła są zabezpieczane algorytmem
+        scrypt, linki logowania i resetu są przechowywane wyłącznie jako skróty,
+        pliki cookie sesji nie mogą być odczytane przez skrypty, a Twoje zbiory
+        danych są dostępne tylko z Twojego konta.
+    </p>
+
+    <h2>10. Zmiany polityki</h2>
+    <p>
+        Jeśli zmienimy tę politykę, zaktualizujemy datę na górze strony. O
+        istotnych zmianach poinformujemy Cię także e-mailem, zanim wejdą w
+        życie.
+    </p>
+
+    <p>
+        Zobacz także nasz <a href="/pl/terms">Regulamin</a>.
+    </p>
+</LegalLayout>

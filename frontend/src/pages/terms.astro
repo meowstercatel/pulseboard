@@ -1,0 +1,277 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { seller } from "../lib/legal";
+---
+
+<LegalLayout
+    title="Terms of Service"
+    description="The terms for using and paying for PulseBoard."
+    lang="en"
+    alternate="/pl/terms"
+>
+    <h2>1. About these terms</h2>
+    <p>
+        PulseBoard is an online service for uploading server metrics in CSV
+        format and viewing them as dashboards. It is provided by {seller.name},{" "}
+        {seller.address}, NIP {seller.nip} ("we", "us"). You can contact us at{" "}
+        <a href={`mailto:${seller.email}`}>{seller.email}</a>.
+    </p>
+    <p>
+        These terms set out the rules for using PulseBoard and serve as the
+        terms of electronically supplied services under the Polish Act on
+        Providing Services by Electronic Means. They are available in Polish and
+        English. If the two versions differ, the Polish version prevails. How we
+        handle personal data is described in our{" "}
+        <a href="/privacy">Privacy Policy</a>.
+    </p>
+    <p>
+        A <strong>consumer</strong> is a person buying for purposes not related
+        to their business or profession. The consumer rules in these terms
+        (sections 7 and 8 and the consumer parts of section 10) also apply to a
+        sole trader who buys PulseBoard for a purpose that is not professional
+        in nature for them, as defined in the Polish Consumer Rights Act.
+    </p>
+
+    <h2>2. Account and technical requirements</h2>
+    <p>
+        To use PulseBoard you need an account. You can register with an email
+        address and password, or with Google or Facebook. You must confirm your
+        email address before buying a licence. You must give accurate
+        information, keep your password secret and are responsible for activity
+        on your account.
+    </p>
+    <p>
+        You need an internet connection, an up-to-date web browser with
+        JavaScript and cookies enabled, and an email account. Creating an
+        account is free. A contract for the free account is concluded when you
+        register and lasts until you or we end it under section 11.
+    </p>
+
+    <h2>3. Plans, prices and payment</h2>
+    <p>Using the dashboards requires a paid licence. We offer:</p>
+    <ul>
+        <li>
+            <strong>Subscription</strong>: 19 PLN per month, billed monthly in
+            advance;
+        </li>
+        <li>
+            <strong>Lifetime licence</strong>: a one-time payment of 199 PLN.
+        </li>
+    </ul>
+    <p>
+        Both give access to all PulseBoard features. Prices are final prices in
+        Polish zloty (PLN), including any taxes due. Payments are processed by
+        Stripe; you can pay with the methods shown at checkout. The contract for
+        a licence is concluded when your payment is confirmed, and you can use
+        your licence immediately afterwards. We send a confirmation of your
+        purchase by email.
+    </p>
+
+    <h2>4. Licences, renewal and cancellation</h2>
+    <p>
+        Your licence is personal: you may use PulseBoard for your own purposes
+        or those of your business, but you may not resell or share access to
+        your account.
+    </p>
+    <h3>Subscription</h3>
+    <p>
+        The subscription renews automatically every month and Stripe charges
+        your payment method at the start of each period until you cancel. You
+        can cancel at any time in the Stripe Customer Portal, which you open
+        with the <strong>Manage subscription</strong> button on the plans page.
+        You can also update your payment method there. After cancelling, you
+        keep access until the end of the period you have already paid for, and
+        you will not be charged again. We do not refund partial months, except
+        where the law requires it.
+    </p>
+    <p>
+        If a renewal payment fails, Stripe may retry it. If it still cannot be
+        collected, your subscription ends and paid features are locked until you
+        subscribe again. Your datasets are kept until you delete them.
+    </p>
+    <p>
+        We may change the subscription price for future periods. We will tell
+        you by email at least 30 days before the new price applies to you, and
+        you may cancel before then.
+    </p>
+    <h3>Lifetime licence</h3>
+    <p>
+        The lifetime licence gives you access for as long as we operate
+        PulseBoard, without further payments. If you buy it while you have an
+        active subscription, we cancel the subscription automatically.
+    </p>
+    <h3>Deleting your account</h3>
+    <p>
+        You can delete your account at any time in account settings. This ends
+        the contract, cancels any active subscription and permanently deletes
+        your data, as described in the Privacy Policy. Deleting the account does
+        not by itself entitle you to a refund.
+    </p>
+
+    <h2>5. Upload limits</h2>
+    <p>Each account can store:</p>
+    <ul>
+        <li>up to 5 datasets at a time;</li>
+        <li>CSV files of up to 25 MB each;</li>
+        <li>up to 500,000 rows per file.</li>
+    </ul>
+    <p>
+        Files that go over these limits or do not match the expected CSV format
+        are rejected. We may change these limits. If we lower them, data you
+        have already uploaded will not be deleted because of the change.
+    </p>
+
+    <h2>6. Acceptable use</h2>
+    <p>You must not:</p>
+    <ul>
+        <li>upload data you do not have the right to use;</li>
+        <li>
+            upload unlawful content, malware or personal data of others without
+            a legal basis;
+        </li>
+        <li>
+            try to access other users' accounts or data, or test, bypass or
+            break our security or rate limits;
+        </li>
+        <li>
+            overload the service, for example with automated mass requests, or
+            interfere with other users' use of it;
+        </li>
+        <li>
+            copy, resell or reverse engineer the service, except where the law
+            allows it.
+        </li>
+    </ul>
+    <p>
+        You remain the owner of the data you upload. You allow us to store and
+        process it only to provide PulseBoard to you.
+    </p>
+
+    <h2 id="withdrawal">7. Right of withdrawal (consumers)</h2>
+    <p>
+        As a consumer you normally have the right to withdraw from a contract
+        concluded at a distance within 14 days of concluding it, without giving
+        a reason.
+    </p>
+    <p>
+        <strong>
+            Before checkout we ask you to expressly agree that we start
+            supplying PulseBoard immediately, before the 14-day period ends, and
+            to acknowledge that you thereby lose your right of withdrawal.
+            Checkout is not available without this consent. Once you have given
+            it and your paid access has started, you lose the right to withdraw
+            from that purchase
+        </strong>{" "}
+        (Art. 38(1)(13) of the Polish Consumer Rights Act). We keep a record of
+        when you gave this consent.
+    </p>
+    <p>
+        If, despite this, mandatory law gives you a right to withdraw from a
+        contract whose performance has already started at your request, you will
+        pay for what was supplied until you withdraw, in proportion to the full
+        price.
+    </p>
+    <p>
+        Where the right of withdrawal applies, you can use it by sending us a
+        clear statement, for example by email to{" "}
+        <a href={`mailto:${seller.email}`}>{seller.email}</a>, before the period
+        ends. You can use this model form, but you do not have to:
+    </p>
+    <blockquote>
+        <p>
+            To: {seller.name}, {seller.address}, {seller.email}
+            <br />
+            I hereby give notice that I withdraw from my contract for the
+            following service: PulseBoard (subscription / lifetime licence).
+            <br />
+            Ordered on: …<br />
+            Name and email address of the account: …<br />
+            Date: …
+        </p>
+    </blockquote>
+    <p>
+        We will refund any amount due within 14 days of receiving your
+        statement, using the payment method you used, at no cost to you.
+    </p>
+
+    <h2>8. Complaints</h2>
+    <p>
+        If PulseBoard does not work as described in these terms, you can file a
+        complaint by email to{" "}
+        <a href={`mailto:${seller.email}`}>{seller.email}</a>. Please describe
+        the problem and tell us the email address of your account. We will reply
+        within 14 days. Consumers have the rights set out in the Polish Consumer
+        Rights Act for digital content and digital services that do not conform
+        to the contract, including the right to have them brought into
+        conformity, to a price reduction or to terminate the contract.
+    </p>
+    <p>
+        If you are a consumer, you may also use out-of-court ways of resolving
+        complaints, for example by contacting a municipal or district consumer
+        ombudsman (miejski lub powiatowy rzecznik konsumentów) or the Provincial
+        Inspectorate of Trade Inspection (Wojewódzki Inspektorat Inspekcji
+        Handlowej). More information is available at{" "}
+        <a href="https://uokik.gov.pl" rel="noopener">
+            uokik.gov.pl
+        </a>
+        .
+    </p>
+
+    <h2>9. Availability and changes to the service</h2>
+    <p>
+        We aim to keep PulseBoard available at all times, but there may be
+        breaks for maintenance, updates or failures outside our control. We may
+        improve and change features, provided the paid service keeps the
+        features described in these terms or the changes do not make it worse
+        for you.
+    </p>
+    <p>
+        We back up our database regularly, but PulseBoard is not a backup
+        service. Please keep your own copies of the CSV files you upload.
+    </p>
+
+    <h2>10. Liability</h2>
+    <p>
+        PulseBoard displays the data you upload. It does not monitor your
+        servers, and any forecasts are estimates. You are responsible for
+        decisions you make based on it.
+    </p>
+    <p>
+        Towards business customers who are not covered by the consumer rules,
+        our liability is limited to the amount you paid us in the 12 months
+        before the event that caused the damage, and we are not liable for lost
+        profits or lost data.
+    </p>
+    <p>
+        Nothing in these terms excludes or limits our liability where the law
+        does not allow it, including for damage caused intentionally, and
+        nothing limits the rights consumers have under mandatory law.
+    </p>
+
+    <h2>11. Ending the contract</h2>
+    <p>
+        You can end the contract at any time by deleting your account. We may
+        suspend or close an account that seriously or repeatedly breaks these
+        terms, after warning you by email where possible. If we close an account
+        with a paid licence for a reason other than your breach of these terms,
+        including if we stop operating PulseBoard, we will tell you at least 30
+        days in advance and refund the unused part of a subscription period.
+    </p>
+
+    <h2>12. Changes to these terms</h2>
+    <p>
+        We may change these terms for important reasons, such as changes in the
+        law, in our services or in how we provide them. We will tell you by
+        email at least 14 days before the changes take effect. If you do not
+        accept them, you can cancel your subscription or delete your account
+        before then. Changes do not affect purchases already made.
+    </p>
+
+    <h2>13. Governing law and disputes</h2>
+    <p>
+        These terms are governed by Polish law. If you are a consumer living in
+        another EU country, you also keep the protection of the mandatory
+        consumer laws of that country. Disputes will be settled by the court
+        with jurisdiction under the general rules of law.
+    </p>
+</LegalLayout>

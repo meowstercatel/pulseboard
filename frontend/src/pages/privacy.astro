@@ -1,0 +1,229 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { seller } from "../lib/legal";
+---
+
+<LegalLayout
+    title="Privacy Policy"
+    description="How PulseBoard collects, uses and protects your personal data."
+    lang="en"
+    alternate="/pl/privacy"
+>
+    <p>
+        This policy explains what personal data PulseBoard collects, why, who it
+        is shared with, how long it is kept and what rights you have. It is
+        written to meet the EU General Data Protection Regulation (GDPR, in
+        Poland known as RODO).
+    </p>
+
+    <h2>1. Who is responsible for your data</h2>
+    <p>
+        The controller of your personal data is {seller.name}, {seller.address},
+        NIP {seller.nip} ("we", "us"). For anything related to your data,
+        contact us at <a href={`mailto:${seller.email}`}>{seller.email}</a>.
+    </p>
+
+    <h2>2. What data we collect</h2>
+    <h3>Account data</h3>
+    <ul>
+        <li>your email address and, if you provide one, a username;</li>
+        <li>
+            if you register with a password, a scrypt hash of it (we never store
+            the password itself);
+        </li>
+        <li>whether and when you verified your email address;</li>
+        <li>
+            short-lived email verification and password reset links, of which we
+            keep only a hash.
+        </li>
+    </ul>
+    <h3>Google and Facebook sign-in</h3>
+    <p>
+        If you choose to sign in with Google or Facebook, we receive your
+        account identifier at that provider, your email address and your name
+        (which we use as your username). We do not receive your password and we
+        do not post anything on your behalf.
+    </p>
+    <h3>Data you upload</h3>
+    <p>
+        The CSV files you upload are server metrics: timestamps, host names and
+        CPU, memory, disk and network readings. We store them so we can show
+        your dashboards. They are not meant to contain personal data. If host
+        names identify people, you are responsible for having the right to
+        upload them.
+    </p>
+    <h3>Payment data</h3>
+    <p>
+        Payments are handled by Stripe. We store your Stripe customer and
+        subscription identifiers, the plan you bought, its status and when it
+        started, and when you agreed to immediate delivery and waived the right
+        of withdrawal. We never see or store your full card number.
+    </p>
+    <h3>Technical data</h3>
+    <p>
+        Your IP address is held briefly in our server's memory to limit repeated
+        sign-in, registration and verification attempts. It is not written to
+        our database. We also keep a session record so you stay signed in (see{" "}
+        <a href="#cookies">Cookies</a>).
+    </p>
+
+    <h2>3. Why we use it and on what legal basis</h2>
+    <ul>
+        <li>
+            <strong>To provide PulseBoard to you</strong> (your account,
+            sign-in, dashboards, licences and account emails): performance of
+            our contract with you, Art. 6(1)(b) GDPR.
+        </li>
+        <li>
+            <strong>To keep accounting and tax records</strong> of payments: our
+            legal obligations, Art. 6(1)(c) GDPR.
+        </li>
+        <li>
+            <strong>To keep PulseBoard secure</strong> (rate limiting, abuse
+            prevention) <strong>and to establish or defend legal claims</strong>
+            , including proof that you agreed to immediate delivery: our
+            legitimate interests, Art. 6(1)(f) GDPR.
+        </li>
+    </ul>
+    <p>
+        Providing your email address is necessary to create an account. Without
+        it we cannot provide the service. We do not make decisions about you
+        based solely on automated processing and we do not profile you.
+    </p>
+
+    <h2>4. Who we share it with</h2>
+    <p>We do not sell your data. We share it only with:</p>
+    <ul>
+        <li>
+            <strong>Oracle</strong> (Oracle Cloud Infrastructure), which hosts
+            our server and database in {seller.hostingRegion}, as our processor;
+        </li>
+        <li>
+            <strong>Stripe</strong>, which processes payments and manages
+            subscriptions. Stripe is partly our processor and partly an
+            independent controller, for example for fraud prevention and its own
+            legal obligations;
+        </li>
+        <li>
+            <strong>our email delivery provider</strong>, which sends
+            verification and password reset emails on our behalf, as our
+            processor;
+        </li>
+        <li>
+            <strong>Google or Meta (Facebook)</strong>, only if you choose to
+            sign in with them;
+        </li>
+        <li>public authorities, where the law requires it.</li>
+    </ul>
+
+    <h2>5. Transfers outside the European Economic Area</h2>
+    <p>
+        Stripe, Google and Meta are part of groups based in the United States
+        and may process data there. Such transfers are based on the European
+        Commission's adequacy decision for the EU–US Data Privacy Framework or
+        on the Commission's standard contractual clauses. You can ask us for
+        more information about these safeguards.
+    </p>
+
+    <h2>6. How long we keep it</h2>
+    <ul>
+        <li>
+            <strong>Account data and uploaded datasets</strong>: until you
+            delete them or your account. You can delete a single dataset at any
+            time.
+        </li>
+        <li>
+            <strong>Sessions</strong>: up to 30 days, or until you log out.
+        </li>
+        <li>
+            <strong>Email verification links</strong>: 24 hours.{" "}
+            <strong>Password reset links</strong>: 1 hour.
+        </li>
+        <li>
+            <strong>Backups</strong>: we keep daily backups of our database for
+            7 days and weekly backups for 4 weeks. Deleted data disappears from
+            backups within about 5 weeks.
+        </li>
+        <li>
+            <strong>Payment records</strong>: Stripe and we keep them for as
+            long as tax and accounting law requires, normally 5 years from the
+            end of the year the payment was made.
+        </li>
+    </ul>
+
+    <h2 id="cookies">7. Cookies</h2>
+    <p>PulseBoard uses only two cookies, both strictly necessary:</p>
+    <ul>
+        <li>
+            <code>session</code> keeps you signed in. It lasts 30 days and is
+            HttpOnly, so scripts on the page cannot read it.
+        </li>
+        <li>
+            <code>oauth_state</code> is set for 10 minutes while you sign in
+            with Google or Facebook, to protect that sign-in from forgery.
+        </li>
+    </ul>
+    <p>
+        We do not use analytics, advertising or tracking cookies. Because these
+        cookies are needed for the service to work, they do not require your
+        consent. Stripe's checkout and customer portal pages are run by Stripe
+        and may set their own cookies; see Stripe's privacy policy.
+    </p>
+
+    <h2>8. Your rights</h2>
+    <p>You have the right to:</p>
+    <ul>
+        <li>
+            <strong>access</strong> your data and get a copy of it;
+        </li>
+        <li>
+            <strong>rectify</strong> it. You can change your email and username
+            yourself in account settings;
+        </li>
+        <li>
+            <strong>erasure</strong>. You can delete your account yourself in
+            account settings. This permanently deletes your account, sessions,
+            sign-in links and all your datasets, and cancels any active Stripe
+            subscription. Payment records we must keep by law are kept as
+            described above;
+        </li>
+        <li>
+            <strong>data portability</strong>, that is, receive the data you
+            gave us in a structured, machine-readable format;
+        </li>
+        <li>
+            <strong>restrict</strong> how we process your data;
+        </li>
+        <li>
+            <strong>object</strong> to processing based on our legitimate
+            interests.
+        </li>
+    </ul>
+    <p>
+        To use any right that you cannot use from your settings, email us at{" "}
+        <a href={`mailto:${seller.email}`}>{seller.email}</a>. We will reply
+        within one month. You also have the right to lodge a complaint with the
+        President of the Personal Data Protection Office (Prezes Urzędu Ochrony
+        Danych Osobowych, ul. Stawki 2, 00-193 Warszawa) or with the data
+        protection authority in your EU country of residence.
+    </p>
+
+    <h2>9. Security</h2>
+    <p>
+        Connections to PulseBoard are encrypted. Passwords are hashed with
+        scrypt, sign-in and reset links are stored only as hashes, session
+        cookies cannot be read by scripts, and your datasets are only accessible
+        from your account.
+    </p>
+
+    <h2>10. Changes to this policy</h2>
+    <p>
+        If we change this policy, we will update the date at the top. If the
+        change is significant, we will also tell you by email before it takes
+        effect.
+    </p>
+
+    <p>
+        See also our <a href="/terms">Terms of Service</a>.
+    </p>
+</LegalLayout>
