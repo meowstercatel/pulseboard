@@ -153,7 +153,8 @@ function facebook(appId: string, appSecret: string): OAuthProvider {
 
 function configured(): Record<string, OAuthProvider> {
     const env = process.env;
-    const providers: Record<string, OAuthProvider> = {};
+    // no prototype, so /oauth/constructor isn't a provider
+    const providers: Record<string, OAuthProvider> = Object.create(null);
     if (env["GOOGLE_CLIENT_ID"] && env["GOOGLE_CLIENT_SECRET"]) {
         providers["google"] = google(
             env["GOOGLE_CLIENT_ID"],

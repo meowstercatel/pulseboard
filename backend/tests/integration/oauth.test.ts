@@ -345,6 +345,19 @@ describe("Facebook sign-in", () => {
     });
 });
 
+describe("provider names", () => {
+    it.each(["constructor", "__proto__", "toString"])(
+        "treats %s as an unknown provider",
+        async (name) => {
+            expect((await request(`auth/oauth/${name}`)).status).toBe(404);
+            expect(
+                (await request(`auth/oauth/${name}/callback?code=x&state=y`))
+                    .status,
+            ).toBe(404);
+        },
+    );
+});
+
 describe("startup verification of old links", () => {
     it("clears the password, sessions and links made with another address", async () => {
         const { email, id, cookie } = await register(false);
