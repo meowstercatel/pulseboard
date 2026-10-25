@@ -84,14 +84,18 @@ test("reset a forgotten password from the emailed link", async ({
         });
         expect(login.status()).toBe(200);
     } finally {
+        let currentPassword = oldPassword;
         for (const password of [newPassword, oldPassword]) {
             const login = await page.request.post("/api/auth/login", {
                 data: { email, password },
             });
-            if (login.ok()) break;
+            if (login.ok()) {
+                currentPassword = password;
+                break;
+            }
         }
         await page.request.post("/api/auth/delete-account", {
-            data: { confirmation: "delete my account" },
+            data: { confirmation: "delete my account", currentPassword },
         });
         const search = await request.get(`${mailpit}/api/v1/search`, {
             params: { query: `to:${email}` },

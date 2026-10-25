@@ -159,6 +159,14 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                             spellcheck="false"
                             required
                         ></cds-text-input>
+                        <cds-text-input
+                            label="Current password"
+                            name="currentPassword"
+                            type="password"
+                            show-password-visibility-toggle
+                            autocomplete="current-password"
+                            helper-text="If you only sign in with Google or Facebook, leave this empty and sign in again first."
+                        ></cds-text-input>
                         <cds-inline-notification
                             kind="error"
                             title="Couldn't delete account"
@@ -380,6 +388,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     });
     deleteDialog.addEventListener("close", () => {
         input(deleteForm, "confirmation").value = "";
+        input(deleteForm, "currentPassword").value = "";
         updateDeleteButton();
         deleteForm.querySelector<HTMLElement>(
             "cds-inline-notification",
@@ -469,7 +478,10 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
             deleting = true;
             cancelDelete.disabled = true;
             closeDelete.disabled = true;
-            const result = await deleteAccount(confirmation);
+            const result = await deleteAccount(
+                confirmation,
+                field("currentPassword"),
+            );
             if ("error" in result) {
                 deleting = false;
                 cancelDelete.disabled = false;

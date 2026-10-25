@@ -77,7 +77,10 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
     } finally {
         // Delete only this test's account and message, including after a failed assertion.
         await page.request.post("/api/auth/delete-account", {
-            data: { confirmation: "delete my account" },
+            data: {
+                confirmation: "delete my account",
+                currentPassword: password,
+            },
         });
         if (messageId)
             await request.delete(`${mailpit}/api/v1/messages`, {

@@ -390,7 +390,11 @@ describe("account endpoints", () => {
 
         const response = await request(
             "auth/delete-account",
-            { ...foreignIds(a), confirmation: "delete my account" },
+            {
+                ...foreignIds(a),
+                confirmation: "delete my account",
+                currentPassword: password,
+            },
             b.cookie,
         );
         expect(response.status).toBe(204);

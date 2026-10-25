@@ -100,12 +100,13 @@ export function changePassword(currentPassword: string, newPassword: string) {
 
 export async function deleteAccount(
     confirmation: string,
+    currentPassword: string,
 ): Promise<{ deleted: true } | { error: string }> {
     try {
         const res = await fetch("/api/auth/delete-account", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ confirmation }),
+            body: JSON.stringify({ confirmation, currentPassword }),
         });
         if (res.status === 204) return { deleted: true };
         if (res.status === 401) location.replace("/login");
