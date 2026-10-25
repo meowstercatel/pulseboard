@@ -11,6 +11,7 @@ const sample = (name: string) => resolve("samples", name);
 async function seedAccount() {
     Object.assign(process.env, testEnvironment());
     const { db } = await import("../../backend/src/prisma/db.js");
+    const { sessionIdFor } = await import("../../backend/src/auth/session.js");
     const now = new Date().toISOString();
     const user = await db.orm.public.User.create({
         email: `e2e-datasets-${randomUUID()}@example.com`,
@@ -20,7 +21,7 @@ async function seedAccount() {
     });
     const token = randomBytes(32).toString("base64url");
     await db.orm.public.Session.create({
-        id: token,
+        id: sessionIdFor(token),
         userId: user.id,
         expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     });

@@ -21,6 +21,7 @@ vi.hoisted(() => {
 import { mockStripe } from "../../../tests/stripe.mjs";
 import { createApp } from "../../src/app.js";
 import { hashPassword } from "../../src/auth/password.js";
+import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
 
 vi.mock("../../src/mail/mailer.js", () => ({
@@ -111,7 +112,7 @@ async function account({ licensed = true } = {}) {
     });
     const token = randomBytes(32).toString("base64url");
     await db.orm.public.Session.create({
-        id: token,
+        id: sessionIdFor(token),
         userId: user.id,
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
