@@ -1,6 +1,13 @@
 import { Hono } from "hono";
 import { requireAuth, requireLicense, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
+import {
+    forecast,
+    HOUR_MS,
+    InsufficientHistory,
+    MIN_DAYS,
+    observedDays,
+} from "../forecast/index.js";
 
 export const MAX_CHART_POINTS = 600;
 export const MAX_HOSTS = 100;
@@ -346,5 +353,92 @@ dashboard.get("/:id/history", async (c) => {
         to: isoOrNull(to),
         buckets: series,
         maxBuckets: MAX_HISTORY_BUCKETS,
+    });
+});
+
+export const FORECAST_LOOKBACK_DAYS = 90;
+const horizons: Record<string, number> = { "24h": 24, "7d": 168, "30d": 720 };
+
+dashboard.get("/:id/forecast", async (c) => {
+    const id = Number(c.req.param("id"));
+    const host = c.req.query("host");
+    const metric = c.req.query("metric") ?? "";
+    const horizon = c.req.query("horizon") ?? "";
+    if (
+        !host ||
+        host.length > 255 ||
+        !Object.hasOwn(prefixes, metric) ||
+        !Object.hasOwn(horizons, horizon)
+    ) {
+        return c.json(
+            {
+                error: "Choose a host, a metric and a horizon of 24h, 7d or 30d",
+            },
+            400,
+        );
+    }
+    // Hourly averages over the last 90 days before the host's latest reading,
+    // bucketed like /history; hours without readings come back as null.
+    const lookbackMs = FORECAST_LOOKBACK_DAYS * 86400000;
+    const plan = db.raw.sql`
+        WITH readings AS (
+            SELECT timestamp, CASE ${metric}
+                    WHEN 'cpuPercent' THEN "cpuPercent" WHEN 'ramPercent' THEN "ramPercent"
+                    WHEN 'diskPercent' THEN "diskPercent" WHEN 'netInMbps' THEN "netInMbps"
+                    ELSE "netOutMbps" END AS value
+            FROM "Metric" WHERE "datasetId" = ${id} AND host = ${host}
+                AND timestamp > (
+                    SELECT max(timestamp) FROM "Metric" WHERE "datasetId" = ${id} AND host = ${host}
+                ) - ${lookbackMs}::double precision * interval '1 millisecond'
+        ), aggregated AS (
+            SELECT date_bin(${HOUR_MS}::double precision * interval '1 millisecond', timestamp, timestamptz '1970-01-01Z') AS start,
+                avg(value) AS value
+            FROM readings GROUP BY 1
+        ), series AS (
+            SELECT generate_series(min(start), max(start), ${HOUR_MS}::double precision * interval '1 millisecond') AS start FROM aggregated
+        )
+        SELECT s.start::text AS start, a.value
+        FROM series s LEFT JOIN aggregated a USING (start)
+        ORDER BY s.start`
+        .returnsRow({ start: "pg/text@1", value: nullableFloat })
+        .build();
+    const values: (number | null)[] = [];
+    let start: number | null = null;
+    for await (const row of db.runtime().query(plan)) {
+        start ??= Date.parse(row.start);
+        values.push(row.value);
+    }
+    const days = observedDays(values);
+    if (start === null || days < MIN_DAYS) {
+        return c.json(
+            {
+                error: new InsufficientHistory(days).message,
+                days,
+                requiredDays: MIN_DAYS,
+            },
+            422,
+        );
+    }
+    const result = forecast(
+        { start, values },
+        {
+            horizonHours: horizons[horizon]!,
+            percent: percent(prefixes[metric as keyof typeof prefixes]),
+        },
+    );
+    return c.json({
+        datasetId: id,
+        host,
+        metric,
+        horizon,
+        bucket: "1h",
+        history: {
+            from: new Date(start).toISOString(),
+            to: new Date(start + (values.length - 1) * HOUR_MS).toISOString(),
+            buckets: values.length,
+            observedBuckets: values.filter((v) => v !== null).length,
+            days,
+        },
+        ...result,
     });
 });
