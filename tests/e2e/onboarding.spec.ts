@@ -56,6 +56,11 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
         await expect(page.locator("#done")).toBeVisible();
         await page.locator("#continue").click();
         await expect(page).toHaveURL("/buy");
+        // Carbon hides the native input; click the drawn box like a user would
+        await page.locator("#waiver label").click({ position: { x: 8, y: 8 } });
+        await expect(
+            page.getByRole("checkbox", { name: /right of withdrawal/ }),
+        ).toBeChecked();
         await page.locator('cds-button[data-plan="lifetime"]').click();
         await expect(page).toHaveURL("/overview");
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'d7d041a2cacd34b2a9695ea8115b3b4fe1d1c4c75e90c1d8cd370a6ad66a7062'>;
+  StorageHashBase<'491b34cb2e0440598e17329e28ce57d484e36bf2cbbf5cf6e72741874b3bf1e3'>;
 export type ExecutionHash =
   ExecutionHashBase<'98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09'>;
 export type ProfileHash =
@@ -297,6 +297,7 @@ export type FieldOutputTypes = {
       readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
+      readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     };
   };
 };
@@ -365,6 +366,7 @@ export type FieldInputTypes = {
       readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
+      readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
     };
   };
 };
@@ -433,6 +435,7 @@ export type StorageColumnTypes = {
       readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
+      readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     };
   };
 };
@@ -501,6 +504,7 @@ export type StorageColumnInputTypes = {
       readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
+      readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
     };
   };
 };
@@ -582,6 +586,7 @@ export namespace Models {
     subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     username: CodecTypes['pg/text@1']['output'] | null;
+    withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     datasets: public_Dataset[];
     emailVerifications: public_EmailVerification[];
     oauthAccounts: public_OAuthAccount[];
@@ -1130,6 +1135,12 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly many: false;
                 };
+                readonly withdrawalWaiverAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [
@@ -1599,6 +1610,13 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly withdrawalWaiverAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
             };
             readonly relations: {
               readonly datasets: {
@@ -1673,6 +1691,7 @@ type ContractBase = Omit<
                 readonly subscriptionStatus: { readonly column: 'subscriptionStatus' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
                 readonly username: { readonly column: 'username' };
+                readonly withdrawalWaiverAt: { readonly column: 'withdrawalWaiverAt' };
               };
             };
           };

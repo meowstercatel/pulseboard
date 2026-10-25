@@ -17,8 +17,9 @@ async function post<T>(
 }
 
 // Opens Stripe Checkout for the plan; the license is granted after payment.
+// Only call this once the buyer has ticked the withdrawal waiver.
 export function checkout(plan: "subscription" | "lifetime") {
-    return post<{ url: string }>("checkout", { plan });
+    return post<{ url: string }>("checkout", { plan, withdrawalWaiver: true });
 }
 
 // Lets the backend check the session with Stripe right after the redirect back.

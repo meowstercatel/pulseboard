@@ -685,6 +685,13 @@
                   "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
+              },
+              "withdrawalWaiverAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
               }
             },
             "relations": {
@@ -801,6 +808,9 @@
                 },
                 "username": {
                   "column": "username"
+                },
+                "withdrawalWaiverAt": {
+                  "column": "withdrawalWaiverAt"
                 }
               },
               "namespaceId": "public",
@@ -1371,6 +1381,11 @@
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
                   "nullable": true
+                },
+                "withdrawalWaiverAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true
                 }
               },
               "foreignKeys": [],
@@ -1399,7 +1414,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d7d041a2cacd34b2a9695ea8115b3b4fe1d1c4c75e90c1d8cd370a6ad66a7062"
+    "storageHash": "491b34cb2e0440598e17329e28ce57d484e36bf2cbbf5cf6e72741874b3bf1e3"
   },
   "execution": {
     "executionHash": "98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09",
