@@ -144,9 +144,22 @@ export async function cancelSubscriptionOf(user: {
 export const billing = new Hono<AuthEnv>();
 
 billing.post("/checkout", requireAuth, requireVerifiedEmail, async (c) => {
-    const body: unknown = await c.req.json().catch(() => null);
-    const plan = (body as { plan?: unknown } | null)?.plan;
+    const body = (await c.req.json().catch(() => null)) as {
+        plan?: unknown;
+        withdrawalWaiver?: unknown;
+    } | null;
+    const plan = body?.plan;
     if (!isPlan(plan)) return c.json({ error: "Unknown plan" }, 400);
+    // Polish consumer law: digital content may only be delivered right away once the
+    // buyer agrees to it and acknowledges losing the 14-day right of withdrawal
+    if (body?.withdrawalWaiver !== true) {
+        return c.json(
+            {
+                error: "You must agree to immediate delivery and waive the right of withdrawal",
+            },
+            400,
+        );
+    }
 
     const price = priceFor(plan);
     if (!stripe || !price) {
@@ -164,13 +177,18 @@ billing.post("/checkout", requireAuth, requireVerifiedEmail, async (c) => {
         );
     }
 
+    const withdrawalWaiverAt = new Date().toISOString();
+    await db.orm.public.User.where({ id: user.id }).update({
+        withdrawalWaiverAt,
+    });
+
     const customer = await getOrCreateCustomer(stripe, user);
     const session = await stripe.checkout.sessions.create({
         mode: plan === "subscription" ? "subscription" : "payment",
         customer,
         line_items: [{ price, quantity: 1 }],
         client_reference_id: String(user.id),
-        metadata: { userId: String(user.id), plan },
+        metadata: { userId: String(user.id), plan, withdrawalWaiverAt },
         locale: "en",
         success_url: publicUrl(
             c,
