@@ -92,7 +92,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                         Email me a link to set a password
                     </cds-button>
                 </div>
-                <form id="password-form" hidden>
+                <form id="password-form">
                     <cds-text-input
                         label="Current password"
                         name="currentPassword"
@@ -178,16 +178,16 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     hidden
                 ></cds-inline-notification>
                 <p class="success" role="status" aria-live="polite"></p>
+                <cds-text-input
+                    label="Current password"
+                    name="currentPassword"
+                    type="password"
+                    show-password-visibility-toggle
+                    autocomplete="current-password"
+                    helper-text="Required to connect or disconnect an account."
+                    hidden
+                ></cds-text-input>
                 <div class="connect" hidden>
-                    <cds-text-input
-                        label="Current password"
-                        name="currentPassword"
-                        type="password"
-                        show-password-visibility-toggle
-                        autocomplete="current-password"
-                        helper-text="Required to connect another account."
-                        hidden
-                    ></cds-text-input>
                     <div class="connect-buttons"></div>
                 </div>
             </section>
@@ -443,6 +443,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+    }
+    #connected-accounts > cds-text-input {
+        margin-bottom: 1rem;
     }
     #connected-accounts .success,
     #connected-accounts cds-inline-notification,

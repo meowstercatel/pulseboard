@@ -1,9 +1,26 @@
+import type { MiddlewareHandler } from "hono";
 import { db } from "../prisma/db.js";
-import { verifyPassword } from "./password.js";
+import { validPassword, verifyPassword } from "./password.js";
+import { RateLimiter, tooManyRequests } from "./rateLimit.js";
+import type { AuthEnv } from "./session.js";
 
 // Social-only accounts prove it's them by signing in again shortly before
 const REAUTH_WINDOW_MS = 10 * 60 * 1000;
-const MAX_PASSWORD = 256;
+
+// One budget per account for every change that checks the current password,
+// so adding endpoints doesn't add password guesses for a stolen session
+const accountLimiter = new RateLimiter(10, 15 * 60 * 1000);
+
+export const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (
+    c,
+    next,
+) => {
+    const key = String(c.get("user").id);
+    const retryAfter = accountLimiter.retryAfter(key);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    accountLimiter.hit(key);
+    await next();
+};
 
 export type Reauth = "ok" | "wrong_password" | "sign_in_again";
 
@@ -17,9 +34,7 @@ export async function reauthenticate(
 ): Promise<Reauth> {
     if (user.passwordHash) {
         const ok =
-            typeof currentPassword === "string" &&
-            currentPassword.length > 0 &&
-            currentPassword.length <= MAX_PASSWORD &&
+            validPassword(currentPassword) &&
             (await verifyPassword(currentPassword, user.passwordHash));
         return ok ? "ok" : "wrong_password";
     }

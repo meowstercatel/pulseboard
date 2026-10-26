@@ -327,7 +327,8 @@ describe("connected accounts", () => {
                     !r.path.endsWith("*"),
             )
             .map((r) => `${r.method} ${r.path}`);
-        expect(routes.sort()).toEqual([
+        // a route with middleware is listed once per handler
+        expect([...new Set(routes)].sort()).toEqual([
             "DELETE /api/auth/connected-accounts/:id",
         ]);
     });
@@ -351,7 +352,16 @@ describe("connected accounts", () => {
         expect((await list.json()).accounts).toEqual([]);
         const unlink = await app.request(
             `/api/auth/connected-accounts/${link.id}`,
-            { method: "DELETE", headers: { cookie: b.cookie, origin } },
+            {
+                method: "DELETE",
+                headers: {
+                    cookie: b.cookie,
+                    origin,
+                    "content-type": "application/json",
+                },
+                // b's own password, so only the ownership check is left
+                body: JSON.stringify({ currentPassword: password }),
+            },
         );
         expect(unlink.status).toBe(404);
 
@@ -734,6 +744,10 @@ describe("OAuth linking", () => {
     it("links by the provider's email, never to whoever is signed in", async () => {
         const a = await account();
         const b = await account();
+        // only accounts without a password are still linked by email
+        await db.orm.public.User.where({ id: b.id }).update({
+            passwordHash: null,
+        });
         const sub = `g-${randomUUID()}`;
         const before = await snapshot(a.id);
 

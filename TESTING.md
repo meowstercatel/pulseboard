@@ -124,7 +124,8 @@ password" link for social-only accounts (a password reset token, sent only to
 verified, password-less accounts), the notice emails, and linking from the
 settings: password or fresh-sign-in re-authentication, attaching to the signed-in
 user rather than by email, the session binding of the state cookie, provider
-accounts already used elsewhere, and unverified provider emails. Unlinking checks
+accounts already used elsewhere, and unverified provider emails. Unlinking asks for the same re-authentication, stays disconnected (Google no
+longer links by email to an account with a password), checks
 the last-login rule (including parallel requests and disabled providers) and
 signs out other sessions. `authorization.test.ts` checks that no one lists or
 disconnects another user's logins. `frontend/tests/connectedAccounts.test.ts`

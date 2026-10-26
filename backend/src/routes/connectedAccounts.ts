@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { notifyAccountChange } from "../auth/accountNotice.js";
 import { PROVIDER_NAMES, providers } from "../auth/oauth.js";
+import { limitAccountChanges, reauthenticate } from "../auth/reauth.js";
 import {
     requireAuth,
     revokeOtherSessions,
@@ -19,14 +20,14 @@ connectedAccounts.use(requireAuth);
 // POST /api/auth/oauth/:provider/link.
 connectedAccounts.get("/", async (c) => {
     const userId = c.get("user").id;
-    const user = await db.orm.public.User.where({ id: userId })
-        .select("passwordHash")
-        .first();
+    const [user, accounts] = await Promise.all([
+        db.orm.public.User.where({ id: userId }).select("passwordHash").first(),
+        db.orm.public.OAuthAccount.where({ userId })
+            .select("id", "provider", "email", "createdAt")
+            .orderBy((a) => a.createdAt.asc())
+            .all(),
+    ]);
     if (!user) return c.json({ error: "Not logged in" }, 401);
-    const accounts = await db.orm.public.OAuthAccount.where({ userId })
-        .select("id", "provider", "email", "createdAt")
-        .all();
-    accounts.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     c.header("Cache-Control", "private, no-store");
     return c.json({
         hasPassword: user.passwordHash !== null,
@@ -36,8 +37,10 @@ connectedAccounts.get("/", async (c) => {
 });
 
 // Disconnects one login. The last way to log in can't be removed: a password
-// or a login with a provider that is still enabled has to remain.
-connectedAccounts.delete("/:id", async (c) => {
+// or a login with a provider that is still enabled has to remain. Like
+// linking, it asks for the password (or a fresh sign-in), so a stolen
+// session can't strip the owner's logins and sign out their devices.
+connectedAccounts.delete("/:id", limitAccountChanges, async (c) => {
     const param = c.req.param("id");
     // Another user's link is "not found" too, so ids can't be probed
     if (!ID_RE.test(param)) {
@@ -47,15 +50,39 @@ connectedAccounts.delete("/:id", async (c) => {
     const userId = c.get("user").id;
     const sessionId = c.get("sessionId");
 
+    const body: unknown = c.req
+        .header("content-type")
+        ?.startsWith("application/json")
+        ? await c.req.json().catch(() => null)
+        : null;
+    const currentPassword =
+        body && typeof body === "object"
+            ? (body as Record<string, unknown>)["currentPassword"]
+            : undefined;
+    const before = await db.orm.public.User.where({ id: userId }).first();
+    if (!before) return c.json({ error: "Not logged in" }, 401);
+    const reauth = await reauthenticate(before, sessionId, currentPassword);
+    if (reauth === "wrong_password") {
+        return c.json({ error: "Current password is incorrect" }, 400);
+    }
+    if (reauth === "sign_in_again") {
+        return c.json(
+            {
+                error: "Sign in again with Google or Facebook, then disconnect the account within 10 minutes",
+            },
+            403,
+        );
+    }
+
     const result = await db.transaction(async (tx) => {
-        const current = await tx.orm.public.User.where({ id: userId }).first();
-        if (!current) return null;
         // no-op update to lock the user row, so two parallel unlinks (or a
-        // password change) can't together remove the last login
+        // password change) can't together remove the last login. Matching
+        // the password re-checked above means it wasn't changed meanwhile.
         const user = await tx.orm.public.User.where({
             id: userId,
-            email: current.email,
-        }).update({ email: current.email });
+            email: before.email,
+            passwordHash: before.passwordHash,
+        }).update({ email: before.email });
         if (!user) return null;
         const accounts = await tx.orm.public.OAuthAccount.where({
             userId,
@@ -67,7 +94,8 @@ connectedAccounts.delete("/:id", async (c) => {
             accounts.filter((a) => a.id !== id && providers[a.provider]).length;
         if (!remaining) return "last" as const;
         await tx.orm.public.OAuthAccount.where({ id, userId }).delete();
-        // Sessions opened with that login end with it; this device stays
+        // Sessions don't record which login opened them, so every other one
+        // ends; this device stays, having just proved it's the owner
         const revoked = await revokeOtherSessions(userId, sessionId, tx);
         return { user, target, revoked };
     });

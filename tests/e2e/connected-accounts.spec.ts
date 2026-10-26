@@ -177,6 +177,15 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
     await expect(page.locator("#password-form")).toBeVisible();
     await expect(page.locator("#set-password")).toBeHidden();
     await expect(disconnect).toBeEnabled();
+    // disconnecting asks for the new password
+    await disconnect.click();
+    await expect(
+        connected.getByText("Enter your current password to disconnect Google"),
+    ).toBeVisible();
+    const currentPassword = connected.locator(
+        'cds-text-input[name="currentPassword"] input',
+    );
+    await currentPassword.fill(password);
     await disconnect.click();
     await expect(connected.locator(".success")).toHaveText(
         "Google disconnected. Other devices have been signed out.",
@@ -187,14 +196,7 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
         "Google was disconnected from your PulseBoard account",
     );
 
-    // Connecting it again asks for the new password
-    await connected.getByRole("button", { name: "Connect Google" }).click();
-    await expect(
-        connected.getByText("Enter your current password to connect Google"),
-    ).toBeVisible();
-    await connected
-        .locator('cds-text-input[name="currentPassword"] input')
-        .fill(password);
+    // Connecting it again (the password is still filled in)
     await connected.getByRole("button", { name: "Connect Google" }).click();
     await expect(page).toHaveURL("/settings");
     await expect(connected.locator(".success")).toHaveText(

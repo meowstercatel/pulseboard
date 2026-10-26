@@ -72,6 +72,17 @@ function parse(stored: string) {
     };
 }
 
+export const MIN_PASSWORD = 8;
+export const MAX_PASSWORD = 256;
+
+export function validPassword(value: unknown): value is string {
+    return (
+        typeof value === "string" &&
+        value.length >= MIN_PASSWORD &&
+        value.length <= MAX_PASSWORD
+    );
+}
+
 export async function hashPassword(password: string): Promise<string> {
     const salt = randomBytes(16);
     const hash = await scryptAsync(password, salt, KEY_LENGTH, PARAMS);

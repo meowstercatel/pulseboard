@@ -24,13 +24,19 @@ export async function requestPasswordReset(c: Context, email: string) {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// Replaces any earlier link for this user, so only the newest one works
+// With `replace`, earlier links for this user stop working. Using any link
+// deletes them all (see resetPassword), and so does an email change.
 async function storeToken(
     tx: Tx,
     user: { id: number; email: string },
+    { replace }: { replace: boolean },
 ): Promise<string> {
     const token = randomBytes(32).toString("base64url");
-    await tx.orm.public.PasswordReset.where({ userId: user.id }).deleteAll();
+    if (replace) {
+        await tx.orm.public.PasswordReset.where({
+            userId: user.id,
+        }).deleteAll();
+    }
     await tx.orm.public.PasswordReset.create({
         tokenHash: hashToken(token),
         userId: user.id,
@@ -48,7 +54,7 @@ async function createAndSendReset(c: Context, email: string) {
             .where((u) => u.passwordHash.isNotNull())
             .update({ email });
         if (!user) return null;
-        return { user, token: await storeToken(tx, user) };
+        return { user, token: await storeToken(tx, user, { replace: true }) };
     });
     if (!reset) return;
     const { user, token } = reset;
@@ -67,34 +73,40 @@ async function createAndSendReset(c: Context, email: string) {
 // Emails a link that adds a password to an account that only signs in with
 // Google/Facebook. It is a password reset link (same table, page and confirm
 // endpoint), only worded differently. The address must already be verified,
-// so this link never becomes a second way to verify it. Returns false if the
-// account has a password or an unverified email.
+// so this link never becomes a second way to verify it.
+export type PasswordSetup =
+    | "sent"
+    | "has_password"
+    | "unverified"
+    // the account was deleted meanwhile
+    | "gone";
+
 export async function sendPasswordSetup(
     c: Context,
     userId: number,
-): Promise<boolean> {
+): Promise<PasswordSetup> {
     const linkPrefix = publicUrl(c, "/reset-password?purpose=set&token=");
     const setup = await db.transaction(async (tx) => {
-        const current = await tx.orm.public.User.where({ id: userId })
-            .where((u) => u.passwordHash.isNull())
-            .where((u) => u.emailVerifiedAt.isNotNull())
-            .first();
-        if (!current) return null;
+        const current = await tx.orm.public.User.where({ id: userId }).first();
+        if (!current) return "gone" as const;
         // no-op update to lock the user row until commit, and only while
-        // the address is still the one just checked
+        // the address is still the one just read
         const user = await tx.orm.public.User.where({
             id: userId,
             email: current.email,
-        })
-            .where((u) => u.passwordHash.isNull())
-            .update({ email: current.email });
-        if (!user) return null;
+        }).update({ email: current.email });
+        if (!user) return "gone" as const;
+        if (user.passwordHash) return "has_password" as const;
+        if (!user.emailVerifiedAt) return "unverified" as const;
         const logins = await tx.orm.public.OAuthAccount.where({ userId })
             .select("provider", "email")
             .all();
-        return { user, logins, token: await storeToken(tx, user) };
+        // Earlier links keep working: if this email can't be sent, the
+        // last one that arrived still can be used
+        const token = await storeToken(tx, user, { replace: false });
+        return { user, logins, token };
     });
-    if (!setup) return false;
+    if (typeof setup === "string") return setup;
     await sendMail({
         to: setup.user.email,
         ...setPasswordTemplate(
@@ -107,7 +119,7 @@ export async function sendPasswordSetup(
             ),
         ),
     });
-    return true;
+    return "sent";
 }
 
 // Returns the user, and whether the account had no password before (a link

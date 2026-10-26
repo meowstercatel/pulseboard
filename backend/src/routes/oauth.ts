@@ -15,9 +15,9 @@ import {
 } from "../auth/emailVerification.js";
 import { safeNext } from "../auth/nextPath.js";
 import { notifyAccountChange } from "../auth/accountNotice.js";
-import { RateLimiter, limitByIp, tooManyRequests } from "../auth/rateLimit.js";
+import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
 import { publicUrl } from "../auth/publicUrl.js";
-import { reauthenticate } from "../auth/reauth.js";
+import { limitAccountChanges, reauthenticate } from "../auth/reauth.js";
 import {
     createSession,
     getSessionUser,
@@ -33,8 +33,6 @@ const STATE_TTL_SECONDS = 10 * 60;
 
 // Each sign-in costs two outbound requests, so cap them per IP
 const callbackIpLimiter = new RateLimiter(30, 15 * 60 * 1000);
-// Links started per account, against password guessing through the link form
-const linkLimiter = new RateLimiter(10, 15 * 60 * 1000);
 
 // Must match a redirect URI registered with the provider
 function redirectUri(c: Context, provider: string): string {
@@ -55,7 +53,8 @@ function fail(
 }
 
 // Finds the user this provider account belongs to. If it isn't linked yet, it
-// is linked to the user with the same (verified) email, or a new user is made.
+// is linked to the password-less or unverified user with the same (verified)
+// email, or a new user is made.
 async function resolveUser(
     provider: string,
     { linksByEmail }: OAuthProvider,
@@ -95,7 +94,14 @@ async function resolveUser(
     return db.transaction(async (tx) => {
         let user = await tx.orm.public.User.where({ email }).first();
         const created = !user;
-        if (user && !linksByEmail) {
+        // A verified account with a password is never linked by email: its
+        // owner connects providers in the settings, and a Google account they
+        // disconnected there must not come back on its next sign-in. An
+        // unverified one is still claimed below, which clears its password.
+        if (
+            user &&
+            (!linksByEmail || (user.emailVerifiedAt && user.passwordHash))
+        ) {
             throw new OAuthError("email_taken");
         }
         if (user) {
@@ -285,16 +291,11 @@ oauth.get("/:provider", (c) => {
 // site can't start it, and it asks for the password (or a fresh sign-in), so
 // a stolen session can't add a login that outlives it. Answers with the
 // provider URL for the page to open; the callback finishes the link.
-oauth.post("/:provider/link", requireAuth, async (c) => {
+oauth.post("/:provider/link", requireAuth, limitAccountChanges, async (c) => {
     const name = c.req.param("provider");
     const provider = providers[name];
     if (!provider) return c.json({ error: "Not found" }, 404);
     const user = c.get("user");
-
-    const key = String(user.id);
-    const retryAfter = linkLimiter.retryAfter(key);
-    if (retryAfter) return tooManyRequests(c, retryAfter);
-    linkLimiter.hit(key);
 
     if (!c.req.header("content-type")?.startsWith("application/json")) {
         return c.json({ error: "Invalid request" }, 400);

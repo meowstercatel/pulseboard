@@ -168,25 +168,55 @@ describe("Google sign-in", () => {
         expect(await oauthAccounts(id)).toHaveLength(1);
     });
 
-    it("links a verified password account and keeps its password", async () => {
-        const { email, id } = await register(true);
+    it("doesn't link a verified password account by email; its owner connects Google in the settings", async () => {
+        const { email, id, cookie: oldCookie } = await register(true);
         mockGoogle({ sub: `g-${randomUUID()}`, email });
 
         const { location, cookie } = await signIn("google");
 
-        expect(location).toBe("/buy");
-        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
-        expect(await oauthAccounts(id)).toMatchObject([
-            { provider: "google", email },
-        ]);
+        expect(location).toBe("/login?oauth_error=email_taken&provider=google");
+        expect(cookie).toBeUndefined();
+        expect(await oauthAccounts(id)).toHaveLength(0);
+        expect((await request("auth/me", undefined, oldCookie)).status).toBe(
+            200,
+        );
         expect((await loginWithPassword(email)).status).toBe(200);
     });
 
+    it("still links a verified account without a password by email", async () => {
+        const email = `oauth-${randomUUID()}@example.com`;
+        const facebookId = `fb-${randomUUID()}`;
+        mockFacebook({ id: facebookId, email });
+        await signIn("facebook");
+        const user = (await trackUserByEmail(email))!;
+        await db.orm.public.User.where({ id: user.id }).update({
+            emailVerifiedAt: new Date().toISOString(),
+        });
+        mockGoogle({ sub: `g-${randomUUID()}`, email });
+
+        const { cookie } = await signIn("google");
+
+        const me = await request("auth/me", undefined, cookie);
+        expect((await me.json()).user.id).toBe(user.id);
+        expect(
+            (await oauthAccounts(user.id)).map((a) => a.provider).sort(),
+        ).toEqual(["facebook", "google"]);
+    });
+
     it("drops links the previous holder made with another address", async () => {
-        const { email: attackerEmail, id } = await register(true);
+        const {
+            email: attackerEmail,
+            id,
+            cookie: attackerCookie,
+        } = await register(true);
         const attackerSub = `g-${randomUUID()}`;
-        mockGoogle({ sub: attackerSub, email: attackerEmail });
-        const { cookie: attackerCookie } = await signIn("google");
+        // connected from the settings
+        await db.orm.public.OAuthAccount.create({
+            provider: "google",
+            providerUserId: attackerSub,
+            userId: id,
+            email: attackerEmail,
+        });
         const victimEmail = `oauth-${randomUUID()}@example.com`;
         const changed = await request(
             "auth/profile",

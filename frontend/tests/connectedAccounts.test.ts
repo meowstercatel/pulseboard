@@ -241,11 +241,61 @@ describe("mountConnectedAccounts", () => {
         expect(fetch).toHaveBeenNthCalledWith(
             2,
             "/api/auth/connected-accounts/2",
-            { method: "DELETE" },
+            {
+                method: "DELETE",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ currentPassword: "" }),
+            },
         );
         expect(items()).toHaveLength(1);
         expect(section.querySelector(".success")!.textContent).toBe(
             "Facebook disconnected. Other devices have been signed out.",
+        );
+    });
+
+    it("asks a password account for its password before disconnecting", async () => {
+        const fetch = vi
+            .fn()
+            .mockResolvedValueOnce(
+                Response.json(
+                    state({
+                        hasPassword: true,
+                        accounts: [google, facebook],
+                        providers: ["google", "facebook"],
+                    }),
+                ),
+            )
+            .mockResolvedValueOnce(Response.json({ revoked: 0 }))
+            .mockResolvedValueOnce(Response.json(state({ hasPassword: true })));
+        vi.stubGlobal("fetch", fetch);
+        await mountConnectedAccounts(section).load();
+        // nothing left to connect, but the password is still asked for
+        expect(section.querySelector<HTMLElement>(".connect")!.hidden).toBe(
+            true,
+        );
+        expect(password().hidden).toBe(false);
+
+        const disconnect = () =>
+            (items()[0]!.querySelector("cds-button") as HTMLElement).click();
+        disconnect();
+        await flush();
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(error().subtitle).toBe(
+            "Enter your current password to disconnect Google",
+        );
+
+        password().value = "my password";
+        disconnect();
+        await flush();
+        await flush();
+        expect(fetch).toHaveBeenNthCalledWith(
+            2,
+            "/api/auth/connected-accounts/1",
+            {
+                method: "DELETE",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ currentPassword: "my password" }),
+            },
         );
     });
 

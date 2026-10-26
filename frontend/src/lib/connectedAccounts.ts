@@ -65,10 +65,14 @@ export function startLink(provider: string, currentPassword: string) {
     );
 }
 
-export function unlink(id: number) {
+export function unlink(id: number, currentPassword: string) {
     return call(
         `connected-accounts/${id}`,
-        { method: "DELETE" },
+        {
+            method: "DELETE",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ currentPassword }),
+        },
         async (res) => (await res.json()) as { revoked: number },
     );
 }
@@ -194,13 +198,14 @@ export function mountConnectedAccounts(
                     disconnect.title =
                         "Your only way to log in. Set a password or connect another account first.";
                 }
-                disconnect.addEventListener("click", () =>
+                disconnect.addEventListener("click", () => {
+                    if (needsPassword("disconnect", account.provider)) return;
                     run(
                         disconnect,
-                        () => unlink(account.id),
+                        () => unlink(account.id, password.value),
                         `${label(account.provider)} disconnected. Other devices have been signed out.`,
-                    ),
-                );
+                    );
+                });
                 item.append(disconnect);
                 return item;
             }),
@@ -226,19 +231,24 @@ export function mountConnectedAccounts(
             }),
         );
         connect.hidden = !linkable.length;
-        password.hidden = !data.hasPassword;
+        // connecting and disconnecting both ask for the password
+        password.hidden =
+            !data.hasPassword || (!linkable.length && !data.accounts.length);
         if (!data.hasPassword) password.value = "";
     };
 
+    // Shows a hint and returns true if the password is needed but empty
+    function needsPassword(action: string, provider: string): boolean {
+        if (password.hidden || password.value) return false;
+        showResult({
+            ok: false,
+            message: `Enter your current password to ${action} ${label(provider)}`,
+        });
+        return true;
+    }
+
     async function link(element: Button, provider: string) {
-        if (busy) return;
-        if (!password.hidden && !password.value) {
-            showResult({
-                ok: false,
-                message: `Enter your current password to connect ${label(provider)}`,
-            });
-            return;
-        }
+        if (busy || needsPassword("connect", provider)) return;
         busy = true;
         element.disabled = true;
         showError(null);

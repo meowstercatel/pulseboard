@@ -1,4 +1,4 @@
-import { Hono, type Context, type MiddlewareHandler } from "hono";
+import { Hono, type Context } from "hono";
 import {
     sendVerificationEmail,
     trySendVerificationEmail,
@@ -6,8 +6,11 @@ import {
 } from "../auth/emailVerification.js";
 import {
     DUMMY_HASH,
+    MAX_PASSWORD,
+    MIN_PASSWORD,
     hashPassword,
     needsRehash,
+    validPassword,
     verifyPassword,
 } from "../auth/password.js";
 import { notifyAccountChange } from "../auth/accountNotice.js";
@@ -17,7 +20,7 @@ import {
     sendPasswordSetup,
 } from "../auth/passwordReset.js";
 import { publicUrl } from "../auth/publicUrl.js";
-import { reauthenticate } from "../auth/reauth.js";
+import { limitAccountChanges, reauthenticate } from "../auth/reauth.js";
 import {
     createSession,
     destroySession,
@@ -44,8 +47,6 @@ import { isUniqueViolation } from "../prisma/errors.js";
 // "a@b.com,c" can't send the verification email somewhere else
 const EMAIL_RE =
     /^[^\s@,;:<>()"\[\]\\]+@[^\s@,;:<>()"\[\]\\]+\.[^\s@,;:<>()"\[\]\\]+$/;
-const MIN_PASSWORD = 8;
-const MAX_PASSWORD = 256;
 
 const MINUTE = 60 * 1000;
 // Every login request from one IP, to slow down credential stuffing
@@ -62,7 +63,6 @@ const registerIpLimiter = new RateLimiter(5, 60 * MINUTE);
 const accountExistsEmailLimiter = new RateLimiter(3, 60 * MINUTE);
 // Padding so the response time doesn't reveal whether the account exists
 const MIN_REGISTER_RESPONSE_MS = 250;
-const accountLimiter = new RateLimiter(10, 15 * MINUTE);
 // Verification emails resent per account, so the endpoint can't be used to spam an inbox
 const resendLimiter = new RateLimiter(3, 15 * MINUTE);
 // Verification attempts from one IP, against guessing tokens
@@ -75,14 +75,6 @@ const resetIpLimiter = new RateLimiter(30, 15 * MINUTE);
 // "Set a password" links per account, so the endpoint can't be used to spam an inbox
 const setupLimiter = new RateLimiter(3, 15 * MINUTE);
 
-const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (c, next) => {
-    const key = String(c.get("user").id);
-    const retryAfter = accountLimiter.retryAfter(key);
-    if (retryAfter) return tooManyRequests(c, retryAfter);
-    accountLimiter.hit(key);
-    await next();
-};
-
 async function readAccountBody(req: Request) {
     if (!req.headers.get("content-type")?.startsWith("application/json")) {
         return null;
@@ -91,14 +83,6 @@ async function readAccountBody(req: Request) {
     return body && typeof body === "object" && !Array.isArray(body)
         ? (body as Record<string, unknown>)
         : null;
-}
-
-function validPassword(value: unknown): value is string {
-    return (
-        typeof value === "string" &&
-        value.length >= MIN_PASSWORD &&
-        value.length <= MAX_PASSWORD
-    );
 }
 
 type Credentials = { email: string; password: string; username?: string };
@@ -499,7 +483,7 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
 // Emails a link to add a password to an account that only signs in with
 // Google/Facebook; the link is a password reset link. Without a password the
 // email can't be changed either, so this also unlocks that.
-auth.post("/password/setup", requireAuth, limitAccountChanges, async (c) => {
+auth.post("/password/setup", requireAuth, async (c) => {
     const user = c.get("user");
     if (!user.emailVerified) {
         return c.json({ error: "Verify your email address first" }, 403);
@@ -509,9 +493,9 @@ auth.post("/password/setup", requireAuth, limitAccountChanges, async (c) => {
     if (retryAfter) return tooManyRequests(c, retryAfter);
     setupLimiter.hit(key);
 
-    let sent;
+    let result;
     try {
-        sent = await sendPasswordSetup(c, user.id);
+        result = await sendPasswordSetup(c, user.id);
     } catch (err) {
         console.error(
             `Couldn't send password setup email to user ${user.id}`,
@@ -522,11 +506,15 @@ auth.post("/password/setup", requireAuth, limitAccountChanges, async (c) => {
             502,
         );
     }
-    if (!sent) {
+    if (result === "gone") return c.json({ error: "Not logged in" }, 401);
+    if (result === "has_password") {
         return c.json(
             { error: "This account already has a password. Reload the page" },
             409,
         );
+    }
+    if (result === "unverified") {
+        return c.json({ error: "Verify your email address first" }, 403);
     }
     return c.body(null, 204);
 });

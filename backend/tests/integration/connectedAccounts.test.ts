@@ -304,6 +304,33 @@ describe("setting a password on a social-only account", () => {
         expect(mailTo(user.email, /password was set/)).toHaveLength(0);
     });
 
+    it("keeps an earlier link working when another is asked for", async () => {
+        const user = await account({ links: [{ provider: "google" }] });
+        const { cookie } = await session(user.id);
+        for (let i = 0; i < 2; i++) {
+            const sent = await request("auth/password/setup", {
+                method: "POST",
+                cookie,
+            });
+            expect(sent.status).toBe(204);
+        }
+        const [first, second] = mailTo(user.email, /^Set a password/).map(
+            (m) => m.text.match(/token=([\w-]+)/)![1],
+        );
+        expect(first).not.toBe(second);
+        const confirmed = await request("auth/password-reset/confirm", {
+            method: "POST",
+            body: { token: first, newPassword: password },
+        });
+        expect(confirmed.status).toBe(200);
+        // using one link ends the others
+        const again = await request("auth/password-reset/confirm", {
+            method: "POST",
+            body: { token: second, newPassword: "Another password!" },
+        });
+        expect(again.status).toBe(400);
+    });
+
     it("refuses accounts that have a password", async () => {
         const user = await account({ withPassword: true });
         const { cookie } = await session(user.id);
@@ -683,7 +710,11 @@ describe("unlinking a provider", () => {
 
         const response = await request(
             `auth/connected-accounts/${google!.id}`,
-            { method: "DELETE", cookie: current.cookie },
+            {
+                method: "DELETE",
+                cookie: current.cookie,
+                body: { currentPassword: password },
+            },
         );
 
         expect(response.status).toBe(200);
@@ -694,6 +725,64 @@ describe("unlinking a provider", () => {
             (await request("auth/me", { cookie: other.cookie })).status,
         ).toBe(401);
         expect(mailTo(user.email, /Google was disconnected/)).toHaveLength(1);
+    });
+
+    it("stays disconnected: Google with the account's own address doesn't link again", async () => {
+        const sub = `g-${randomUUID()}`;
+        const user = await account({
+            withPassword: true,
+            links: [{ provider: "google", providerUserId: sub }],
+        });
+        const { cookie } = await session(user.id);
+        const [google] = await links(user.id);
+        const unlinked = await request(
+            `auth/connected-accounts/${google!.id}`,
+            { method: "DELETE", cookie, body: { currentPassword: password } },
+        );
+        expect(unlinked.status).toBe(200);
+
+        mockGoogle({ sub, email: user.email });
+        const signedIn = await signIn("google");
+
+        expect(signedIn.location).toBe(
+            "/login?oauth_error=email_taken&provider=google",
+        );
+        expect(signedIn.cookie).toBeUndefined();
+        expect(await links(user.id)).toHaveLength(0);
+        expect((await request("auth/me", { cookie })).status).toBe(200);
+    });
+
+    it("asks for the password, or a fresh sign-in without one", async () => {
+        const withPassword = await account({
+            withPassword: true,
+            links: [{ provider: "google" }],
+        });
+        const { cookie } = await session(withPassword.id);
+        const [google] = await links(withPassword.id);
+        for (const body of [
+            undefined,
+            { currentPassword: "Wrong password!" },
+        ]) {
+            const response = await request(
+                `auth/connected-accounts/${google!.id}`,
+                { method: "DELETE", cookie, body },
+            );
+            expect(response.status).toBe(400);
+        }
+
+        const social = await account({
+            links: [{ provider: "google" }, { provider: "facebook" }],
+        });
+        const stale = await session(social.id, 11 * MINUTE);
+        const [first] = await links(social.id);
+        const response = await request(`auth/connected-accounts/${first!.id}`, {
+            method: "DELETE",
+            cookie: stale.cookie,
+        });
+        expect(response.status).toBe(403);
+        expect(await links(withPassword.id)).toHaveLength(1);
+        expect(await links(social.id)).toHaveLength(2);
+        expect(mail).not.toHaveBeenCalled();
     });
 
     it("lets a social-only account remove one of two providers", async () => {
@@ -772,7 +861,7 @@ describe("unlinking a provider", () => {
         const [google] = await links(victim.id);
         const response = await request(
             `auth/connected-accounts/${google!.id}`,
-            { method: "DELETE", cookie },
+            { method: "DELETE", cookie, body: { currentPassword: password } },
         );
         expect(response.status).toBe(404);
         expect(await links(victim.id)).toHaveLength(1);
