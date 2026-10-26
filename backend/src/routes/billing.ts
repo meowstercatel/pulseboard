@@ -47,14 +47,7 @@ async function getOrCreateCustomer(
     const row = await db.orm.public.User.where({ id: user.id })
         .select("stripeCustomerId")
         .first();
-    if (row?.stripeCustomerId) {
-        // Stripe emails receipts to the customer's address, which may be one
-        // the account has since changed away from
-        await stripe.customers.update(row.stripeCustomerId, {
-            email: user.email,
-        });
-        return row.stripeCustomerId;
-    }
+    if (row?.stripeCustomerId) return row.stripeCustomerId;
 
     // the idempotency key stops a double click from creating two customers
     const customer = await stripe.customers.create(
@@ -144,6 +137,27 @@ async function fulfillCheckout(
         LIVE_STATUSES.includes(user.subscriptionStatus)
     ) {
         await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+    }
+}
+
+// Stripe sends receipts and payment notices to the customer's address, so it
+// follows the account's once a changed address is verified. A failure is only
+// logged: the change itself stands.
+export async function syncCustomerEmail(user: {
+    id: number;
+    email: string;
+    stripeCustomerId: string | null;
+}) {
+    if (!stripe || !user.stripeCustomerId) return;
+    try {
+        await stripe.customers.update(user.stripeCustomerId, {
+            email: user.email,
+        });
+    } catch (err) {
+        console.error(
+            `Couldn't update the Stripe customer email of user ${user.id}`,
+            err,
+        );
     }
 }
 

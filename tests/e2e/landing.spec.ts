@@ -198,6 +198,21 @@ test("guests following a pricing link see prices, not the login page", async ({
     }
 });
 
+test("the landing page checks the session once", async ({ page }) => {
+    let checks = 0;
+    page.on("request", (request) => {
+        if (new URL(request.url()).pathname === "/api/auth/me") checks++;
+    });
+    await page.goto("/");
+    await expect(page.locator(".nav-account")).toHaveAttribute(
+        "data-auth",
+        "guest",
+    );
+    await page.waitForLoadState("networkidle");
+    // the header and the footer's pricing links share one request
+    expect(checks).toBe(1);
+});
+
 test("the terms state the same prices in both languages", async ({ page }) => {
     await page.goto("/terms");
     const terms = page.locator("article");

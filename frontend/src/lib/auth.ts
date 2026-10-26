@@ -233,6 +233,14 @@ export async function currentUser(): Promise<User | null> {
     }
 }
 
+let pageSession: Promise<User | null> | undefined;
+
+// currentUser(), asked once per page load: the landing page header and the
+// footer's pricing links share it instead of each calling /api/auth/me
+export function pageUser(): Promise<User | null> {
+    return (pageSession ??= currentUser());
+}
+
 // Protected pages start hidden (HtmlTemplate's requiresAuth) so they don't
 // flash before a redirect; they are shown once the user may see them.
 async function guard(

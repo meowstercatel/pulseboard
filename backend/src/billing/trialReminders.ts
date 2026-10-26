@@ -1,6 +1,7 @@
 import { appUrl } from "../auth/publicUrl.js";
 import { sendMail } from "../mail/mailer.js";
 import { trialReminderTemplate } from "../mail/trialReminderTemplate.js";
+import { startPeriodic } from "../periodic.js";
 import { db } from "../prisma/db.js";
 import { DAY_MS } from "./trial.js";
 
@@ -15,8 +16,9 @@ const REMINDERS = [
 ] as const;
 
 // Moves the account from `before` to `stage` reminders sent, if no other
-// instance has and the user hasn't paid meanwhile; only the caller that gets
-// the user back sends the email. It has to be a single UPDATE: Postgres then
+// instance has and the account is still due: unpaid, verified (the address may
+// have changed since it was selected) and in its trial. Only the caller that
+// gets the user back sends the email. It has to be a single UPDATE: Postgres then
 // re-checks the condition after waiting for a concurrent claim. The ORM's
 // update() reads the row and then updates it by id, so two instances could
 // both get through.
@@ -24,7 +26,8 @@ export async function claimReminder(id: number, before: number, stage: number) {
     const plan = db.raw.sql`UPDATE "User"
         SET "trialRemindersSent" = ${stage}, "updatedAt" = now()
         WHERE id = ${id} AND "trialRemindersSent" = ${before}
-            AND "licensePlan" IS NULL
+            AND "licensePlan" IS NULL AND "emailVerifiedAt" IS NOT NULL
+            AND "trialEndsAt" > now()
         RETURNING email, "trialEndsAt"`
         .returnsRow({
             email: "pg/text@1",
@@ -55,7 +58,7 @@ export async function sendTrialReminders(now = Date.now()) {
 
         for (const { id, trialRemindersSent: before } of due) {
             const user = await claimReminder(id, before, stage);
-            // another instance got there first, or the user just paid
+            // another instance got there first, or the account changed
             if (!user?.trialEndsAt) continue;
             try {
                 await sendMail({
@@ -64,6 +67,7 @@ export async function sendTrialReminders(now = Date.now()) {
                         kind,
                         user.trialEndsAt,
                         appUrl("/buy"),
+                        now,
                     ),
                 });
                 sent++;
@@ -82,23 +86,10 @@ export async function sendTrialReminders(now = Date.now()) {
     return sent;
 }
 
-// Runs now and then hourly, like startCleanup. The returned stop function
-// waits for a run in progress, so the database can be closed right after it.
+// Runs now and then hourly
 export function startTrialReminders(): () => Promise<void> {
-    let running: Promise<void> | undefined;
-    const run = () => {
-        if (running) return;
-        running = sendTrialReminders()
-            .then((sent) => {
-                if (sent) console.log(`Sent ${sent} trial reminder(s)`);
-            })
-            .catch((err) => console.error("Trial reminders failed", err))
-            .finally(() => (running = undefined));
-    };
-    run();
-    const timer = setInterval(run, REMINDER_INTERVAL_MS).unref();
-    return async () => {
-        clearInterval(timer);
-        await running;
-    };
+    return startPeriodic("Trial reminders", REMINDER_INTERVAL_MS, async () => {
+        const sent = await sendTrialReminders();
+        if (sent) console.log(`Sent ${sent} trial reminder(s)`);
+    });
 }

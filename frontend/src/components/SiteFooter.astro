@@ -49,13 +49,13 @@ import { contactEmail } from "../lib/legal";
 </footer>
 
 <script>
-    import { currentUser } from "../lib/auth";
+    import { pageUser } from "../lib/auth";
 
     // /buy asks guests to log in first, so they get the landing page's
     // pricing section; signed-in users go straight to the plans
     const links = document.querySelectorAll("[data-pricing-link]");
     if (links.length) {
-        currentUser().then((user) => {
+        pageUser().then((user) => {
             if (!user) return;
             for (const link of links) link.setAttribute("href", "/buy");
         });

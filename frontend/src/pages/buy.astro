@@ -237,6 +237,7 @@ const plans = pricing.map((plan) => ({
         trialEnded,
     } from "../lib/auth";
     import { billingPortal, checkout } from "../lib/billing";
+    import { daysLeft } from "../lib/plan";
     import type { PlanId } from "../lib/pricing";
 
     type Button = HTMLElement & { disabled: boolean };
@@ -263,11 +264,12 @@ const plans = pricing.map((plan) => ({
         if (!user.licensePlan) {
             const days = trialDaysLeft(user);
             if (days !== null) {
-                const left = days === 1 ? "1 day left" : `${days} days left`;
+                const left = daysLeft(days);
                 status.type = "blue";
                 status.textContent = `free trial, ${left}`;
                 const active = notice("trial-active");
-                active.subtitle = `You have full access for ${left}. Choose a plan any time to keep it afterwards.`;
+                // a plan starts when it's bought; Stripe doesn't wait for the trial
+                active.subtitle = `Full access, ${left}. A plan you buy now starts, and is charged, right away and replaces the rest of the trial.`;
                 active.hidden = false;
             } else if (trialEnded(user)) {
                 status.textContent = "trial ended";

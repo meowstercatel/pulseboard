@@ -347,7 +347,7 @@ describe("trial reminders", () => {
         await sendTrialReminders();
         expect(sentTo(user.email).map((m) => m.subject)).toEqual([
             "Your PulseBoard trial ends in 3 days",
-            "Your PulseBoard trial ends today",
+            "Your PulseBoard trial ends within 24 hours",
         ]);
         expect((await userRow(user.id)).trialRemindersSent).toBe(2);
     });
@@ -356,7 +356,7 @@ describe("trial reminders", () => {
         const user = await account({ trialEndsAt: hoursFromNow(5) });
         await sendTrialReminders();
         expect(sentTo(user.email).map((m) => m.subject)).toEqual([
-            "Your PulseBoard trial ends today",
+            "Your PulseBoard trial ends within 24 hours",
         ]);
     });
 
@@ -382,6 +382,19 @@ describe("trial reminders", () => {
         // and a run after that has nothing left to send
         await sendTrialReminders();
         expect(sentTo(user.email)).toHaveLength(0);
+    });
+
+    it("doesn't claim a reminder for an address that is no longer verified, or a trial that ended", async () => {
+        const unverified = await account({ trialEndsAt: hoursFromNow(60) });
+        // the address changed after the reminder run selected the account
+        await db.orm.public.User.where({ id: unverified.id }).update({
+            emailVerifiedAt: null,
+        });
+        expect(await claimReminder(unverified.id, 0, 1)).toBeNull();
+
+        const ended = await account({ trialEndsAt: hoursFromNow(-0.01) });
+        expect(await claimReminder(ended.id, 1, 2)).toBeNull();
+        expect(await claimReminder(ended.id, 0, 2)).toBeNull();
     });
 
     it("tries again on the next run if sending failed", async () => {
@@ -478,15 +491,34 @@ describe("plans at checkout", () => {
         );
     });
 
-    it("keeps an existing Stripe customer's email current", async () => {
+    it("moves the Stripe customer to a changed address once it is verified", async () => {
         const customer = `cus_trial_${randomUUID()}`;
-        const user = await account({ stripeCustomerId: customer });
-        await checkout("yearly", user.cookie);
+        const user = await account({
+            stripeCustomerId: customer,
+            licensePlan: "subscription",
+        });
+        const email = `trial-${randomUUID()}@example.com`;
+        const changed = await request(
+            "auth/profile",
+            { email, username: "", currentPassword: password },
+            user.cookie,
+        );
+        expect(changed.status).toBe(200);
+        // not yet: the new address could be mistyped or someone else's
+        expect(stripeApi.customerUpdates).toHaveLength(0);
+
+        expect(
+            (await request("auth/verify-email", { token: lastToken() })).status,
+        ).toBe(200);
         expect(stripeApi.customerUpdates).toHaveLength(1);
         expect(stripeApi.customerUpdates[0]!.id).toBe(customer);
-        expect(stripeApi.customerUpdates[0]!.fields.get("email")).toBe(
-            user.email,
-        );
+        expect(stripeApi.customerUpdates[0]!.fields.get("email")).toBe(email);
+    });
+
+    it("doesn't touch the Stripe customer at checkout", async () => {
+        const user = await account({ stripeCustomerId: `cus_${randomUUID()}` });
+        expect((await checkout("lifetime", user.cookie)).status).toBe(200);
+        expect(stripeApi.customerUpdates).toHaveLength(0);
     });
 
     it("refuses a second subscription; switching happens in the portal", async () => {

@@ -1081,7 +1081,7 @@ const faq = [
 </script>
 
 <script>
-    import { accountDestination, currentUser, logout } from "../lib/auth";
+    import { accountDestination, logout, pageUser } from "../lib/auth";
 
     const account = document.querySelector<HTMLElement>(".nav-account")!;
 
@@ -1090,7 +1090,7 @@ const faq = [
         setTimeout(() => resolve(null), 5000),
     );
 
-    Promise.race([currentUser(), timeout]).then((user) => {
+    Promise.race([pageUser(), timeout]).then((user) => {
         if (user) {
             const name = document.getElementById("nav-user-name")!;
             name.textContent = name.title = user.username || user.email;
