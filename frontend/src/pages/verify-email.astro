@@ -182,8 +182,17 @@ import Field from "../components/Field.astro";
         show("done");
     }
 
-    async function failed(error: string) {
+    // A used-up link whose account this browser is signed in to and has
+    // verified another way (a reset, another tab) needs nothing more
+    async function failed(error: string, status?: number) {
         const user = await currentUser();
+        if (status === 400 && user?.emailVerified) {
+            done(
+                user,
+                "The account you’re signed in to already has a verified email address. You can continue without using this link.",
+            );
+            return;
+        }
         const request = document.getElementById("request-link")!;
         request.setAttribute("href", user ? "/verify-email" : "/login");
         request.textContent = user
@@ -216,8 +225,9 @@ import Field from "../components/Field.astro";
                     return "The password has changed. Enter the new one";
                 }
                 if ("error" in result) {
-                    if (result.status === 400) await failed(result.error);
-                    return result.error;
+                    if (result.status !== 400) return result.error;
+                    await failed(result.error, result.status);
+                    return null;
                 }
                 const { message, href } = verifiedStep(result);
                 done(result.user, message, href);
@@ -229,8 +239,9 @@ import Field from "../components/Field.astro";
             async () => {
                 const result = await disownAccount(token);
                 if ("error" in result) {
-                    if (result.status === 400) await failed(result.error);
-                    return result.error;
+                    if (result.status !== 400) return result.error;
+                    await failed(result.error, result.status);
+                    return null;
                 }
                 document.getElementById("disowned-message")!.textContent =
                     disownedMessage(result);
@@ -246,17 +257,7 @@ import Field from "../components/Field.astro";
         status.textContent = "Verifying your email address…";
         const result = await verifyEmail(token);
         if ("confirm" in result) return confirm(token, result.email);
-        if ("error" in result) {
-            const user = await currentUser();
-            if (result.status === 400 && user?.emailVerified) {
-                done(
-                    user,
-                    "The account you’re signed in to already has a verified email address. You can continue without using this link.",
-                );
-                return;
-            }
-            return failed(result.error);
-        }
+        if ("error" in result) return failed(result.error, result.status);
         // the link signs this browser in to the account it verified
         const { message, href } = verifiedStep(result);
         done(result.user, message, href);

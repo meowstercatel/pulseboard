@@ -19,6 +19,7 @@ vi.hoisted(() => {
 });
 
 import { createApp } from "../../src/app.js";
+import { hashPassword, verifyPassword } from "../../src/auth/password.js";
 import { sessionIdFor } from "../../src/auth/session.js";
 import { DAY_MS, TRIAL_DAYS } from "../../src/billing/trial.js";
 import { sendMail } from "../../src/mail/mailer.js";
@@ -27,9 +28,28 @@ import { db } from "../../src/prisma/db.js";
 vi.mock("../../src/mail/mailer.js", () => ({
     sendMail: vi.fn().mockResolvedValue(undefined),
 }));
+// The real check, which a test can wrap to change the stored hash right
+// after a request read it, like a parallel request would
+vi.mock("../../src/auth/password.js", async (importOriginal) => {
+    const real =
+        await importOriginal<typeof import("../../src/auth/password.js")>();
+    return { ...real, verifyPassword: vi.fn(real.verifyPassword) };
+});
 
 const app = createApp();
 const mail = vi.mocked(sendMail);
+const check = vi.mocked(verifyPassword);
+const realCheck = check.getMockImplementation()!;
+
+// The next password check passes or fails as usual, then the account's
+// password hash becomes `hash` before the request goes on
+function changeHashAfterNextCheck(id: number, hash: string) {
+    check.mockImplementationOnce(async (given, stored) => {
+        const ok = await realCheck(given, stored);
+        await db.orm.public.User.where({ id }).update({ passwordHash: hash });
+        return ok;
+    });
+}
 // the intruder's password, set at registration
 const password = "The intruder's own password!";
 const ownersPassword = "The address owner's password!";
@@ -188,13 +208,42 @@ describe("the owner opening the link of an account someone else registered", () 
         expect((await userRow(id)).passwordHash).not.toBeNull();
     });
 
-    it.each([
-        { password: 12345678 },
-        { password: "x".repeat(257) },
-        { password: null },
-    ])("rejects a malformed password: %j", async (extra) => {
+    it.each([{ password: 12345678 }, { password: null }])(
+        "rejects a malformed password: %j",
+        async (extra) => {
+            const { token } = await intruderSignUp();
+            expect((await verify(token, extra)).status).toBe(400);
+        },
+    );
+
+    // a 400 would tell the page the link is dead
+    it("calls an over-long password wrong, and the link keeps working", async () => {
         const { token } = await intruderSignUp();
-        expect((await verify(token, extra)).status).toBe(400);
+        const long = await verify(token, { password: "x".repeat(257) });
+        expect(long.status).toBe(401);
+        expect(await long.json()).toEqual({ error: "Wrong password" });
+        expect((await verify(token, { password })).status).toBe(200);
+    });
+
+    it("accepts the password when a parallel login only upgraded its hash", async () => {
+        const { id, token } = await intruderSignUp();
+        changeHashAfterNextCheck(id, await hashPassword(password));
+
+        const response = await verify(token, { password });
+
+        expect(response.status).toBe(200);
+        expect((await userRow(id)).emailVerifiedAt).not.toBeNull();
+    });
+
+    it("calls the password wrong when it changed after the check", async () => {
+        const { id, token } = await intruderSignUp();
+        changeHashAfterNextCheck(id, await hashPassword("Changed meanwhile!"));
+
+        const response = await verify(token, { password });
+
+        expect(response.status).toBe(401);
+        expect((await userRow(id)).emailVerifiedAt).toBeNull();
+        expect(sessionCookie(response)).toBeUndefined();
     });
 });
 
@@ -505,5 +554,23 @@ describe("seeded sessions", () => {
             expiresAt: new Date(Date.now() - 1000).toISOString(),
         });
         expect((await verify(token, {}, `session=${raw}`)).status).toBe(403);
+    });
+});
+
+describe("a login whose password changed while it was checked", () => {
+    it("fails without signing the browser out of the session it had", async () => {
+        const { email, id } = await intruderSignUp();
+        const other = await intruderSignUp();
+        changeHashAfterNextCheck(id, await hashPassword("Changed meanwhile!"));
+
+        const response = await request(
+            "auth/login",
+            { email, password },
+            other.intruder,
+        );
+
+        expect(response.status).toBe(401);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        expect((await me(other.intruder)).status).toBe(200);
     });
 });

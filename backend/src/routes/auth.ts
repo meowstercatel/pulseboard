@@ -238,6 +238,8 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     // verify page) must not let this sign in after it ended every session.
     // Locking the row means a change either comes first and stops this, or
     // comes after and signs this session out with the rest.
+    // whether this request set a session cookie, which a failure must undo
+    let opened = false;
     const signIn = (checked: string) =>
         db.transaction(async (tx) => {
             const current = await tx.orm.public.User.where({
@@ -248,7 +250,10 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
                 passwordHash:
                     checked === user.passwordHash ? passwordHash : checked,
             });
-            if (current) await createSession(c, user.id, tx);
+            if (current) {
+                await createSession(c, user.id, tx);
+                opened = true;
+            }
             return current;
         });
     let signedIn;
@@ -268,11 +273,11 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
             }
         }
     } catch (err) {
-        clearSessionCookie(c);
+        // the session wasn't stored; a cookie the browser already had stays
+        if (opened) clearSessionCookie(c);
         throw err;
     }
     if (!signedIn) {
-        clearSessionCookie(c);
         return c.json({ error: "Wrong email or password" }, 401);
     }
     return c.json({ user: toAuthUser(signedIn) });
@@ -295,9 +300,7 @@ auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
         !body ||
         typeof body.token !== "string" ||
         !body.token ||
-        (body.password !== undefined &&
-            (typeof body.password !== "string" ||
-                body.password.length > MAX_PASSWORD))
+        (body.password !== undefined && typeof body.password !== "string")
     ) {
         return c.json({ error: "Invalid request" }, 400);
     }
@@ -313,16 +316,37 @@ auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
         if (!pending) return c.json({ error: INVALID_LINK }, 400);
         const retryAfter = countPasswordAttempt(c, pending.email);
         if (retryAfter) return tooManyRequests(c, retryAfter);
-        const ok = await verifyPassword(
-            body.password,
-            pending.passwordHash ?? DUMMY_HASH,
-        );
+        // too long to be any account's password (and to hash), so just wrong
+        const ok =
+            body.password.length <= MAX_PASSWORD &&
+            (await verifyPassword(
+                body.password,
+                pending.passwordHash ?? DUMMY_HASH,
+            ));
         if (!ok) return c.json({ error: "Wrong password" }, 401);
         passwordAccepted(c, pending.email);
         confirmedHash = pending.passwordHash!;
     }
 
-    const verified = await verifyEmailToken(body.token, session, confirmedHash);
+    let verified = await verifyEmailToken(body.token, session, confirmedHash);
+    if (confirmedHash && verified && "confirm" in verified) {
+        // The hash changed after the check. A login may only have upgraded
+        // the hash of this same password, like login handles; otherwise the
+        // password given is no longer the account's.
+        const now = await pendingVerification(body.token);
+        if (!now) return c.json({ error: INVALID_LINK }, 400);
+        if (
+            !now.passwordHash ||
+            !(await verifyPassword(body.password as string, now.passwordHash))
+        ) {
+            return c.json({ error: "Wrong password" }, 401);
+        }
+        verified = await verifyEmailToken(
+            body.token,
+            session,
+            now.passwordHash,
+        );
+    }
     if (!verified) return c.json({ error: INVALID_LINK }, 400);
     if ("confirm" in verified) {
         // Nothing changed and the link still works. The address goes to the

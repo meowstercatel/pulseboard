@@ -1,5 +1,7 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import type { Contract } from "../../backend/src/prisma/contract.d";
+import { testEnvironment } from "../environment.mjs";
 
 const mailpit = process.env.TEST_MAILPIT_URL || "http://127.0.0.1:58025";
 // set by whoever registers the address
@@ -192,6 +194,88 @@ test("“I didn't create this account” locks out whoever registered the addres
                 data: { confirmation: "delete my account", currentPassword },
             });
         }
+        await deleteMail(request, email);
+    }
+});
+
+// An unverified account with a password and a pending verification link, as
+// registering leaves it. Seeded, because the suite's registrations from one
+// IP already reach the hourly limit.
+async function seedRegistration() {
+    Object.assign(process.env, testEnvironment());
+    const { default: postgres } =
+        await import("../../backend/node_modules/@prisma/orm-postgres/dist/runtime.mjs");
+    const { default: contractJson } = await import(
+        "../../backend/src/prisma/contract.json",
+        { with: { type: "json" } }
+    );
+    const db = postgres<Contract>({
+        contractJson,
+        url: process.env["DATABASE_URL"]!,
+    });
+    const email = `e2e-verify-reset-${randomUUID()}@example.com`;
+    const salt = randomBytes(16);
+    const user = await db.orm.public.User.create({
+        email,
+        // the format from before scrypt parameters were stored, which the
+        // backend still accepts
+        passwordHash: `scrypt$${salt.toString("hex")}$${scryptSync(password, salt, 64).toString("hex")}`,
+    });
+    const token = randomBytes(32).toString("base64url");
+    await db.orm.public.EmailVerification.create({
+        tokenHash: createHash("sha256").update(token).digest("hex"),
+        userId: user.id,
+        email,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    return {
+        email,
+        link: `/verify-email?token=${token}`,
+        cleanup: async () => {
+            await db.orm.public.User.where({ id: user.id }).delete();
+            await db.close();
+        },
+    };
+}
+
+test("a confirm form left open after a reset verified the address says so", async ({
+    page,
+    request,
+}) => {
+    const { email, link, cleanup } = await seedRegistration();
+    try {
+        await page.goto(link);
+        await expect(page.locator("#confirm-email")).toHaveText(email);
+
+        // meanwhile, in another tab of this browser: "Forgot password?",
+        // whose link verifies the address and signs in
+        await page.request.post("/api/auth/password-reset", {
+            data: { email },
+        });
+        const reset = await findMail(
+            request,
+            email,
+            "Reset your PulseBoard password",
+        );
+        const token = reset.Text.match(/reset-password\?token=([\w-]+)/)?.[1];
+        expect(
+            (
+                await page.request.post("/api/auth/password-reset/confirm", {
+                    data: { token, newPassword: ownersPassword },
+                })
+            ).status(),
+        ).toBe(200);
+
+        await page.locator("#confirm-password").fill(ownersPassword);
+        await page
+            .getByRole("button", { name: "Verify and sign in", exact: true })
+            .click();
+        await expect(page.locator("#verified-message")).toContainText(
+            "already has a verified email address",
+        );
+        await expect(page.locator("#failed")).toBeHidden();
+    } finally {
+        await cleanup();
         await deleteMail(request, email);
     }
 });
