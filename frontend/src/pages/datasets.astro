@@ -2,6 +2,7 @@
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 import TrialBadge from "../components/TrialBadge.astro";
+import Field from "../components/Field.astro";
 import { limits } from "../lib/limits";
 ---
 
@@ -67,12 +68,14 @@ import { limits } from "../lib/limits";
                             required
                         />
                     </div>
-                    <cds-text-input
+                    <Field
+                        id="dataset-name"
                         label="Name (optional)"
                         name="name"
-                        maxlength="100"
-                        helper-text="Defaults to the file name."
-                    ></cds-text-input>
+                        autocomplete="off"
+                        maxlength={100}
+                        helper="Defaults to the file name."
+                    />
                     <cds-inline-notification
                         id="import-error"
                         kind="error"
@@ -327,7 +330,6 @@ import { limits } from "../lib/limits";
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
-    import "@carbon/web-components/es/components/text-input/index.js";
     import "@carbon/web-components/es/components/notification/index.js";
     import "@carbon/web-components/es/components/link/index.js";
     import "@carbon/web-components/es/components/inline-loading/index.js";
@@ -342,7 +344,6 @@ import { limits } from "../lib/limits";
     } from "../lib/datasets";
     import { MAX_FILE_BYTES } from "../../../backend/src/datasets/limits";
 
-    type Input = HTMLElement & { value: string };
     type Button = HTMLElement & { disabled: boolean };
     type Notification = HTMLElement & { subtitle: string };
 
@@ -350,9 +351,7 @@ import { limits } from "../lib/limits";
         document.getElementById(id) as T;
 
     const fileInput = byId<HTMLInputElement>("file");
-    const nameInput = document.querySelector<Input>(
-        'cds-text-input[name="name"]',
-    )!;
+    const nameInput = byId<HTMLInputElement>("dataset-name");
     const importButton = byId<Button>("import-button");
     const importError = byId<Notification>("import-error");
     const importSuccess = byId("import-success");

@@ -29,6 +29,10 @@
     .oauth[data-loading] {
         visibility: hidden;
     }
+    /* Carbon's lg button height, held until its script defines cds-button */
+    .oauth cds-button:not(:defined) {
+        min-height: 3rem;
+    }
     .oauth[hidden],
     .oauth [hidden] {
         display: none;

@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-    expect,
-    test,
-    type APIRequestContext,
-    type Page,
-} from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "./fixtures";
 import type { Contract } from "../../backend/src/prisma/contract.d";
 import { testEnvironment } from "../environment.mjs";
 

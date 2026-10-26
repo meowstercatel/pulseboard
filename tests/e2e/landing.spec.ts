@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import type { Contract } from "../../backend/src/prisma/contract.d";
 import { LIMITS } from "../../backend/src/datasets/limits";
 import { CAPACITY_HORIZON_DAYS } from "../../backend/src/forecast/capacity";

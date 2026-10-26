@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "./fixtures";
 import type { Contract } from "../../backend/src/prisma/contract.d";
 import { testEnvironment } from "../environment.mjs";
 
 const password = "Correct horse battery staple!";
 
-// A verified, licensed password account. datasets.spec.ts closes the shared
-// client from backend/src/prisma/db.ts, so this file opens its own.
+// A verified, licensed password account, seeded with a client of its own
 async function seedAccount() {
     Object.assign(process.env, testEnvironment());
     const { default: postgres } =
