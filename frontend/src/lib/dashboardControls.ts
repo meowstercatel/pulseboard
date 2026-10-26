@@ -1,4 +1,6 @@
-// Dataset, host and time-range selection shared by /overview and /history.
+// Dataset, host and time-range selection shared by /overview, /history and
+// /forecast.
+import { loginUrl } from "./auth";
 import { listDatasets, type Dataset } from "./datasets";
 
 export const metricFields = [
@@ -31,6 +33,16 @@ export class LatestRequest {
 }
 export type Request = ReturnType<LatestRequest["start"]>;
 
+// A failed dashboard request, with its HTTP status.
+export class DashboardError extends Error {
+    constructor(
+        message: string,
+        readonly status: number,
+    ) {
+        super(message);
+    }
+}
+
 export async function dashboardGet<T>(
     url: string,
     signal: AbortSignal,
@@ -38,11 +50,12 @@ export async function dashboardGet<T>(
     const res = await fetch(url, { signal, cache: "no-store" });
     const body = await res.json().catch(() => null);
     if (!res.ok) {
-        if (res.status === 401) location.replace("/login");
+        if (res.status === 401) location.replace(loginUrl());
         if (res.status === 402) location.replace("/buy");
         if (res.status === 403) location.replace("/verify-email");
-        throw new Error(
+        throw new DashboardError(
             body?.error ?? `Couldn't load dashboard (${res.status})`,
+            res.status,
         );
     }
     return body;
@@ -90,7 +103,8 @@ export function initSelection(hooks: SelectionHooks, doc: Document = document) {
     let selectedHost = "";
     let datasets: Dataset[] = [];
     let searchTimer: ReturnType<typeof setTimeout> | undefined;
-    const range = byId<HTMLSelectElement>("range");
+    // A page without a time range always asks for all readings.
+    const range = doc.getElementById("range") as HTMLSelectElement | null;
     const results = byId("results");
     const status = byId("status");
     const error = byId("dashboard-error");
@@ -131,7 +145,7 @@ export function initSelection(hooks: SelectionHooks, doc: Document = document) {
                         (d) => String(d.id) === dataset.value,
                     )!,
                     host: selectedHost,
-                    range: range.value,
+                    range: range?.value ?? "all",
                 },
                 request,
             );
@@ -153,7 +167,7 @@ export function initSelection(hooks: SelectionHooks, doc: Document = document) {
         clear("Loading hosts…");
         selectedHost = "";
         host.disabled = true;
-        range.disabled = true;
+        if (range) range.disabled = true;
         options(host, []);
         byId("host-hint").textContent = "";
         try {
@@ -180,7 +194,7 @@ export function initSelection(hooks: SelectionHooks, doc: Document = document) {
             host.disabled = !data.hosts.length;
             if (autoSelect && data.hosts[0]) {
                 selectedHost = data.hosts[0];
-                range.disabled = false;
+                if (range) range.disabled = false;
                 await loadSelection();
             } else {
                 status.textContent = data.hosts.length
@@ -242,17 +256,25 @@ export function initSelection(hooks: SelectionHooks, doc: Document = document) {
         requests.start();
         selectedHost = "";
         host.disabled = true;
-        range.disabled = true;
+        if (range) range.disabled = true;
         options(host, []);
         clear("Searching hosts…");
         searchTimer = setTimeout(() => void loadHosts(false), 200);
     });
     host.addEventListener("change", () => {
         selectedHost = host.value;
-        range.disabled = !selectedHost;
+        if (range) range.disabled = !selectedHost;
         void loadSelection();
     });
-    range.addEventListener("change", () => void loadSelection());
+    range?.addEventListener("change", () => void loadSelection());
+    // A page's own options, marked data-reloads-selection, reload it too. While
+    // hosts are loading there is no selection yet: reloading then would cancel
+    // the host request, and the next selection reads the new value anyway.
+    doc.querySelectorAll("[data-reloads-selection]").forEach((select) =>
+        select.addEventListener("change", () => {
+            if (selectedHost) void loadSelection();
+        }),
+    );
     retry.addEventListener("click", () => retryAction?.());
     return loadDatasets();
 }

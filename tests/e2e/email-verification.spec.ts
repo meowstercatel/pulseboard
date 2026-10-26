@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 
 const mailpit = process.env.TEST_MAILPIT_URL || "http://127.0.0.1:58025";
 const password = "A secure verification password!";
@@ -52,15 +52,15 @@ test("unverified login stays restricted; replaced and used links recover clearly
                     data: { email, password },
                 })
             ).status(),
-        ).toBe(201);
+        ).toBe(202);
         const original = await verificationLink(request, email);
         await page.request.post("/api/auth/logout", {
             // a browser sends this itself; the API client does not
             headers: { origin: baseURL! },
         });
         await page.goto("/login");
-        await page.locator('cds-text-input[name="email"] input').fill(email);
-        const field = page.locator('cds-text-input[name="password"]');
+        await page.locator('input[name="email"]').fill(email);
+        const field = page.locator('.field:has(input[name="password"])');
         await field.locator("input").fill(password);
         await field
             .getByRole("button", { name: "Show password", exact: true })
@@ -109,6 +109,9 @@ test("unverified login stays restricted; replaced and used links recover clearly
         await expect(page.locator("#pending")).toContainText(email);
 
         await page.goto(replacement);
+        // #done ships hidden with this text, so wait until the page shows it:
+        // leaving earlier would let the next visit use the link first
+        await expect(page.locator("#done")).toBeVisible();
         await expect(page.locator("#done")).toContainText(
             "Your email address is verified.",
         );
@@ -122,7 +125,8 @@ test("unverified login stays restricted; replaced and used links recover clearly
         await page
             .getByRole("button", { name: "Continue", exact: true })
             .click();
-        await expect(page).toHaveURL("/buy");
+        // verifying started the free trial
+        await expect(page).toHaveURL("/overview");
 
         await page.request.post("/api/auth/logout", {
             headers: { origin: baseURL! },
@@ -137,7 +141,10 @@ test("unverified login stays restricted; replaced and used links recover clearly
             data: { email, password },
         });
         await page.request.post("/api/auth/delete-account", {
-            data: { confirmation: "delete my account" },
+            data: {
+                confirmation: "delete my account",
+                currentPassword: password,
+            },
         });
         const messages = await (
             await request.get(`${mailpit}/api/v1/search`, {
@@ -158,8 +165,8 @@ test("registration password visibility is independent and preserves values", asy
     page,
 }) => {
     await page.goto("/register");
-    const first = page.locator('cds-text-input[name="password"]');
-    const repeat = page.locator('cds-text-input[name="confirm"]');
+    const first = page.locator('.field:has(input[name="password"])');
+    const repeat = page.locator('.field:has(input[name="confirm"])');
     await first.locator("input").fill(password);
     await repeat.locator("input").fill(password);
     await first

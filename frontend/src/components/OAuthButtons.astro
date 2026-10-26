@@ -1,13 +1,13 @@
 ---
-// Shown only for providers the server has credentials for
+// Shown only for providers the server has credentials for. Both buttons take
+// up their space while the list loads, so the page doesn't jump.
 ---
 
-<div class="oauth" hidden>
+<div class="oauth" data-loading>
     <cds-button
         kind="tertiary"
         href="/api/auth/oauth/google"
         data-provider="google"
-        hidden
     >
         Continue with Google
     </cds-button>
@@ -15,7 +15,6 @@
         kind="tertiary"
         href="/api/auth/oauth/facebook"
         data-provider="facebook"
-        hidden
     >
         Continue with Facebook
     </cds-button>
@@ -27,6 +26,13 @@
         flex-direction: column;
         gap: 0.5rem;
     }
+    .oauth[data-loading] {
+        visibility: hidden;
+    }
+    /* Carbon's lg button height, held until its script defines cds-button */
+    .oauth cds-button:not(:defined) {
+        min-height: 3rem;
+    }
     .oauth[hidden],
     .oauth [hidden] {
         display: none;
@@ -34,16 +40,26 @@
 </style>
 
 <script>
-    import { oauthProviders } from "../lib/auth";
+    import { oauthProviders, safeNext } from "../lib/auth";
+
+    const box = document.querySelector<HTMLElement>(".oauth")!;
+    // come back to the page the user asked for, as the password login does
+    const next = safeNext(new URLSearchParams(location.search).get("next"));
 
     oauthProviders().then((providers) => {
-        const box = document.querySelector<HTMLElement>(".oauth");
-        if (!box || !providers.length) return;
         for (const button of box.querySelectorAll<HTMLElement>(
             "[data-provider]",
         )) {
-            button.hidden = !providers.includes(button.dataset["provider"]!);
+            const provider = button.dataset["provider"]!;
+            button.hidden = !providers.includes(provider);
+            if (next) {
+                button.setAttribute(
+                    "href",
+                    `/api/auth/oauth/${provider}?${new URLSearchParams({ next })}`,
+                );
+            }
         }
-        box.hidden = false;
+        box.hidden = !providers.length;
+        delete box.dataset["loading"];
     });
 </script>

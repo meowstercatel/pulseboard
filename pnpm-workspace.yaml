@@ -1,0 +1,41 @@
+packages:
+  - backend
+  - frontend
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true
+  workerd: false
+  # Carbon and IBM Plex postinstalls only send telemetry.
+  "@carbon/colors": false
+  "@carbon/feature-flags": false
+  "@carbon/grid": false
+  "@carbon/icon-helpers": false
+  "@carbon/icons": false
+  "@carbon/layout": false
+  "@carbon/motion": false
+  "@carbon/styles": false
+  "@carbon/themes": false
+  "@carbon/type": false
+  "@carbon/utilities": false
+  "@carbon/web-components": false
+  "@ibm/plex": false
+  "@ibm/plex-mono": false
+  "@ibm/plex-sans": false
+  "@ibm/plex-sans-arabic": false
+  "@ibm/plex-sans-devanagari": false
+  "@ibm/plex-sans-hebrew": false
+  "@ibm/plex-sans-thai": false
+  "@ibm/plex-sans-thai-looped": false
+  "@ibm/plex-serif": false
+  # Ships prebuilt binaries; the install script only builds from source.
+  "@parcel/watcher": false
+minimumReleaseAgeExclude:
+  - "@prisma/orm-family-sql@8.0.0-rc.16"
+  - "@prisma/orm-framework@8.0.0-rc.16"
+  - "@prisma/orm-postgres@8.0.0-rc.16"
+  - "@prisma/orm-target-postgres@8.0.0-rc.16"
+  - "@prisma/orm-toolchain@8.0.0-rc.16"
+  - "@prisma/composer-cli@0.28.0"
+  - "@prisma/composer@0.28.0"
+  - prisma@8.0.0-rc.21

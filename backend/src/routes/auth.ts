@@ -1,15 +1,37 @@
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono, type Context } from "hono";
 import {
+    pendingVerification,
     sendVerificationEmail,
     trySendVerificationEmail,
     verifyEmailToken,
 } from "../auth/emailVerification.js";
-import { DUMMY_HASH, hashPassword, verifyPassword } from "../auth/password.js";
-import { requestPasswordReset, resetPassword } from "../auth/passwordReset.js";
 import {
+    DUMMY_HASH,
+    MAX_PASSWORD,
+    MIN_PASSWORD,
+    hashPassword,
+    needsRehash,
+    validPassword,
+    verifyPassword,
+} from "../auth/password.js";
+import { notifyAccountChange } from "../auth/accountNotice.js";
+import { PROVIDER_NAMES } from "../auth/oauth.js";
+import {
+    disownAccount,
+    requestPasswordReset,
+    resetPassword,
+    sendPasswordSetup,
+} from "../auth/passwordReset.js";
+import { publicUrl } from "../auth/publicUrl.js";
+import { limitAccountChanges, reauthenticate } from "../auth/reauth.js";
+import {
+    clearSessionCookie,
     createSession,
     destroySession,
+    getSessionUser,
+    requestSessionId,
     requireAuth,
+    revokeOtherSessions,
     toAuthUser,
     type AuthEnv,
 } from "../auth/session.js";
@@ -19,25 +41,32 @@ import {
     limitByIp,
     tooManyRequests,
 } from "../auth/rateLimit.js";
+import { accountExistsTemplate } from "../mail/accountExistsTemplate.js";
+import { sendMail } from "../mail/mailer.js";
 import { db } from "../prisma/db.js";
-import { cancelSubscriptionOf } from "./billing.js";
+import { cancelSubscriptionOf, syncCustomerEmail } from "./billing.js";
 import { isUniqueViolation } from "../prisma/errors.js";
 
 // Excludes characters nodemailer reads as address-list syntax, so
 // "a@b.com,c" can't send the verification email somewhere else
 const EMAIL_RE =
     /^[^\s@,;:<>()"\[\]\\]+@[^\s@,;:<>()"\[\]\\]+\.[^\s@,;:<>()"\[\]\\]+$/;
-const MIN_PASSWORD = 8;
-const MAX_PASSWORD = 256;
 
 const MINUTE = 60 * 1000;
 // Every login request from one IP, to slow down credential stuffing
 const loginIpLimiter = new RateLimiter(30, 15 * MINUTE);
-// Failed logins per account, to stop password guessing spread across many IPs
-const loginEmailLimiter = new RateLimiter(10, 15 * MINUTE);
+// Logins per account from one IP, so one client can't lock the owner out
+const loginIpEmailLimiter = new RateLimiter(10, 15 * MINUTE);
+// Failed logins per account from all IPs, against password guessing spread
+// across many IPs. High, so it takes a lot of addresses to lock the owner out.
+const loginEmailLimiter = new RateLimiter(100, 60 * MINUTE);
 // Account creation from one IP
 const registerIpLimiter = new RateLimiter(5, 60 * MINUTE);
-const accountLimiter = new RateLimiter(10, 15 * MINUTE);
+// "You already have an account" emails per address; over the limit they're
+// dropped silently, so the register form can't be used to spam an inbox
+const accountExistsEmailLimiter = new RateLimiter(3, 60 * MINUTE);
+// Padding so the response time doesn't reveal whether the account exists
+const MIN_REGISTER_RESPONSE_MS = 250;
 // Verification emails resent per account, so the endpoint can't be used to spam an inbox
 const resendLimiter = new RateLimiter(3, 15 * MINUTE);
 // Verification attempts from one IP, against guessing tokens
@@ -47,14 +76,8 @@ const resetIpEmailLimiter = new RateLimiter(3, 15 * MINUTE);
 // Over the limit requests are dropped silently, so strangers can't lock someone out
 const resetEmailLimiter = new RateLimiter(5, 60 * MINUTE);
 const resetIpLimiter = new RateLimiter(30, 15 * MINUTE);
-
-const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (c, next) => {
-    const key = String(c.get("user").id);
-    const retryAfter = accountLimiter.retryAfter(key);
-    if (retryAfter) return tooManyRequests(c, retryAfter);
-    accountLimiter.hit(key);
-    await next();
-};
+// "Set a password" links per account, so the endpoint can't be used to spam an inbox
+const setupLimiter = new RateLimiter(3, 15 * MINUTE);
 
 async function readAccountBody(req: Request) {
     if (!req.headers.get("content-type")?.startsWith("application/json")) {
@@ -64,14 +87,6 @@ async function readAccountBody(req: Request) {
     return body && typeof body === "object" && !Array.isArray(body)
         ? (body as Record<string, unknown>)
         : null;
-}
-
-function validPassword(value: unknown): value is string {
-    return (
-        typeof value === "string" &&
-        value.length >= MIN_PASSWORD &&
-        value.length <= MAX_PASSWORD
-    );
 }
 
 type Credentials = { email: string; password: string; username?: string };
@@ -116,37 +131,79 @@ auth.post("/register", limitByIp(registerIpLimiter), async (c) => {
         );
     }
 
+    // Hashed even when the email is taken, so both cases take as long
+    const passwordHash = await hashPassword(password);
+    const padding = new Promise((r) => setTimeout(r, MIN_REGISTER_RESPONSE_MS));
+    await registerOrNotify(c, email, username, passwordHash);
+    await padding;
+    // The same answer whether or not the email is taken. The session comes from
+    // the verification link, which only the owner of the address gets.
+    return c.body(null, 202);
+});
+
+// Creates the account and emails its verification link, or, if the address
+// already has an account, emails its owner to log in instead. Mail goes out in
+// the background, so a slow mail server doesn't reveal which one was sent.
+async function registerOrNotify(
+    c: Context,
+    email: string,
+    username: string | undefined,
+    passwordHash: string,
+) {
     const existing = await db.orm.public.User.where({ email })
         .select("id")
         .first();
-    if (existing) {
-        return c.json(
-            { error: "An account with this email already exists" },
-            409,
-        );
-    }
-
-    let user;
-    try {
-        user = await db.orm.public.User.create({
-            email,
-            username: username ?? null,
-            passwordHash: await hashPassword(password),
-        });
-    } catch (err) {
-        if (isUniqueViolation(err)) {
-            return c.json(
-                { error: "An account with this email already exists" },
-                409,
-            );
+    if (!existing) {
+        try {
+            const user = await db.orm.public.User.create({
+                email,
+                username: username ?? null,
+                passwordHash,
+            });
+            await trySendVerificationEmail(c, user.id);
+            return;
+        } catch (err) {
+            // Lost a race with a parallel registration of the same email
+            if (!isUniqueViolation(err)) throw err;
         }
-        throw err;
     }
 
-    await trySendVerificationEmail(c, user.id);
-    await createSession(c, user.id);
-    return c.json({ user: toAuthUser(user) }, 201);
-});
+    if (accountExistsEmailLimiter.retryAfter(email)) return;
+    accountExistsEmailLimiter.hit(email);
+    sendMail({
+        to: email,
+        ...accountExistsTemplate(
+            publicUrl(c, "/login"),
+            publicUrl(c, "/forgot-password"),
+            email,
+        ),
+    }).catch((err) => {
+        console.error("Couldn't send account exists email", err);
+    });
+}
+
+// Counts a password attempt against the account, like a login does: per
+// account from one IP, and failures per account from all IPs. The verify page
+// asks for the same password, so it shares these limits. Returns the seconds
+// to wait, or 0 once the attempt has been counted.
+function countPasswordAttempt(c: Context, email: string): number {
+    const ipEmailKey = `${clientIp(c)} ${email}`;
+    const retryAfter = Math.max(
+        loginIpEmailLimiter.retryAfter(ipEmailKey),
+        loginEmailLimiter.retryAfter(email),
+    );
+    if (retryAfter) return retryAfter;
+    // Counted up front so parallel guesses can't all slip past the check
+    loginIpEmailLimiter.hit(ipEmailKey);
+    loginEmailLimiter.hit(email);
+    return 0;
+}
+
+function passwordAccepted(c: Context, email: string) {
+    loginIpEmailLimiter.reset(`${clientIp(c)} ${email}`);
+    // only failures count against the account
+    loginEmailLimiter.undo(email);
+}
 
 auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     const creds = await readCredentials(c.req.raw);
@@ -154,10 +211,8 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
         return c.json({ error: "Invalid request" }, 400);
     }
 
-    const retryAfter = loginEmailLimiter.retryAfter(creds.email);
+    const retryAfter = countPasswordAttempt(c, creds.email);
     if (retryAfter) return tooManyRequests(c, retryAfter);
-    // Counted up front so parallel guesses can't all slip past the check
-    loginEmailLimiter.hit(creds.email);
 
     const user = await db.orm.public.User.where({ email: creds.email }).first();
     const ok = await verifyPassword(
@@ -167,10 +222,65 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     if (!user || !ok) {
         return c.json({ error: "Wrong email or password" }, 401);
     }
-    loginEmailLimiter.reset(creds.email);
+    passwordAccepted(c, creds.email);
 
-    await createSession(c, user.id);
-    return c.json({ user: toAuthUser(user) });
+    let passwordHash = user.passwordHash!;
+    if (needsRehash(passwordHash)) {
+        // The upgrade can wait for the next login if it fails
+        try {
+            passwordHash = await hashPassword(creds.password);
+        } catch (err) {
+            console.error(`Couldn't rehash password of user ${user.id}`, err);
+        }
+    }
+    // Only while the password just checked is still the account's: one
+    // replaced meanwhile (a reset, or "I didn't create this account" on the
+    // verify page) must not let this sign in after it ended every session.
+    // Locking the row means a change either comes first and stops this, or
+    // comes after and signs this session out with the rest.
+    // whether this request set a session cookie, which a failure must undo
+    let opened = false;
+    const signIn = (checked: string) =>
+        db.transaction(async (tx) => {
+            const current = await tx.orm.public.User.where({
+                id: user.id,
+                passwordHash: checked,
+            }).update({
+                // the upgrade only replaces the hash this login read
+                passwordHash:
+                    checked === user.passwordHash ? passwordHash : checked,
+            });
+            if (current) {
+                await createSession(c, user.id, tx);
+                opened = true;
+            }
+            return current;
+        });
+    let signedIn;
+    try {
+        signedIn = await signIn(user.passwordHash!);
+        if (!signedIn) {
+            // A parallel login may have upgraded the hash of this same
+            // password; anything else changed it, and this login is stale
+            const now = await db.orm.public.User.where({ id: user.id })
+                .select("passwordHash")
+                .first();
+            if (
+                now?.passwordHash &&
+                (await verifyPassword(creds.password, now.passwordHash))
+            ) {
+                signedIn = await signIn(now.passwordHash);
+            }
+        }
+    } catch (err) {
+        // the session wasn't stored; a cookie the browser already had stays
+        if (opened) clearSessionCookie(c);
+        throw err;
+    }
+    if (!signedIn) {
+        return c.json({ error: "Wrong email or password" }, 401);
+    }
+    return c.json({ user: toAuthUser(signedIn) });
 });
 
 auth.post("/logout", async (c) => {
@@ -182,19 +292,114 @@ auth.get("/me", requireAuth, (c) => {
     return c.json({ user: c.get("user") });
 });
 
+const INVALID_LINK = "This verification link is invalid or has expired";
+
 auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
+    const body = await readAccountBody(c.req.raw);
+    if (
+        !body ||
+        typeof body.token !== "string" ||
+        !body.token ||
+        (body.password !== undefined && typeof body.password !== "string")
+    ) {
+        return c.json({ error: "Invalid request" }, 400);
+    }
+    // Only a session that already belongs to the account stays signed in
+    const current = await getSessionUser(c);
+    const session = current ? requestSessionId(c) : null;
+
+    // the account's password, asked for when the link is opened anywhere
+    // but the account's own session (see verifyEmailToken)
+    let confirmedHash: string | undefined;
+    if (typeof body.password === "string") {
+        const pending = await pendingVerification(body.token);
+        if (!pending) return c.json({ error: INVALID_LINK }, 400);
+        const retryAfter = countPasswordAttempt(c, pending.email);
+        if (retryAfter) return tooManyRequests(c, retryAfter);
+        // too long to be any account's password (and to hash), so just wrong
+        const ok =
+            body.password.length <= MAX_PASSWORD &&
+            (await verifyPassword(
+                body.password,
+                pending.passwordHash ?? DUMMY_HASH,
+            ));
+        if (!ok) return c.json({ error: "Wrong password" }, 401);
+        passwordAccepted(c, pending.email);
+        confirmedHash = pending.passwordHash!;
+    }
+
+    let verified = await verifyEmailToken(body.token, session, confirmedHash);
+    if (confirmedHash && verified && "confirm" in verified) {
+        // The hash changed after the check. A login may only have upgraded
+        // the hash of this same password, like login handles; otherwise the
+        // password given is no longer the account's.
+        const now = await pendingVerification(body.token);
+        if (!now) return c.json({ error: INVALID_LINK }, 400);
+        if (
+            !now.passwordHash ||
+            !(await verifyPassword(body.password as string, now.passwordHash))
+        ) {
+            return c.json({ error: "Wrong password" }, 401);
+        }
+        verified = await verifyEmailToken(
+            body.token,
+            session,
+            now.passwordHash,
+        );
+    }
+    if (!verified) return c.json({ error: INVALID_LINK }, 400);
+    if ("confirm" in verified) {
+        // Nothing changed and the link still works. The address goes to the
+        // hidden username field, so a password manager can fill the password;
+        // only someone with the link, sent to that address, gets it.
+        return c.json(
+            {
+                error: "Enter the account's password to finish verifying",
+                confirm: verified.confirm,
+                email: verified.email,
+            },
+            403,
+        );
+    }
+    // a no-op until the account has a Stripe customer
+    await syncCustomerEmail(verified.user);
+    // The link proves the address, so it signs in to the account it verified.
+    // Every other session is gone: whoever registered the address may not be
+    // its owner, and could still be logged in to the account the owner now
+    // uses (see verifyEmailToken for the logins that go with them).
+    const { user, kept, removedLogins, needsPassword } = verified;
+    if (!kept) {
+        if (current) await destroySession(c);
+        await createSession(c, user.id);
+    }
+    return c.json({
+        user: toAuthUser(user),
+        removedLogins: [
+            ...new Set(removedLogins.map((p) => PROVIDER_NAMES[p] ?? p)),
+        ],
+        needsPassword,
+    });
+});
+
+// "I didn't create this account": verifies the address for the owner of the
+// inbox the link went to, signs everyone out of the account, drops its
+// password and the logins that don't prove the address, and emails a link to
+// choose a password (see disownAccount). It doesn't sign anyone in.
+auth.post("/verify-email/not-mine", limitByIp(verifyIpLimiter), async (c) => {
     const body = await readAccountBody(c.req.raw);
     if (!body || typeof body.token !== "string" || !body.token) {
         return c.json({ error: "Invalid request" }, 400);
     }
-    const user = await verifyEmailToken(body.token);
-    if (!user) {
-        return c.json(
-            { error: "This verification link is invalid or has expired" },
-            400,
-        );
-    }
-    return c.json({ user: toAuthUser(user) });
+    const current = await getSessionUser(c);
+    const disowned = await disownAccount(c, body.token);
+    if (!disowned) return c.json({ error: INVALID_LINK }, 400);
+    await syncCustomerEmail(disowned.user);
+    // that session was deleted with the others
+    if (current?.id === disowned.user.id) clearSessionCookie(c);
+    return c.json({
+        email: disowned.user.email,
+        emailSent: disowned.emailSent,
+    });
 });
 
 auth.post("/verify-email/resend", requireAuth, async (c) => {
@@ -243,6 +448,22 @@ auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
             400,
         );
     }
+    const reauth = await reauthenticate(
+        current,
+        c.get("sessionId"),
+        body.currentPassword,
+    );
+    if (reauth === "wrong_password") {
+        return c.json({ error: "Current password is incorrect" }, 400);
+    }
+    if (reauth === "sign_in_again") {
+        return c.json(
+            {
+                error: "Sign in again with Google or Facebook, then delete your account within 10 minutes",
+            },
+            403,
+        );
+    }
 
     // Foreign keys atomically cascade to sessions, OAuth links, datasets, and metrics.
     const deleted = await db.orm.public.User.where({
@@ -287,7 +508,7 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     if (email !== current.email && !current.passwordHash) {
         return c.json(
             {
-                error: "Email changes require a password-based account. This account uses social sign-in",
+                error: "Set a password first (under Password below) to change your email address",
             },
             400,
         );
@@ -307,25 +528,31 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     try {
         // Avoid applying a change authorized with a password that just changed,
         // or writing back an old email (and its verified state) over a newer one.
-        const user = await db.orm.public.User.where({
-            id: current.id,
-            email: current.email,
-            passwordHash: current.passwordHash,
-        }).update(
-            email === current.email
-                ? { email, username }
-                : // the new address has to be verified again
-                  { email, username, emailVerifiedAt: null },
-        );
+        const user = await db.transaction(async (tx) => {
+            const updated = await tx.orm.public.User.where({
+                id: current.id,
+                email: current.email,
+                passwordHash: current.passwordHash,
+            }).update(
+                email === current.email
+                    ? { email, username }
+                    : // the new address has to be verified again
+                      { email, username, emailVerifiedAt: null },
+            );
+            if (!updated || email === current.email) return updated;
+            await tx.orm.public.PasswordReset.where({
+                userId: updated.id,
+            }).deleteAll();
+            // Keep this device signed in and revoke every other session atomically.
+            await revokeOtherSessions(updated.id, c.get("sessionId"), tx);
+            return updated;
+        });
         if (!user)
             return c.json(
                 { error: "Your account changed. Reload and try again" },
                 409,
             );
         if (email !== current.email) {
-            await db.orm.public.PasswordReset.where({
-                userId: user.id,
-            }).deleteAll();
             await trySendVerificationEmail(c, user.id);
         }
         return c.json({ user: toAuthUser(user) });
@@ -386,9 +613,7 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
             userId: current.id,
         }).deleteAll();
         // Keep this device signed in and revoke every other session atomically.
-        await tx.orm.public.Session.where({ userId: current.id })
-            .where((session) => session.id.neq(c.get("sessionId")))
-            .deleteAll();
+        await revokeOtherSessions(current.id, c.get("sessionId"), tx);
         return updated;
     });
     if (!user)
@@ -397,6 +622,45 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
             409,
         );
     return c.json({ user: toAuthUser(user) });
+});
+
+// Emails a link to add a password to an account that only signs in with
+// Google/Facebook; the link is a password reset link. Without a password the
+// email can't be changed either, so this also unlocks that.
+auth.post("/password/setup", requireAuth, async (c) => {
+    const user = c.get("user");
+    if (!user.emailVerified) {
+        return c.json({ error: "Verify your email address first" }, 403);
+    }
+    const key = String(user.id);
+    const retryAfter = setupLimiter.retryAfter(key);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    setupLimiter.hit(key);
+
+    let result;
+    try {
+        result = await sendPasswordSetup(c, user.id);
+    } catch (err) {
+        console.error(
+            `Couldn't send password setup email to user ${user.id}`,
+            err,
+        );
+        return c.json(
+            { error: "Couldn't send the email, try again later" },
+            502,
+        );
+    }
+    if (result === "gone") return c.json({ error: "Not logged in" }, 401);
+    if (result === "has_password") {
+        return c.json(
+            { error: "This account already has a password. Reload the page" },
+            409,
+        );
+    }
+    if (result === "unverified") {
+        return c.json({ error: "Verify your email address first" }, 403);
+    }
+    return c.body(null, 204);
 });
 
 auth.post("/password-reset", limitByIp(resetRequestIpLimiter), async (c) => {
@@ -433,14 +697,28 @@ auth.post("/password-reset/confirm", limitByIp(resetIpLimiter), async (c) => {
             400,
         );
     }
-    const user = await resetPassword(body.token, body.newPassword);
-    if (!user) {
+    const reset = await resetPassword(body.token, body.newPassword);
+    if (!reset) {
         return c.json(
             { error: "This reset link is invalid or has expired" },
             400,
         );
     }
+    const { user } = reset;
+    // the account gained a way to log in, unlike a reset of a forgotten password
+    if (reset.passwordWasSet) {
+        notifyAccountChange(c, user, { kind: "password_set" });
+    }
+    // An owner who changed their address and reset before verifying it can
+    // lose logins they connected themselves, so they hear about each one
+    for (const provider of new Set(reset.removedLogins)) {
+        notifyAccountChange(c, user, {
+            kind: "unlinked",
+            provider: PROVIDER_NAMES[provider] ?? provider,
+        });
+    }
     loginEmailLimiter.reset(user.email);
+    loginIpEmailLimiter.reset(`${clientIp(c)} ${user.email}`);
     await createSession(c, user.id);
     return c.json({ user: toAuthUser(user) });
 });

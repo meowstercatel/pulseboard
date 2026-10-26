@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
 import {
     MAX_CHART_POINTS,
@@ -26,7 +27,7 @@ async function account(verified = true, licensed = true) {
     userIds.add(user.id);
     const token = randomBytes(32).toString("base64url");
     await db.orm.public.Session.create({
-        id: token,
+        id: sessionIdFor(token),
         userId: user.id,
         expiresAt: new Date(Date.now() + 60000).toISOString(),
     });

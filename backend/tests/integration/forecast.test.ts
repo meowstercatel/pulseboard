@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
 
 const app = createApp();
@@ -24,7 +25,7 @@ async function account(licensed = true) {
     userIds.add(user.id);
     const token = randomBytes(32).toString("base64url");
     await db.orm.public.Session.create({
-        id: token,
+        id: sessionIdFor(token),
         userId: user.id,
         expiresAt: new Date(Date.now() + 60000).toISOString(),
     });

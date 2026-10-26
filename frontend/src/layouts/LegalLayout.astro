@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "./HtmlTemplate.astro";
+import SiteFooter from "../components/SiteFooter.astro";
 import { lastUpdated } from "../lib/legal";
 
 interface Props {
@@ -42,6 +43,7 @@ const pl = lang === "pl";
             </p>
             <slot />
         </article>
+        <SiteFooter />
     </div>
 </HtmlTemplate>
 
@@ -57,12 +59,15 @@ const pl = lang === "pl";
     .legal {
         box-sizing: border-box;
         width: 100%;
-        padding: 1.5rem 40px 4rem;
+        padding: 1.5rem 40px 0;
     }
     @media (max-width: 600px) {
         .legal {
             padding-inline: 18px;
         }
+    }
+    article {
+        padding-block-end: 4rem;
     }
     header {
         display: flex;

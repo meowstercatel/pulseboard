@@ -1,26 +1,26 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import Field from "../components/Field.astro";
+import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
 ---
 
-<HtmlTemplate title="Account settings · PulseBoard">
+<HtmlTemplate title="Account settings · PulseBoard" requiresAuth>
     <main>
         <header>
-            <a class="brand" href="/overview">
+            <a class="brand" id="brand" href="/overview">
                 PulseBoard
             </a>
-            <nav aria-label="Account navigation">
-                <cds-link id="back-link" href="/overview">
-                    Overview
-                </cds-link>
-                <cds-link id="history-link" href="/history">
-                    History
-                </cds-link>
+            <div class="account">
+                <span class="signed-in" id="signed-in"></span>
                 <cds-button id="logout" kind="ghost" size="sm">
                     Log out
                 </cds-button>
-            </nav>
+            </div>
         </header>
+        <cds-link class="back" id="back-link" href="/overview">
+            ← Back to dashboard
+        </cds-link>
 
         <div class="intro">
             <h1>Account settings</h1>
@@ -32,30 +32,41 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         <noscript>Enable JavaScript to manage your account.</noscript>
 
         <div id="settings" hidden>
+            <section aria-labelledby="plan-heading">
+                <h2 id="plan-heading">Plan</h2>
+                <p class="description" id="plan-status"></p>
+                <cds-link href="/buy" id="plan-link">
+                    Choose a plan
+                </cds-link>
+            </section>
+
             <section aria-labelledby="profile-heading">
                 <h2 id="profile-heading">Profile</h2>
                 <p class="description">Your email address is used to log in.</p>
-                <form id="profile-form">
-                    <cds-text-input
+                <form id="profile-form" method="post" novalidate>
+                    <!-- a display name: the email is what you log in with -->
+                    <Field
+                        id="profile-username"
                         label="Username (optional)"
                         name="username"
-                        autocomplete="username"
-                    ></cds-text-input>
-                    <cds-text-input
+                        autocomplete="nickname"
+                    />
+                    <Field
+                        id="profile-email"
                         label="Email"
                         name="email"
                         type="email"
-                        autocomplete="email"
+                        autocomplete="username"
                         required
-                    ></cds-text-input>
-                    <cds-text-input
+                    />
+                    <Field
+                        id="profile-current-password"
                         label="Current password"
                         name="currentPassword"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="current-password"
-                        helper-text="Required only when changing your email address."
-                    ></cds-text-input>
+                        helper="Required only when changing your email address."
+                    />
                     <cds-inline-notification
                         kind="error"
                         title="Couldn't save profile"
@@ -68,41 +79,70 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                         role="status"
                         aria-live="polite"
                     ></p>
-                    <cds-button type="button">Save profile</cds-button>
+                    <button class="button" type="submit" disabled>
+                        Save profile
+                    </button>
                 </form>
             </section>
 
             <section aria-labelledby="password-heading">
                 <h2 id="password-heading">Password</h2>
-                <p class="description">
+                <p class="description" id="password-description">
                     Choose a new password to keep your account secure.
                 </p>
-                <form id="password-form">
-                    <cds-text-input
+                <div id="set-password" hidden>
+                    <p class="description">
+                        You log in with Google or Facebook. Add a password to
+                        also log in with your email address, and to be able to
+                        change it. We'll email you a link to choose one.
+                    </p>
+                    <cds-inline-notification
+                        kind="error"
+                        title="Couldn't send the link"
+                        hide-close-button
+                        hidden
+                    ></cds-inline-notification>
+                    <p class="success" role="status" aria-live="polite"></p>
+                    <cds-button id="send-setup" type="button">
+                        Email me a link to set a password
+                    </cds-button>
+                </div>
+                <form id="password-form" method="post" novalidate>
+                    <!-- tells password managers which login to update -->
+                    <input
+                        id="password-username"
+                        name="email"
+                        type="email"
+                        autocomplete="username"
+                        data-account-email
+                        hidden
+                    />
+                    <Field
+                        id="password-current"
                         label="Current password"
                         name="currentPassword"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="current-password"
                         required
-                    ></cds-text-input>
-                    <cds-text-input
+                    />
+                    <Field
+                        id="password-new"
                         label="New password"
                         name="newPassword"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="new-password"
-                        helper-text="8–256 characters."
+                        helper={`${MIN_PASSWORD}–${MAX_PASSWORD} characters.`}
                         required
-                    ></cds-text-input>
-                    <cds-text-input
+                        strength
+                    />
+                    <Field
+                        id="password-confirm"
                         label="Confirm new password"
                         name="confirm"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="new-password"
                         required
-                    ></cds-text-input>
+                    />
                     <cds-inline-notification
                         kind="error"
                         title="Couldn't change password"
@@ -118,9 +158,67 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     <p class="hint">
                         Changing your password signs you out on other devices.
                     </p>
-                    <cds-button type="button">Change password</cds-button>
+                    <button class="button" type="submit" disabled>
+                        Change password
+                    </button>
                 </form>
             </section>
+            <section id="sessions" aria-labelledby="sessions-heading">
+                <h2 id="sessions-heading">Where you're signed in</h2>
+                <p class="description">
+                    Sign out any device you don't recognize, then change your
+                    password.
+                </p>
+                <ul class="sessions" aria-label="Signed-in devices"></ul>
+                <cds-inline-notification
+                    kind="error"
+                    title="Couldn't update sessions"
+                    hide-close-button
+                    hidden
+                ></cds-inline-notification>
+                <p class="success" role="status" aria-live="polite"></p>
+                <cds-button
+                    id="revoke-others"
+                    type="button"
+                    kind="tertiary"
+                    disabled
+                >
+                    Log out everywhere else
+                </cds-button>
+            </section>
+
+            <section
+                id="connected-accounts"
+                aria-labelledby="connected-heading"
+            >
+                <h2 id="connected-heading">Connected accounts</h2>
+                <p class="description">
+                    Google and Facebook accounts you can log in with. Connecting
+                    or disconnecting one emails you, and disconnecting signs out
+                    your other devices.
+                </p>
+                <ul class="accounts" aria-label="Connected accounts"></ul>
+                <cds-inline-notification
+                    kind="error"
+                    title="Couldn't update connected accounts"
+                    hide-close-button
+                    hidden
+                ></cds-inline-notification>
+                <p class="success" role="status" aria-live="polite"></p>
+                <Field
+                    id="connected-current-password"
+                    label="Current password"
+                    name="currentPassword"
+                    type="password"
+                    autocomplete="current-password"
+                    helper="Required to connect or disconnect an account."
+                    hidden
+                />
+                <div class="connect" hidden>
+                    <div class="connect-buttons"></div>
+                </div>
+            </section>
+
             <section class="danger" aria-labelledby="delete-heading">
                 <h2 id="delete-heading">Delete account</h2>
                 <p class="description">
@@ -151,14 +249,31 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                         permanently deleted. You will lose license access and be
                         signed out on every device. This cannot be undone.
                     </p>
-                    <form id="delete-form">
-                        <cds-text-input
+                    <form id="delete-form" method="post" novalidate>
+                        <Field
+                            id="delete-confirmation-text"
                             label='Type "delete my account" to confirm'
                             name="confirmation"
                             autocomplete="off"
-                            spellcheck="false"
+                            spellcheck={false}
                             required
-                        ></cds-text-input>
+                        />
+                        <input
+                            id="delete-username"
+                            name="email"
+                            type="email"
+                            autocomplete="username"
+                            data-account-email
+                            hidden
+                        />
+                        <Field
+                            id="delete-current-password"
+                            label="Current password"
+                            name="currentPassword"
+                            type="password"
+                            autocomplete="current-password"
+                            helper="If you only sign in with Google or Facebook, leave this empty and sign in again first."
+                        />
                         <cds-inline-notification
                             kind="error"
                             title="Couldn't delete account"
@@ -169,9 +284,13 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                             <button id="cancel-delete" type="button">
                                 Cancel
                             </button>
-                            <cds-button type="button" kind="danger" disabled>
+                            <button
+                                class="button button-danger"
+                                type="submit"
+                                disabled
+                            >
                                 Permanently delete account
-                            </cds-button>
+                            </button>
                         </div>
                     </form>
                 </dialog>
@@ -189,7 +308,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         padding: 1.5rem 1rem 3rem;
     }
     header,
-    nav {
+    .account {
         display: flex;
         align-items: center;
         gap: 1rem;
@@ -206,12 +325,25 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         font-weight: 600;
         text-decoration: none;
     }
+    .signed-in {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        overflow-wrap: anywhere;
+    }
+    .signed-in:empty {
+        display: none;
+    }
+    .back {
+        display: inline-block;
+        margin-top: 1.5rem;
+        font-size: 0.875rem;
+    }
     a:focus-visible {
         outline: 2px solid var(--cds-focus, #0f62fe);
         outline-offset: 4px;
     }
     .intro {
-        margin: 2rem 0;
+        margin: 1rem 0 2rem;
     }
     h1 {
         font-size: 2rem;
@@ -236,6 +368,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     section {
         padding: 1.5rem;
         background: var(--cds-layer-01, #f4f4f4);
+        /* inputs on the grey layer are white, as in Carbon */
+        --pulse-field: var(--cds-field-02, #fff);
     }
     .description {
         margin-bottom: 1.5rem;
@@ -245,7 +379,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         flex-direction: column;
         gap: 1rem;
     }
-    cds-button {
+    cds-button,
+    .button {
         align-self: flex-start;
     }
     cds-inline-notification {
@@ -261,6 +396,112 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     [hidden] {
         display: none !important;
     }
+    .sessions {
+        list-style: none;
+        margin: 0 0 1rem;
+        padding: 0;
+    }
+    .sessions:empty {
+        display: none;
+    }
+    .sessions :global(li) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .sessions :global(li:first-child) {
+        padding-top: 0;
+    }
+    .sessions :global(.device) {
+        font-size: 0.875rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+    .sessions :global(.meta) {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        overflow-wrap: anywhere;
+    }
+    .sessions :global(.visually-hidden) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    .sessions :global(cds-button) {
+        flex-shrink: 0;
+    }
+    .accounts {
+        list-style: none;
+        margin: 0 0 1rem;
+        padding: 0;
+    }
+    .accounts:empty {
+        display: none;
+    }
+    .accounts :global(li) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .accounts :global(li:first-child) {
+        padding-top: 0;
+    }
+    .accounts :global(.provider) {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    .accounts :global(.meta) {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        overflow-wrap: anywhere;
+    }
+    .accounts :global(.visually-hidden) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    .accounts :global(cds-button) {
+        flex-shrink: 0;
+    }
+    .connect {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .connect-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    #connected-accounts > .field {
+        margin-bottom: 1rem;
+    }
+    #connected-accounts .success,
+    #connected-accounts cds-inline-notification,
+    #set-password .success,
+    #set-password cds-inline-notification {
+        margin-bottom: 1rem;
+    }
+    #sessions .success {
+        margin-bottom: 1rem;
+    }
+    #sessions cds-inline-notification {
+        margin-bottom: 1rem;
+    }
     .danger {
         border-top: 2px solid var(--cds-support-error, #da1e28);
     }
@@ -274,6 +515,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         overflow-y: auto;
         background: var(--cds-layer-01, #f4f4f4);
         color: var(--cds-text-primary, #161616);
+        --pulse-field: var(--cds-field-02, #fff);
     }
     dialog::backdrop {
         background: rgba(22, 22, 22, 0.6);
@@ -326,19 +568,28 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
-    import "@carbon/web-components/es/components/text-input/index.js";
     import "@carbon/web-components/es/components/notification/index.js";
     import "@carbon/web-components/es/components/link/index.js";
+    import "@carbon/web-components/es/components/tag/index.js";
     import {
         changePassword,
         deleteAccount,
+        hasAccess,
         logout,
         requireUser,
         updateProfile,
     } from "../lib/auth";
+    import { planSummary } from "../lib/plan";
     import { bindForm } from "../lib/form";
+    import { clearField } from "../lib/passwordField";
+    import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
+    import { mountSessions } from "../lib/sessions";
+    import {
+        linkResult,
+        mountConnectedAccounts,
+        requestPasswordSetup,
+    } from "../lib/connectedAccounts";
 
-    type Input = HTMLElement & { value: string };
     const profileForm = document.getElementById(
         "profile-form",
     ) as HTMLFormElement;
@@ -348,7 +599,15 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     const profileSuccess = document.getElementById("profile-success")!;
     const passwordSuccess = document.getElementById("password-success")!;
     const input = (form: HTMLFormElement, name: string) =>
-        form.querySelector<Input>(`[name="${name}"]`)!;
+        form.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+    // the hidden username fields of the password and delete forms
+    const showAccountEmail = (email: string) => {
+        document
+            .querySelectorAll<HTMLInputElement>("[data-account-email]")
+            .forEach((field) => {
+                field.value = email;
+            });
+    };
     let savedEmail = "";
     const deleteForm = document.getElementById(
         "delete-form",
@@ -366,9 +625,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     let deleting = false;
     openDelete.addEventListener("click", () => {
         deleteDialog.showModal();
-        input(deleteForm, "confirmation")
-            .shadowRoot?.querySelector("input")
-            ?.focus();
+        input(deleteForm, "confirmation").focus();
     });
     const dismissDeletion = () => {
         if (!deleting) deleteDialog.close();
@@ -379,12 +636,56 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         if (deleting) event.preventDefault();
     });
     deleteDialog.addEventListener("close", () => {
-        input(deleteForm, "confirmation").value = "";
+        clearField(input(deleteForm, "confirmation"));
+        clearField(input(deleteForm, "currentPassword"));
         updateDeleteButton();
         deleteForm.querySelector<HTMLElement>(
             "cds-inline-notification",
         )!.hidden = true;
         openDelete.shadowRoot?.querySelector("button")?.focus();
+    });
+
+    const sessions = mountSessions(document.getElementById("sessions")!);
+
+    // Social-only accounts are offered a link to set a password instead of
+    // the change password form
+    const setPassword = document.getElementById("set-password")!;
+    const connected = mountConnectedAccounts(
+        document.getElementById("connected-accounts")!,
+        ({ hasPassword }) => {
+            passwordForm.hidden = !hasPassword;
+            document.getElementById("password-description")!.hidden =
+                !hasPassword;
+            setPassword.hidden = hasPassword;
+        },
+    );
+    // set by the server when a Google/Facebook connection finishes
+    const linked = linkResult(new URLSearchParams(location.search));
+    if (linked) {
+        connected.showResult(linked);
+        history.replaceState(null, "", "/settings");
+    }
+
+    const sendSetup = setPassword.querySelector<
+        HTMLElement & { disabled: boolean }
+    >("#send-setup")!;
+    const setupError = setPassword.querySelector<
+        HTMLElement & { subtitle: string }
+    >("cds-inline-notification")!;
+    const setupStatus = setPassword.querySelector<HTMLElement>(".success")!;
+    sendSetup.addEventListener("click", async () => {
+        if (sendSetup.disabled) return;
+        sendSetup.disabled = true;
+        setupError.hidden = true;
+        setupStatus.textContent = "";
+        const result = await requestPasswordSetup();
+        sendSetup.disabled = false;
+        if ("error" in result) {
+            setupError.subtitle = result.error;
+            setupError.hidden = false;
+        } else {
+            setupStatus.textContent = `We sent a link to ${savedEmail}. It expires in 1 hour.`;
+        }
     });
 
     document.getElementById("logout")!.addEventListener("click", logout);
@@ -398,16 +699,24 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     requireUser().then((user) => {
         if (!user) return;
         savedEmail = user.email;
+        showAccountEmail(user.email);
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
-        if (!user.licensePlan) {
+        document.getElementById("signed-in")!.textContent = user.email;
+        const plan = planSummary(user);
+        document.getElementById("plan-status")!.textContent = plan.text;
+        document.getElementById("plan-link")!.textContent = plan.action;
+        // without a license or trial the dashboard would only send them on to /buy
+        if (!hasAccess(user)) {
             const back = document.getElementById("back-link")!;
             back.setAttribute("href", "/buy");
-            back.textContent = "License";
-            document.getElementById("history-link")!.hidden = true;
+            back.textContent = "← Back to plans";
+            document.getElementById("brand")!.setAttribute("href", "/buy");
         }
         document.getElementById("loading")!.hidden = true;
         document.getElementById("settings")!.hidden = false;
+        sessions.load();
+        connected.load();
     });
 
     bindForm(profileForm, async (field) => {
@@ -430,9 +739,13 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         );
         if ("error" in result) return result.error;
         savedEmail = result.user.email;
+        showAccountEmail(result.user.email);
+        document.getElementById("signed-in")!.textContent = result.user.email;
         input(profileForm, "username").value = result.user.username ?? "";
         input(profileForm, "email").value = result.user.email;
-        input(profileForm, "currentPassword").value = "";
+        clearField(input(profileForm, "currentPassword"));
+        // a new email signs out other devices
+        sessions.load();
         profileSuccess.textContent = result.user.emailVerified
             ? "Profile saved."
             : `Profile saved. We sent a verification link to ${result.user.email}.`;
@@ -443,20 +756,19 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         passwordSuccess.textContent = "";
         if (!field("currentPassword")) return "Enter your current password";
         const password = field("newPassword");
-        if (password.length < 8 || password.length > 256) {
-            return "New password must be 8–256 characters";
+        if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
+            return `New password must be ${MIN_PASSWORD}–${MAX_PASSWORD} characters`;
         }
         if (password !== field("confirm")) return "Passwords don't match";
         const result = await changePassword(field("currentPassword"), password);
         if ("error" in result) return result.error;
         passwordForm
-            .querySelectorAll<Input>("cds-text-input")
-            .forEach((field) => {
-                field.value = "";
-            });
-        input(profileForm, "currentPassword").value = "";
+            .querySelectorAll<HTMLInputElement>(".field input")
+            .forEach(clearField);
+        clearField(input(profileForm, "currentPassword"));
         passwordSuccess.textContent =
             "Password changed. Other devices have been signed out.";
+        sessions.load();
         return null;
     });
 
@@ -469,7 +781,10 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
             deleting = true;
             cancelDelete.disabled = true;
             closeDelete.disabled = true;
-            const result = await deleteAccount(confirmation);
+            const result = await deleteAccount(
+                confirmation,
+                field("currentPassword"),
+            );
             if ("error" in result) {
                 deleting = false;
                 cancelDelete.disabled = false;

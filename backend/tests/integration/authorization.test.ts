@@ -21,6 +21,7 @@ vi.hoisted(() => {
 import { mockStripe } from "../../../tests/stripe.mjs";
 import { createApp } from "../../src/app.js";
 import { hashPassword } from "../../src/auth/password.js";
+import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
 
 vi.mock("../../src/mail/mailer.js", () => ({
@@ -74,6 +75,7 @@ const DATASET_ROUTES: Record<string, { path: string; ownerStatus: number }> = {
         path: "forecast?host=web&metric=cpuPercent&horizon=24h",
         ownerStatus: 422,
     },
+    "GET /api/datasets/:id/capacity": { path: "capacity", ownerStatus: 200 },
     "DELETE /api/datasets/:id": { path: "", ownerStatus: 204 },
 };
 
@@ -110,7 +112,7 @@ async function account({ licensed = true } = {}) {
     });
     const token = randomBytes(32).toString("base64url");
     await db.orm.public.Session.create({
-        id: token,
+        id: sessionIdFor(token),
         userId: user.id,
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
@@ -202,7 +204,11 @@ describe("dataset id routes", () => {
         const routes = new Set(
             app.routes
                 .filter(
-                    (r) => /\/:id(\/|$)/.test(r.path) && !r.path.endsWith("*"),
+                    (r) =>
+                        /\/:id(\/|$)/.test(r.path) &&
+                        !r.path.endsWith("*") &&
+                        !r.path.startsWith("/api/auth/sessions/") &&
+                        !r.path.startsWith("/api/auth/connected-accounts/"),
                 )
                 .map((r) => `${r.method} ${r.path}`),
         );
@@ -265,6 +271,105 @@ describe("dataset id routes", () => {
             });
         },
     );
+});
+
+describe("sessions", () => {
+    it("lists every session id route", () => {
+        const routes = app.routes
+            .filter(
+                (r) =>
+                    r.path.startsWith("/api/auth/sessions/") &&
+                    !r.path.endsWith("*"),
+            )
+            .map((r) => `${r.method} ${r.path}`);
+        expect(routes.sort()).toEqual([
+            "DELETE /api/auth/sessions/:id",
+            "POST /api/auth/sessions/revoke-others",
+        ]);
+    });
+
+    it("never lists, revokes or signs out another user's sessions", async () => {
+        const a = await account();
+        const b = await account();
+        const [aSession] = (await snapshot(a.id)).sessions;
+        const before = await snapshot(a.id);
+
+        const list = await request("auth/sessions", undefined, b.cookie);
+        const { sessions } = await list.json();
+        expect(sessions.map((s: { id: string }) => s.id)).not.toContain(
+            aSession,
+        );
+        const revoke = await app.request(`/api/auth/sessions/${aSession}`, {
+            method: "DELETE",
+            headers: { cookie: b.cookie, origin },
+        });
+        expect(revoke.status).toBe(404);
+        const others = await request(
+            "auth/sessions/revoke-others",
+            {},
+            b.cookie,
+        );
+        expect(await others.json()).toEqual({ revoked: 0 });
+
+        expect(await snapshot(a.id)).toEqual(before);
+        expect((await request("auth/me", undefined, a.cookie)).status).toBe(
+            200,
+        );
+    });
+});
+
+describe("connected accounts", () => {
+    it("lists every connected account id route", () => {
+        const routes = app.routes
+            .filter(
+                (r) =>
+                    r.path.startsWith("/api/auth/connected-accounts/") &&
+                    !r.path.endsWith("*"),
+            )
+            .map((r) => `${r.method} ${r.path}`);
+        // a route with middleware is listed once per handler
+        expect([...new Set(routes)].sort()).toEqual([
+            "DELETE /api/auth/connected-accounts/:id",
+        ]);
+    });
+
+    it("never lists or disconnects another user's logins", async () => {
+        const a = await account();
+        const b = await account();
+        const link = await db.orm.public.OAuthAccount.create({
+            provider: "google",
+            providerUserId: `g-${randomUUID()}`,
+            userId: a.id,
+            email: a.email,
+        });
+        const before = await snapshot(a.id);
+
+        const list = await request(
+            "auth/connected-accounts",
+            undefined,
+            b.cookie,
+        );
+        expect((await list.json()).accounts).toEqual([]);
+        const unlink = await app.request(
+            `/api/auth/connected-accounts/${link.id}`,
+            {
+                method: "DELETE",
+                headers: {
+                    cookie: b.cookie,
+                    origin,
+                    "content-type": "application/json",
+                },
+                // b's own password, so only the ownership check is left
+                body: JSON.stringify({ currentPassword: password }),
+            },
+        );
+        expect(unlink.status).toBe(404);
+
+        expect(await snapshot(a.id)).toEqual(before);
+        expect((await request("auth/me", undefined, a.cookie)).status).toBe(
+            200,
+        );
+    });
 });
 
 describe("dataset list and upload", () => {
@@ -389,7 +494,11 @@ describe("account endpoints", () => {
 
         const response = await request(
             "auth/delete-account",
-            { ...foreignIds(a), confirmation: "delete my account" },
+            {
+                ...foreignIds(a),
+                confirmation: "delete my account",
+                currentPassword: password,
+            },
             b.cookie,
         );
         expect(response.status).toBe(204);
@@ -635,6 +744,10 @@ describe("OAuth linking", () => {
     it("links by the provider's email, never to whoever is signed in", async () => {
         const a = await account();
         const b = await account();
+        // only accounts without a password are still linked by email
+        await db.orm.public.User.where({ id: b.id }).update({
+            passwordHash: null,
+        });
         const sub = `g-${randomUUID()}`;
         const before = await snapshot(a.id);
 

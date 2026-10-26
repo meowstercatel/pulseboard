@@ -1,0 +1,22 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+---
+
+<AuthLayout title="Page not found">
+    <h2>Page not found</h2>
+    <p>This page doesn't exist or has moved.</p>
+    <p>
+        <a href="/">Go to the home page</a>
+    </p>
+</AuthLayout>
+
+<style>
+    h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 400;
+    }
+    a {
+        color: var(--cds-link-primary, #0f62fe);
+    }
+</style>

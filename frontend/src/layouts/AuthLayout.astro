@@ -1,10 +1,18 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "./HtmlTemplate.astro";
+
+interface Props {
+    title: string;
+}
+const { title } = Astro.props;
 ---
 
-<HtmlTemplate>
+<HtmlTemplate title={`${title} · PulseBoard`}>
     <main>
+        <cds-link class="home" href="/">
+            ← Back to home
+        </cds-link>
         <h1>PulseBoard</h1>
         <slot />
     </main>
@@ -31,8 +39,11 @@ import HtmlTemplate from "./HtmlTemplate.astro";
         line-height: 1.5;
         font-family: inherit;
     }
-    main :global(cds-inline-notification[hidden]),
-    main :global(form[hidden]) {
+    .home {
+        align-self: flex-start;
+    }
+    /* main's flex layout would otherwise override the hidden attribute */
+    main :global([hidden]) {
         display: none;
     }
     main :global(form) {
@@ -44,7 +55,6 @@ import HtmlTemplate from "./HtmlTemplate.astro";
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
-    import "@carbon/web-components/es/components/text-input/index.js";
     import "@carbon/web-components/es/components/notification/index.js";
     import "@carbon/web-components/es/components/link/index.js";
 </script>

@@ -1,12 +1,5 @@
 // Hover/keyboard crosshair tooltip for a line chart: the landing page's
 // UsageChart.astro, or a chart drawn by historyChart.ts with its own data.
-const ago = (minutes: number) => {
-    if (minutes === 0) return "now";
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return `${h ? `${h}h ` : ""}${m ? `${m}m ` : ""}ago`;
-};
-
 export type UsageChartData = {
     // x position of each sample, e.g. a timestamp; must be ascending
     times: number[];
@@ -17,23 +10,31 @@ export type UsageChartData = {
     value: (index: number) => string;
 };
 
-// The landing chart: one evenly spaced 0-100% series ending "now".
+// The landing chart: a 0-100% series with its UTC labels in data attributes.
 function datasetData(chart: HTMLElement): UsageChartData {
-    const series: number[] = JSON.parse(chart.dataset.series ?? "[]");
-    const interval = Number(chart.dataset.interval ?? 5);
+    const json = (name: string) => JSON.parse(chart.dataset[name] ?? "[]");
+    const series: number[] = json("series");
+    const labels: string[] = json("labels");
     return {
-        times: series.map((_, i) => i),
+        times: json("times"),
         lines: [series],
         max: 100,
-        label: (i) => ago((series.length - 1 - i) * interval),
-        value: (i) => `${series[i]}%`,
+        label: (i) => labels[i] ?? "",
+        value: (i) => `${series[i]} %`,
     };
 }
+
+export type UsageChartControls = {
+    // Shows the crosshair at the n-th sample that has a value
+    show: (position: number) => void;
+    hide: () => void;
+    count: number;
+};
 
 export function initUsageChart(
     chart: HTMLElement,
     data: UsageChartData = datasetData(chart),
-) {
+): UsageChartControls | undefined {
     const { times, lines, max } = data;
     const plot = chart.querySelector<HTMLElement>(".plot")!;
     const crosshair = chart.querySelector<HTMLElement>(".crosshair")!;
@@ -103,4 +104,47 @@ export function initUsageChart(
         else return;
         e.preventDefault();
     });
+    return { show, hide, count: samples.length };
+}
+
+const STEP_MS = 400;
+
+// Walks the crosshair along a chart until the user reaches for `area`, so the
+// landing demo shows it is interactive. Skipped with reduced motion.
+export function autoplay(
+    chart: HTMLElement,
+    controls: UsageChartControls,
+    area: Element,
+) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const plot = chart.querySelector<HTMLElement>(".plot")!;
+    const tooltip = chart.querySelector<HTMLElement>(".tooltip")!;
+    // The walk isn't worth announcing; the user's own inspection is
+    const role = tooltip.getAttribute("role");
+    tooltip.removeAttribute("role");
+    let position = 0;
+    // Steps only while the chart is on screen
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const pause = () => {
+        clearInterval(timer);
+        timer = undefined;
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+        if (!entry?.isIntersecting) return pause();
+        timer ??= setInterval(() => {
+            controls.show(position);
+            position = (position + 1) % controls.count;
+        }, STEP_MS);
+    });
+    observer.observe(chart);
+    const events = ["pointerenter", "pointerdown", "focusin", "keydown"];
+    const stop = () => {
+        pause();
+        observer.disconnect();
+        for (const event of events) area.removeEventListener(event, stop);
+        if (role !== null) tooltip.setAttribute("role", role);
+        // a focused plot keeps its crosshair; pointermove brings it back on hover
+        if (document.activeElement !== plot) controls.hide();
+    };
+    for (const event of events) area.addEventListener(event, stop);
 }

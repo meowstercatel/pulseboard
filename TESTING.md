@@ -1,35 +1,33 @@
 # Tests
 
-Requires Node.js 24, pnpm 12 and Docker with Compose v2. Run commands from the repository root.
+Requires Node.js 24, pnpm 12 (`corepack enable` picks the version pinned in `package.json`) and Docker with Compose v2. Run commands from the repository root.
 
 ```sh
-npm ci
-pnpm --dir backend install --frozen-lockfile
-npm --prefix frontend ci
+pnpm install --frozen-lockfile  # Root, backend and frontend in one go
 
-npm test                       # Vitest unit tests; no services needed
-npm run test:watch              # Unit tests in watch mode
-npm run test:typecheck          # Type-check tests and test configuration
+pnpm test                       # Vitest unit tests; no services needed
+pnpm run test:watch             # Unit tests in watch mode
+pnpm run test:typecheck         # Type-check tests and test configuration
 
-npm run test:services           # Dedicated PostgreSQL and Mailpit
-npm run test:integration        # Hono requests against a real database
-npx playwright install chromium
-npm run test:e2e                # Build backend + frontend, then test Chromium
+pnpm run test:services          # Dedicated PostgreSQL and Mailpit
+pnpm run test:integration       # Hono requests against a real database
+pnpm exec playwright install chromium
+pnpm run test:e2e               # Build backend + frontend, then test Chromium
 
-npm run test:services:stop
+pnpm run test:services:stop
 ```
 
-With services and Chromium installed, `npm run test:all` runs all three suites.
+With services and Chromium installed, `pnpm run test:all` runs all three suites.
 
 ## Isolation
 
-`compose.test.yml` is independent of the application/deployment Compose file. PostgreSQL uses temporary storage and database `pulseboard_test` on port 55439. Mailpit exposes SMTP on 51025 and its UI/API on 58025. The browser test starts its own server on port 4300; it refuses to reuse another server. If that port is occupied, use `TEST_PORT=4317 npm run test:e2e` to run on a separate port.
+`compose.test.yml` is independent of the application/deployment Compose file. PostgreSQL uses temporary storage and database `pulseboard_test` on port 55439. Mailpit exposes SMTP on 51025 and its UI/API on 58025. The browser test starts its own server on port 4300; it refuses to reuse another server. If that port is occupied, use `TEST_PORT=4317 pnpm run test:e2e` to run on a separate port.
 
 Tests ignore the application's `DATABASE_URL`. Override the test database only with `TEST_DATABASE_URL`; the database name must end in `_test`. The Prisma contract is applied automatically before integration tests and before the E2E server starts, with generated files isolated in `.test-cache/` by `backend/prisma.test.config.ts`. Use a dedicated disposable database: tests create and remove their own accounts. E2E supports `TEST_SMTP_URL` and `TEST_MAILPIT_URL` for a dedicated alternative Mailpit instance.
 
 API tests use `app.request()` without opening a port, real PostgreSQL queries and transactions, and a mocked mail sender. Each test uses unique account addresses and a separate rate-limit IP key, and removes its accounts afterward. Expired database records are seeded directly; unit tests use a fake clock for limiter boundaries.
 
-The browser test uses the built Astro site, the real backend and SMTP through Mailpit. It registers a unique account, follows the verification link from its email, selects a lifetime license and checks the dashboard and persisted session. Stripe HTTP responses are intercepted by Nock using dummy credentials: the checkout fixture redirects to the real success page, which confirms the session through the backend. No real payment or hosted Stripe form is exercised. API tests also check unpaid sessions and reject confirmation by another account. OAuth providers are disabled in this initial suite; provider callback coverage can be added with controlled provider responses.
+The browser test uses the built Astro site, the real backend and SMTP through Mailpit. It registers a unique account, follows the verification link from its email, which starts the free trial and opens the dashboard, then selects a lifetime license and checks the dashboard and persisted session. Stripe HTTP responses are intercepted by Nock using dummy credentials: the checkout fixture redirects to the real success page, which confirms the session through the backend. No real payment or hosted Stripe form is exercised. The rate limiters live in the one server process for the whole run, so `tests/e2e/fixtures.ts` gives every test its own client address through `X-Forwarded-For`; specs import `test` and `expect` from there. That keeps retries and `--repeat-each` within the limits. API tests also check unpaid sessions and reject confirmation by another account. Google is enabled in the browser suite and answered by `tests/google.mjs`: the test plays Google's consent page and puts the profile it wants in the `code`. Facebook stays disabled there; its callbacks are covered by the API tests.
 
 ## Adding coverage
 
@@ -38,14 +36,14 @@ The browser test uses the built Astro site, the real backend and SMTP through Ma
 - `backend/tests/integration/`: API contracts and persisted account/session behavior.
 - `tests/e2e/`: critical browser journeys; prefer roles and labels, or Carbon host selectors when necessary for shadow DOM.
 
-CI runs unit tests, API integration tests, both builds and the Chromium scenario on pull requests and pushes to main/staging. On failure it uploads the Playwright report, screenshots and traces. To inspect a local report, run `npx playwright show-report`.
+CI checks formatting (`pnpm run format:check`) and runs unit tests, API integration tests, both builds and the Chromium scenario on pull requests and pushes to main/staging. On failure it uploads the Playwright report, screenshots and traces. To inspect a local report, run `pnpm exec playwright show-report`.
 
 ## Imported metrics dashboard
 
 `frontend/tests/dashboard.test.ts` runs the dashboard controller in Happy DOM,
 covering selection changes, aborts and out-of-order responses, errors/retry,
 empty datasets, single readings, actual timestamp spacing and keyboard chart
-inspection. It runs with `npm test` and does not require a build or services.
+inspection. It runs with `pnpm test` and does not require a build or services.
 `backend/tests/integration/dashboard.test.ts` checks authentication, verification,
 licensing, owner isolation, literal host search, range selection and a real
 500,000-row PostgreSQL history. The large fixture is removed with its test account.
@@ -106,3 +104,45 @@ For manual verification with the built app and a disposable licensed account:
 
 Browser control uses documented `sc browser` commands. The existing Playwright
 suite remains available for CI; manual `sc` verification does not run that suite.
+
+## Sessions
+
+`backend/tests/integration/sessions.test.ts` seeds session rows directly to
+cover sliding expiry (a session used with under 15 of its 30 days left is
+extended and its cookie re-sent), the at-most-every-5-minutes `lastSeenAt`
+write, the recorded user agent and client IP, listing, revoking one session,
+"log out everywhere else", CSRF and cleanup of expired rows.
+`authorization.test.ts` checks that no session route lists or revokes another
+user's sessions. `frontend/tests/sessions.test.ts` covers the settings list in
+Happy DOM and `tests/e2e/sessions.spec.ts` signs a second browser context out
+from the settings page, one device and then all others.
+
+## Connected accounts and setting a password
+
+`backend/tests/integration/connectedAccounts.test.ts` covers the "set a
+password" link for social-only accounts (a password reset token, sent only to
+verified, password-less accounts), the notice emails, and linking from the
+settings: password or fresh-sign-in re-authentication, attaching to the signed-in
+user rather than by email, the session binding of the state cookie, provider
+accounts already used elsewhere, and unverified provider emails. Unlinking asks for the same re-authentication, stays disconnected (Google no
+longer links by email to an account with a password), checks
+the last-login rule (including parallel requests and disabled providers) and
+signs out other sessions. `authorization.test.ts` checks that no one lists or
+disconnects another user's logins. `frontend/tests/connectedAccounts.test.ts`
+covers the settings section in Happy DOM, and `tests/e2e/connected-accounts.spec.ts`
+signs in with Google, sets a password from the Mailpit link, then disconnects and
+reconnects Google.
+
+## Verification links and password pre-hijack
+
+Anyone can register someone else's address with a password. Opened outside the
+account's own session, the verification link of an account with a password asks
+for that password before it verifies or signs in; the attempts share the login
+rate limits. "I didn't create this account" verifies the address instead, ends
+every session, removes the password and logins that don't prove the address,
+and emails a set-password link. `backend/tests/integration/passwordPreHijack.test.ts`
+covers both paths, the trial starting once, links already used up by a reset,
+the rate limits and a login racing the takeover. `frontend/tests/auth.test.ts`
+covers the verify page's requests and messages, and
+`tests/e2e/password-prehijack.spec.ts` plays both paths in the browser, the
+second with an intruder's browser signed in to the account.

@@ -1,5 +1,5 @@
-// Draws a time-based line chart for /history; hover and keyboard inspection come
-// from initUsageChart() in usageChart.ts.
+// Draws a time-based line chart for /history and /forecast; hover and keyboard
+// inspection come from initUsageChart() in usageChart.ts.
 import { number } from "./dashboardControls";
 import type { Gap } from "./history";
 import { initUsageChart } from "./usageChart";
@@ -22,12 +22,26 @@ export type HistoryChart = {
     unit: string;
     // Shaded periods without readings
     bands?: Gap[];
+    // A shaded range between two series, e.g. a forecast's band; breaks where
+    // either is null
+    area?: { lower: (number | null)[]; upper: (number | null)[]; kind: string };
     // Samples drawn with a spike marker, on the first line
     markers?: number[];
     label: (index: number) => string;
     value: (index: number) => string;
     axisLabel: (time: number) => string;
 };
+
+// Runs of consecutive indices where the area has both bounds.
+function areaRuns(area: HistoryChart["area"]) {
+    const runs: number[][] = [];
+    area?.upper.forEach((upper, i) => {
+        if (upper == null || area.lower[i] == null) return;
+        if (runs.at(-1)?.at(-1) === i - 1) runs.at(-1)!.push(i);
+        else runs.push([i]);
+    });
+    return runs;
+}
 
 export function renderHistoryChart(
     root: HTMLElement,
@@ -69,6 +83,23 @@ export function renderHistoryChart(
             .map(
                 (g) =>
                     `<rect class="band" x="${x(g.start)}" y="0" width="${Math.max(1, x(g.end) - x(g.start))}" height="${H}"/>`,
+            )
+            .join("") +
+        areaRuns(chart.area)
+            .map(
+                (run) =>
+                    `<polygon class="area ${chart.area!.kind}" points="${[
+                        ...run.map(
+                            (i) =>
+                                `${x(times[i]!)},${y(chart.area!.upper[i]!)}`,
+                        ),
+                        ...run
+                            .reverse()
+                            .map(
+                                (i) =>
+                                    `${x(times[i]!)},${y(chart.area!.lower[i]!)}`,
+                            ),
+                    ].join(" ")}"/>`,
             )
             .join("") +
         lines

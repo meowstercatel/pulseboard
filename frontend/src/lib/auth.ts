@@ -3,17 +3,92 @@ export type User = {
     email: string;
     username: string | null;
     licensePlan: string | null;
+    // end of the free trial, also once it has passed; null if it never started
+    trialEndsAt: string | null;
     emailVerified: boolean;
 };
 
-export function accountDestination(user: User): string {
-    if (!user.emailVerified) return "/verify-email";
-    return user.licensePlan ? "/overview" : "/buy";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function trialActive(user: User, now = Date.now()): boolean {
+    return (
+        Boolean(user.trialEndsAt) && new Date(user.trialEndsAt!).getTime() > now
+    );
 }
 
-type AuthResult = { user: User } | { error: string; status?: number };
+// A paid license or a running free trial. Only decides where to send the user;
+// the backend checks it again on every request.
+export function hasAccess(user: User, now = Date.now()): boolean {
+    return Boolean(user.licensePlan) || trialActive(user, now);
+}
 
-async function post(path: string, body: unknown): Promise<AuthResult> {
+// Whole days left, counting a part day as one: 14 right after verification,
+// 1 on the last day. null without a running trial.
+export function trialDaysLeft(user: User, now = Date.now()): number | null {
+    if (!trialActive(user, now)) return null;
+    return Math.ceil((new Date(user.trialEndsAt!).getTime() - now) / DAY_MS);
+}
+
+// An unpaid account whose trial has run out
+export function trialEnded(user: User, now = Date.now()): boolean {
+    return (
+        !user.licensePlan &&
+        Boolean(user.trialEndsAt) &&
+        !trialActive(user, now)
+    );
+}
+
+// Pages that would send a logged-in user straight back out
+const AUTH_PAGES = new Set(["/login", "/register"]);
+const BASE = "http://pulseboard.invalid";
+// The OAuth state cookie carries it, and cookies are capped at about 4 KB
+const MAX_LENGTH = 1024;
+
+// A ?next= value is followed only if it is a page on this site. Browsers treat
+// "//host" and backslashes as another origin and drop tabs and newlines.
+export function safeNext(raw: string | null | undefined): string | null {
+    if (!raw || raw.length > MAX_LENGTH) return null;
+    if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+    if (/[\\\u0000-\u0020\u007f]/.test(raw)) return null;
+    let url: URL;
+    try {
+        url = new URL(raw, BASE);
+    } catch {
+        return null;
+    }
+    if (url.origin !== BASE) return null;
+    // the static server also answers /login/ and /login/index.html
+    const page = url.pathname
+        .toLowerCase()
+        .replace(/\/index\.html$/, "")
+        .replace(/\/+$/, "");
+    if (AUTH_PAGES.has(page) || page === "/api" || page.startsWith("/api/")) {
+        return null;
+    }
+    return url.pathname + url.search + url.hash;
+}
+
+// The login page, set to come back to the current page afterwards
+export function loginUrl(): string {
+    const here = globalThis.location?.pathname;
+    const next = here && safeNext(here + location.search);
+    return next ? `/login?${new URLSearchParams({ next })}` : "/login";
+}
+
+export function accountDestination(user: User, next?: string | null): string {
+    if (!user.emailVerified) return "/verify-email";
+    // the page itself sends an unlicensed user on to /buy if it needs to
+    const requested = safeNext(next);
+    if (requested) return requested;
+    return hasAccess(user) ? "/overview" : "/buy";
+}
+
+type AuthResult<T = { user: User }> = T | { error: string; status?: number };
+
+async function post<T extends { user: User } = { user: User }>(
+    path: string,
+    body: unknown,
+): Promise<AuthResult<T>> {
     try {
         const res = await fetch(`/api/${path}`, {
             method: "POST",
@@ -21,7 +96,7 @@ async function post(path: string, body: unknown): Promise<AuthResult> {
             body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => null);
-        if (res.ok && data?.user) return { user: data.user };
+        if (res.ok && data?.user) return data as T;
         return {
             error: data?.error ?? `Something went wrong (${res.status})`,
             status: res.status,
@@ -35,12 +110,124 @@ export function login(email: string, password: string) {
     return post("auth/login", { email, password });
 }
 
-export function register(email: string, password: string, username: string) {
-    return post("auth/register", { email, password, username });
+// Answers the same whether or not the email is taken; the link in the email
+// that follows signs the new account in
+export async function register(
+    email: string,
+    password: string,
+    username: string,
+): Promise<string | null> {
+    try {
+        const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email, password, username }),
+        });
+        if (res.ok) return null;
+        const data = await res.json().catch(() => null);
+        return data?.error ?? `Something went wrong (${res.status})`;
+    } catch {
+        return "Can't reach the server";
+    }
 }
 
-export function verifyEmail(token: string) {
-    return post("auth/verify-email", { token });
+export type Verification = {
+    user: User;
+    // names of the logins removed because they may have been someone else's
+    removedLogins: string[];
+    // the account has no password or other login left
+    needsPassword: boolean;
+};
+
+// The link was opened outside the account's own session, and the account has
+// a password: the server verifies nothing until it's entered
+export type PasswordNeeded = { confirm: "password"; email: string };
+
+// `password` answers a PasswordNeeded; a wrong one is an error with status 401
+export async function verifyEmail(
+    token: string,
+    password?: string,
+): Promise<AuthResult<Verification> | PasswordNeeded> {
+    try {
+        const res = await fetch("/api/auth/verify-email", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(
+                password === undefined ? { token } : { token, password },
+            ),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.user) return data as Verification;
+        if (
+            res.status === 403 &&
+            data?.confirm === "password" &&
+            typeof data.email === "string"
+        ) {
+            return { confirm: "password", email: data.email };
+        }
+        return {
+            error: data?.error ?? `Something went wrong (${res.status})`,
+            status: res.status,
+        };
+    } catch {
+        return { error: "Can't reach the server" };
+    }
+}
+
+export type Disowned = { email: string; emailSent: boolean };
+
+// "I didn't create this account" on the page the verification link opens
+export async function disownAccount(
+    token: string,
+): Promise<Disowned | { error: string; status?: number }> {
+    try {
+        const res = await fetch("/api/auth/verify-email/not-mine", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ token }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && typeof data?.email === "string") {
+            return { email: data.email, emailSent: data.emailSent === true };
+        }
+        return {
+            error: data?.error ?? `Something went wrong (${res.status})`,
+            status: res.status,
+        };
+    } catch {
+        return { error: "Can't reach the server" };
+    }
+}
+
+// What the verify page says once the account is no longer someone else's
+export function disownedMessage({ email, emailSent }: Disowned): string {
+    const done = `${email} is verified. Everyone who was signed in to the account has been signed out, and the password it was set up with no longer works.`;
+    return emailSent
+        ? `${done} We sent a link to ${email} to choose your own password.`
+        : `${done} We couldn't send the email with a link to choose your password. Request one below.`;
+}
+
+// What the verify page says after the link worked, and where it goes next
+export function verifiedStep({
+    user,
+    removedLogins,
+    needsPassword,
+}: Verification) {
+    let message = "Your email address is verified.";
+    if (removedLogins.length) {
+        // the server lists each provider once
+        const names = removedLogins;
+        message +=
+            names.length === 1
+                ? ` The ${names[0]} login connected before you verified it was removed, because it may not have been yours. If it was, connect it again in Settings.`
+                : ` The ${names.join(" and ")} logins connected before you verified it were removed, because they may not have been yours. If they were, connect them again in Settings.`;
+    }
+    if (needsPassword) {
+        message +=
+            " Set a password in Settings, so you can log in again after you sign out.";
+        return { message, href: "/settings" };
+    }
+    return { message, href: accountDestination(user) };
 }
 
 export async function resendVerificationEmail(): Promise<string | null> {
@@ -49,7 +236,7 @@ export async function resendVerificationEmail(): Promise<string | null> {
             method: "POST",
         });
         if (res.ok) return null;
-        if (res.status === 401) location.replace("/login");
+        if (res.status === 401) location.replace(loginUrl());
         const data = await res.json().catch(() => null);
         return data?.error ?? `Couldn't send the email (${res.status})`;
     } catch {
@@ -81,7 +268,7 @@ export function resetPassword(token: string, newPassword: string) {
 async function updateAccount(path: string, body: unknown): Promise<AuthResult> {
     const result = await post(path, body);
     if ("error" in result && result.status === 401) {
-        location.replace("/login");
+        location.replace(loginUrl());
     }
     return result;
 }
@@ -100,15 +287,16 @@ export function changePassword(currentPassword: string, newPassword: string) {
 
 export async function deleteAccount(
     confirmation: string,
+    currentPassword: string,
 ): Promise<{ deleted: true } | { error: string }> {
     try {
         const res = await fetch("/api/auth/delete-account", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ confirmation }),
+            body: JSON.stringify({ confirmation, currentPassword }),
         });
         if (res.status === 204) return { deleted: true };
-        if (res.status === 401) location.replace("/login");
+        if (res.status === 401) location.replace(loginUrl());
         const data = await res.json().catch(() => null);
         return {
             error: data?.error ?? `Couldn't delete account (${res.status})`,
@@ -143,21 +331,41 @@ export async function currentUser(): Promise<User | null> {
     }
 }
 
-export async function requireUser(): Promise<User | null> {
+let pageSession: Promise<User | null> | undefined;
+
+// currentUser(), asked once per page load: the landing page header and the
+// footer's pricing links share it instead of each calling /api/auth/me
+export function pageUser(): Promise<User | null> {
+    return (pageSession ??= currentUser());
+}
+
+// Protected pages start hidden (HtmlTemplate's requiresAuth) so they don't
+// flash before a redirect; they are shown once the user may see them.
+async function guard(
+    redirect: (user: User) => string | null,
+): Promise<User | null> {
     const user = await currentUser();
-    if (!user) location.replace("/login");
+    const to = user ? redirect(user) : loginUrl();
+    if (to) {
+        location.replace(to);
+        return null;
+    }
+    globalThis.document?.documentElement.removeAttribute("data-auth-pending");
     return user;
 }
 
-// Unverified users are sent to the page asking them to check their inbox
-export async function requireVerifiedUser(): Promise<User | null> {
-    const user = await requireUser();
-    if (user && !user.emailVerified) location.replace("/verify-email");
-    return user?.emailVerified ? user : null;
+export function requireUser(): Promise<User | null> {
+    return guard(() => null);
 }
 
-export async function requireLicense(): Promise<User | null> {
-    const user = await requireVerifiedUser();
-    if (user && !user.licensePlan) location.replace("/buy");
-    return user?.licensePlan ? user : null;
+// Unverified users are sent to the page asking them to check their inbox
+export function requireVerifiedUser(): Promise<User | null> {
+    return guard((user) => (user.emailVerified ? null : "/verify-email"));
+}
+
+export function requireLicense(): Promise<User | null> {
+    return guard((user) => {
+        if (!user.emailVerified) return "/verify-email";
+        return hasAccess(user) ? null : "/buy";
+    });
 }

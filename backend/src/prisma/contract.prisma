@@ -18,6 +18,12 @@ model User {
   subscriptionStatus   String?
   // when the user last agreed to immediate delivery and waived the 14-day right of withdrawal
   withdrawalWaiverAt   TimestamptzString?
+  // accounts that existed before the free trial was introduced get none
+  trialEligible        Boolean @default(true)
+  // set once, when the email address is first verified; see src/billing/trial.ts
+  trialEndsAt          TimestamptzString?
+  // trial reminder emails already sent: 1 = three days left, 2 = last day
+  trialRemindersSent   Int @default(0)
   createdAt    TimestamptzString @default(now())
   updatedAt    temporal.updatedAtString()
 
@@ -44,12 +50,19 @@ model OAuthAccount {
 }
 
 model Session {
-  // the session token, same value as the cookie
+  // SHA-256 (hex) of the session token; only the cookie holds the token itself
   id        String   @id
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // pushed forward while the session is in use, see src/auth/session.ts
   expiresAt TimestamptzString
   createdAt TimestamptzString @default(now())
+  // shown on the settings page so users can tell their sessions apart;
+  // null for sessions created before these were recorded
+  userAgent  String?
+  ip         String?
+  // updated at most every few minutes, not on every request
+  lastSeenAt TimestamptzString?
 
   @@index([userId])
 }

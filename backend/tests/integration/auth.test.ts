@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import {
     afterAll,
     afterEach,
@@ -9,6 +9,7 @@ import {
     vi,
 } from "vitest";
 import { createApp } from "../../src/app.js";
+import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
 import { sendMail } from "../../src/mail/mailer.js";
 import { mockStripe } from "../../../tests/stripe.mjs";
@@ -58,6 +59,13 @@ function sessionCookie(response: Response) {
     return cookie!.split(";")[0];
 }
 
+async function trackUserByEmail(email: string) {
+    const row = await db.orm.public.User.where({ email }).first();
+    if (row) userIds.add(row.id);
+    return row;
+}
+
+// Registers, then logs in with the password: an unverified account with a session
 async function register() {
     const email = `api-${randomUUID()}@example.com`;
     const response = await request("auth/register", {
@@ -65,10 +73,12 @@ async function register() {
         password,
         username: " Alice ",
     });
-    const { user } = await response.json();
-    if (user) userIds.add(user.id);
-    expect(response.status).toBe(201);
-    return { email, user, response, cookie: sessionCookie(response) };
+    await trackUserByEmail(email);
+    expect(response.status).toBe(202);
+    const login = await request("auth/login", { email, password });
+    expect(login.status).toBe(200);
+    const { user } = await login.json();
+    return { email, user, response, cookie: sessionCookie(login) };
 }
 
 function lastToken() {
@@ -79,23 +89,59 @@ function lastToken() {
 }
 
 describe("registration and sessions", () => {
-    it("creates an account, sends verification and sets a private session cookie", async () => {
-        const { email, user, response, cookie } = await register();
+    it("creates an account and sends verification without signing in", async () => {
+        const email = `api-${randomUUID()}@example.com`;
+        const response = await request("auth/register", {
+            email,
+            password,
+            username: " Alice ",
+        });
+        expect(response.status).toBe(202);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        const row = await trackUserByEmail(email);
+        expect(row).toMatchObject({ username: "Alice", emailVerifiedAt: null });
+        expect(mail).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                to: email,
+                subject: "Verify your PulseBoard email address",
+            }),
+        );
+    });
+
+    it("signs in with the verification link and sets a private session cookie", async () => {
+        const email = `api-${randomUUID()}@example.com`;
+        await request("auth/register", { email, password, username: "Alice" });
+        await trackUserByEmail(email);
+        // opened outside the account's session, so it asks for the password
+        const response = await request("auth/verify-email", {
+            token: lastToken(),
+            password,
+        });
+        expect(response.status).toBe(200);
+        const { user } = await response.json();
         expect(user).toEqual({
             id: expect.any(Number),
             email,
             username: "Alice",
             licensePlan: null,
-            emailVerified: false,
+            // verifying starts the free trial
+            trialEndsAt: expect.any(String),
+            emailVerified: true,
         });
         expect(response.headers.get("set-cookie")).toContain("HttpOnly");
         expect(response.headers.get("set-cookie")).toContain("SameSite=Lax");
-        expect(mail).toHaveBeenCalledExactlyOnceWith(
-            expect.objectContaining({ to: email }),
-        );
+        const cookie = sessionCookie(response);
         const row = await db.orm.public.User.where({ id: user.id }).first();
         expect(row?.passwordHash).toMatch(/^scrypt\$/);
         expect(row?.passwordHash).not.toContain(password);
+        const token = cookie.slice("session=".length);
+        const sessions = await db.orm.public.Session.where({
+            userId: user.id,
+        }).all();
+        expect(sessions.map((session) => session.id)).toEqual([
+            sessionIdFor(token),
+        ]);
+        expect(JSON.stringify(sessions)).not.toContain(token);
         const me = await request("auth/me", undefined, cookie);
         expect(me.status).toBe(200);
         expect(await me.json()).toEqual({ user });
@@ -112,14 +158,50 @@ describe("registration and sessions", () => {
         expect(mail).not.toHaveBeenCalled();
     });
 
-    it("normalizes email before checking uniqueness", async () => {
-        const { email } = await register();
-        const duplicate = await request("auth/register", {
-            email: ` ${email.toUpperCase()} `,
+    it("answers the same for a taken email and mails its owner instead", async () => {
+        const { email, user } = await register();
+        mail.mockClear();
+        const freshEmail = `api-${randomUUID()}@example.com`;
+        const fresh = await request("auth/register", {
+            email: freshEmail,
             password,
         });
-        expect(duplicate.status).toBe(409);
-        expect(mail).toHaveBeenCalledTimes(1);
+        await trackUserByEmail(freshEmail);
+        const duplicate = await request("auth/register", {
+            email: ` ${email.toUpperCase()} `,
+            password: "The intruder's password!",
+        });
+        expect(duplicate.status).toBe(fresh.status);
+        expect(await duplicate.text()).toBe(await fresh.text());
+        expect(duplicate.headers.get("set-cookie")).toBeNull();
+        expect(mail).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                to: email,
+                subject: "You already have a PulseBoard account",
+            }),
+        );
+        expect(mail.mock.calls.at(-1)?.[0].text).toContain("/forgot-password");
+        // the existing account is untouched
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+        expect(await db.orm.public.User.where({ email }).all()).toHaveLength(1);
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.passwordHash,
+        ).toBeTruthy();
+    });
+
+    it("caps the emails to an existing address without changing the answer", async () => {
+        const { email } = await register();
+        mail.mockClear();
+        for (let attempt = 0; attempt < 5; attempt++) {
+            ip = `198.51.100.${attempt + 1}`;
+            expect(
+                (await request("auth/register", { email, password })).status,
+            ).toBe(202);
+        }
+        expect(mail).toHaveBeenCalledTimes(3);
     });
 
     it("logs in, logs out and rejects the revoked cookie", async () => {
@@ -155,7 +237,11 @@ describe("registration and sessions", () => {
 
     it("rejects missing, unknown and expired sessions", async () => {
         const { cookie } = await register();
-        const id = cookie.slice("session=".length);
+        const id = sessionIdFor(cookie.slice("session=".length));
+        // a leaked database row can't be replayed as a cookie
+        expect(
+            (await request("auth/me", undefined, `session=${id}`)).status,
+        ).toBe(401);
         await db.orm.public.Session.where({ id }).update({
             expiresAt: new Date(Date.now() - 1000).toISOString(),
         });
@@ -167,10 +253,9 @@ describe("registration and sessions", () => {
         expect(await db.orm.public.Session.where({ id }).first()).toBeNull();
     });
 
-    it("rate limits failed logins per account even when the IP changes", async () => {
+    it("rate limits logins per account and IP without locking out other IPs", async () => {
         const { email } = await register();
         for (let attempt = 0; attempt < 10; attempt++) {
-            ip = `198.51.100.${attempt + 1}`;
             expect(
                 (await request("auth/login", { email, password: "wrong" }))
                     .status,
@@ -179,6 +264,89 @@ describe("registration and sessions", () => {
         const blocked = await request("auth/login", { email, password });
         expect(blocked.status).toBe(429);
         expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
+
+        ip = "198.51.100.1";
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+    });
+
+    it("doesn't count successful logins against the account", async () => {
+        const { email } = await register();
+        for (let attempt = 0; attempt < 12; attempt++) {
+            expect(
+                (await request("auth/login", { email, password })).status,
+            ).toBe(200);
+        }
+    });
+
+    it("counts failed logins per account across IPs, including parallel ones", async () => {
+        const { email } = await register();
+        const responses = await Promise.all(
+            Array.from({ length: 110 }, (_, attempt) =>
+                app.request("/api/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/json",
+                        "x-forwarded-for": `198.18.${Math.floor(attempt / 10)}.${attempt % 10}`,
+                    },
+                    body: JSON.stringify({ email, password: "wrong" }),
+                }),
+            ),
+        );
+        const statuses = responses.map((response) => response.status);
+        expect(statuses.filter((status) => status === 401)).toHaveLength(100);
+        expect(statuses.filter((status) => status === 429)).toHaveLength(10);
+    }, 60_000);
+
+    it("signs in parallel logins that both upgrade an older hash", async () => {
+        const { email, user } = await register();
+        const salt = randomBytes(16);
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: `scrypt$${salt.toString("hex")}$${scryptSync(password, salt, 64).toString("hex")}`,
+        });
+
+        const logins = await Promise.all(
+            Array.from({ length: 3 }, () =>
+                request("auth/login", { email, password }),
+            ),
+        );
+
+        expect(logins.map((login) => login.status)).toEqual([200, 200, 200]);
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.passwordHash,
+        ).toMatch(/^scrypt\$ln=17,r=8,p=1\$/);
+    });
+
+    it("upgrades a hash with older scrypt parameters on the next login", async () => {
+        const { email, user } = await register();
+        const salt = randomBytes(16);
+        const legacy = `scrypt$${salt.toString("hex")}$${scryptSync(password, salt, 64).toString("hex")}`;
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: legacy,
+        });
+
+        expect(
+            (await request("auth/login", { email, password: "wrong password" }))
+                .status,
+        ).toBe(401);
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.passwordHash,
+        ).toBe(legacy);
+
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+        const upgraded = (
+            await db.orm.public.User.where({ id: user.id }).first()
+        )?.passwordHash;
+        expect(upgraded).not.toBe(legacy);
+        expect(upgraded).toMatch(/^scrypt\$ln=17,r=8,p=1\$/);
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
     });
 
     it("changes the password and revokes other sessions while retaining this device", async () => {
@@ -221,7 +389,6 @@ describe("registration and sessions", () => {
         mail.mockRejectedValueOnce(new Error("SMTP unavailable"));
         vi.spyOn(console, "error").mockImplementation(() => {});
         const { cookie } = await register();
-        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
         expect(
             (await request("auth/verify-email/resend", {}, cookie)).status,
         ).toBe(204);
@@ -250,14 +417,66 @@ describe("email verification and licenses", () => {
     it("accepts a token only once and makes the account verified", async () => {
         const { cookie } = await register();
         const token = lastToken();
-        expect((await request("auth/verify-email", { token })).status).toBe(
-            200,
-        );
+        const verified = await request("auth/verify-email", { token }, cookie);
+        expect(verified.status).toBe(200);
         expect((await request("auth/verify-email", { token })).status).toBe(
             400,
         );
         const me = await (await request("auth/me", undefined, cookie)).json();
         expect(me.user.emailVerified).toBe(true);
+    });
+
+    it("signs out every other session when the link is opened with the password elsewhere", async () => {
+        const { cookie: other, user } = await register();
+        const response = await request("auth/verify-email", {
+            token: lastToken(),
+            password,
+        });
+        expect(response.status).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(401);
+        const sessions = await db.orm.public.Session.where({
+            userId: user.id,
+        }).all();
+        expect(sessions.map((session) => session.id)).toEqual([
+            sessionIdFor(sessionCookie(response).slice("session=".length)),
+        ]);
+    });
+
+    it("keeps this session and ends the others when the account's owner opens the link", async () => {
+        const { email, cookie, user } = await register();
+        const other = sessionCookie(
+            await request("auth/login", { email, password }),
+        );
+        const response = await request(
+            "auth/verify-email",
+            { token: lastToken() },
+            cookie,
+        );
+        expect(response.status).toBe(200);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(401);
+        expect(
+            await db.orm.public.Session.where({ userId: user.id }).all(),
+        ).toHaveLength(1);
+    });
+
+    it("signs out another account when its link is opened", async () => {
+        const first = await register();
+        const second = await register();
+        const response = await request(
+            "auth/verify-email",
+            { token: lastToken(), password },
+            first.cookie,
+        );
+        expect((await response.json()).user.id).toBe(second.user.id);
+        expect((await request("auth/me", undefined, first.cookie)).status).toBe(
+            401,
+        );
+        // the old cookie is cleared, then replaced
+        const cookie = response.headers.getSetCookie().at(-1)!.split(";")[0];
+        const me = await request("auth/me", undefined, cookie);
+        expect((await me.json()).user.id).toBe(second.user.id);
     });
 
     it("invalidates the earlier token when a new email is sent", async () => {
@@ -271,9 +490,9 @@ describe("email verification and licenses", () => {
         expect(
             (await request("auth/verify-email", { token: oldToken })).status,
         ).toBe(400);
-        expect((await request("auth/verify-email", { token })).status).toBe(
-            200,
-        );
+        expect(
+            (await request("auth/verify-email", { token, password })).status,
+        ).toBe(200);
     });
 
     it("rejects expired tokens", async () => {
@@ -307,8 +526,38 @@ describe("email verification and licenses", () => {
             (await request("auth/verify-email", { token: oldToken })).status,
         ).toBe(400);
         expect(
-            (await request("auth/verify-email", { token: lastToken() })).status,
+            (
+                await request("auth/verify-email", {
+                    token: lastToken(),
+                    password,
+                })
+            ).status,
         ).toBe(200);
+    });
+
+    it("signs out other devices when the email changes", async () => {
+        const { email, cookie } = await register();
+        const other = sessionCookie(
+            await request("auth/login", { email, password }),
+        );
+        expect(
+            (await request("auth/profile", { email, username: "Bob" }, cookie))
+                .status,
+        ).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(200);
+
+        const changed = await request(
+            "auth/profile",
+            {
+                email: `api-${randomUUID()}@example.com`,
+                username: "Bob",
+                currentPassword: password,
+            },
+            cookie,
+        );
+        expect(changed.status).toBe(200);
+        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(401);
     });
 
     it("guards checkout and grants a lifetime license only after confirmation", async () => {
@@ -320,7 +569,7 @@ describe("email verification and licenses", () => {
             (await request("billing/checkout", { plan: "lifetime" }, cookie))
                 .status,
         ).toBe(403);
-        await request("auth/verify-email", { token: lastToken() });
+        await request("auth/verify-email", { token: lastToken() }, cookie);
         expect(
             (await request("billing/checkout", { plan: "unknown" }, cookie))
                 .status,
@@ -360,7 +609,7 @@ describe("email verification and licenses", () => {
 
     it("refuses checkout without the withdrawal waiver", async () => {
         const { cookie, user } = await register();
-        await request("auth/verify-email", { token: lastToken() });
+        await request("auth/verify-email", { token: lastToken() }, cookie);
         for (const body of [
             { plan: "lifetime" },
             { plan: "lifetime", withdrawalWaiver: "true" },
@@ -377,7 +626,7 @@ describe("email verification and licenses", () => {
 
     it("rejects another account's checkout and does not grant an unpaid license", async () => {
         const { cookie, user } = await register();
-        await request("auth/verify-email", { token: lastToken() });
+        await request("auth/verify-email", { token: lastToken() }, cookie);
         const checkout = await request(
             "billing/checkout",
             { plan: "lifetime", withdrawalWaiver: true },
@@ -412,12 +661,26 @@ describe("email verification and licenses", () => {
                 )
             ).status,
         ).toBe(400);
+        for (const currentPassword of [undefined, "wrong password!"]) {
+            const response = await request(
+                "auth/delete-account",
+                { confirmation: "delete my account", currentPassword },
+                cookie,
+            );
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({
+                error: "Current password is incorrect",
+            });
+        }
         expect((await request("auth/me", undefined, cookie)).status).toBe(200);
         expect(
             (
                 await request(
                     "auth/delete-account",
-                    { confirmation: "delete my account" },
+                    {
+                        confirmation: "delete my account",
+                        currentPassword: password,
+                    },
                     cookie,
                 )
             ).status,
@@ -435,6 +698,36 @@ describe("email verification and licenses", () => {
         ).toBeNull();
         expect((await request("auth/me", undefined, cookie)).status).toBe(401);
     });
+
+    it("asks social-only accounts to sign in again before deleting", async () => {
+        const { user, cookie } = await register();
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: null,
+        });
+        const signedInAt = (minutesAgo: number) =>
+            db.orm.public.Session.where({ userId: user.id }).updateAll({
+                createdAt: new Date(
+                    Date.now() - minutesAgo * 60_000,
+                ).toISOString(),
+            });
+        const confirm = { confirmation: "delete my account" };
+
+        await signedInAt(11);
+        const stale = await request("auth/delete-account", confirm, cookie);
+        expect(stale.status).toBe(403);
+        expect((await stale.json()).error).toContain("Sign in again");
+        expect(
+            await db.orm.public.User.where({ id: user.id }).first(),
+        ).not.toBeNull();
+
+        await signedInAt(1);
+        expect(
+            (await request("auth/delete-account", confirm, cookie)).status,
+        ).toBe(204);
+        expect(
+            await db.orm.public.User.where({ id: user.id }).first(),
+        ).toBeNull();
+    });
 });
 
 describe("password reset", () => {
@@ -446,7 +739,7 @@ describe("password reset", () => {
         return lastToken();
     }
 
-    it("answers the same for unknown, social-only and password accounts", async () => {
+    it("answers the same for unknown, unverified social-only and password accounts", async () => {
         const { email } = await register();
         const social = await db.orm.public.User.create({
             email: `social-${randomUUID()}@example.com`,
@@ -464,7 +757,16 @@ describe("password reset", () => {
             });
             expect(response.status).toBe(204);
         }
-        expect(mail).not.toHaveBeenCalled();
+        // the social-only account gets a verification link, not a reset link
+        await vi.waitFor(() =>
+            expect(mail).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({
+                    to: social.email,
+                    subject: "Verify your PulseBoard email address",
+                }),
+            ),
+        );
+        mail.mockClear();
         const response = await request("auth/password-reset", {
             email: ` ${email.toUpperCase()} `,
         });
@@ -474,6 +776,10 @@ describe("password reset", () => {
                 to: email,
                 subject: "Reset your PulseBoard password",
                 html: expect.stringContaining("/reset-password?token="),
+                // the address only after the #, for password managers
+                text: expect.stringContaining(
+                    `#email=${encodeURIComponent(email)}`,
+                ),
             }),
         );
     });
@@ -591,33 +897,35 @@ describe("password reset", () => {
     });
 
     it("never mails a link built from a forged Host header", async () => {
-        const { email } = await register();
+        const { email, cookie } = await register();
         mail.mockClear();
-        vi.spyOn(console, "error").mockImplementation(() => {});
-        const forged = (headers: Record<string, string> = {}) =>
-            app.request("http://evil.example/api/auth/password-reset", {
-                method: "POST",
-                headers: {
-                    "content-type": "application/json",
-                    "x-forwarded-for": ip,
-                    ...headers,
-                },
-                body: JSON.stringify({ email }),
-            });
         try {
             vi.stubEnv("NODE_ENV", "production");
-            vi.stubEnv("PUBLIC_URL", "");
-            expect((await forged()).status).toBe(204);
-            expect(mail).not.toHaveBeenCalled();
-
             vi.stubEnv("PUBLIC_URL", "https://pulseboard.example");
-            expect((await forged({ host: "evil.example" })).status).toBe(204);
-            expect(mail.mock.calls.at(-1)?.[0].text).toContain(
-                "https://pulseboard.example/reset-password?token=",
+            const prodApp = createApp();
+            const forged = (path: string, body: unknown) =>
+                prodApp.request(`http://evil.example/api/${path}`, {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/json",
+                        "x-forwarded-for": ip,
+                        host: "evil.example",
+                        cookie,
+                    },
+                    body: JSON.stringify(body),
+                });
+            expect(
+                (await forged("auth/password-reset", { email })).status,
+            ).toBe(204);
+            expect((await forged("auth/verify-email/resend", {})).status).toBe(
+                204,
             );
-            expect(mail.mock.calls.at(-1)?.[0].html).not.toContain(
-                "evil.example",
-            );
+            expect(mail).toHaveBeenCalledTimes(2);
+            for (const [message] of mail.mock.calls) {
+                expect(message.text).toContain("https://pulseboard.example/");
+                expect(message.text).not.toContain("evil.example");
+                expect(message.html).not.toContain("evil.example");
+            }
         } finally {
             vi.unstubAllEnvs();
         }
@@ -651,7 +959,7 @@ describe("password reset", () => {
         await requestReset(email);
         await request(
             "auth/delete-account",
-            { confirmation: "delete my account" },
+            { confirmation: "delete my account", currentPassword: password },
             cookie,
         );
         expect(

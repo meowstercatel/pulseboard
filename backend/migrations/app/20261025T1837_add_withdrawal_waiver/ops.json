@@ -1,0 +1,44 @@
+[
+  {
+    "id": "column.public.User.withdrawalWaiverAt",
+    "label": "Add column \"withdrawalWaiverAt\" to \"User\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "withdrawalWaiverAt",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"withdrawalWaiverAt\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "withdrawalWaiverAt"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"withdrawalWaiverAt\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ADD COLUMN \"withdrawalWaiverAt\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"withdrawalWaiverAt\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "withdrawalWaiverAt"
+        ]
+      }
+    ]
+  }
+]

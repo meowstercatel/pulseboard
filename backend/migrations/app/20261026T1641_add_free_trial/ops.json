@@ -1,0 +1,212 @@
+[
+  {
+    "id": "column.public.User.trialEligible",
+    "label": "Add column \"trialEligible\" to \"User\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "trialEligible",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"trialEligible\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEligible"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"trialEligible\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ADD COLUMN \"trialEligible\" bool DEFAULT false NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"trialEligible\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEligible"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropDefault.User.trialEligible",
+    "label": "Drop default on \"User\".\"trialEligible\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "trialEligible",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"trialEligible\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEligible"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop default on \"trialEligible\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ALTER COLUMN \"trialEligible\" DROP DEFAULT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"trialEligible\" has no default",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"column_default\" IS NULL)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEligible"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "setDefault.User.trialEligible",
+    "label": "Set default on \"User\".\"trialEligible\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "trialEligible",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"trialEligible\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEligible"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "set default on \"trialEligible\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ALTER COLUMN \"trialEligible\" SET DEFAULT true"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"trialEligible\" has a default",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"column_default\" IS NOT NULL)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEligible"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.User.trialEndsAt",
+    "label": "Add column \"trialEndsAt\" to \"User\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "trialEndsAt",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"trialEndsAt\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEndsAt"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"trialEndsAt\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ADD COLUMN \"trialEndsAt\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"trialEndsAt\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialEndsAt"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.User.trialRemindersSent",
+    "label": "Add column \"trialRemindersSent\" to \"User\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "trialRemindersSent",
+        "table": "User"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"trialRemindersSent\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialRemindersSent"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"trialRemindersSent\"",
+        "sql": "ALTER TABLE \"public\".\"User\" ADD COLUMN \"trialRemindersSent\" int4 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"trialRemindersSent\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "User",
+          "trialRemindersSent"
+        ]
+      }
+    ]
+  }
+]

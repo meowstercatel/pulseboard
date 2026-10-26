@@ -1,16 +1,28 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import type { Contract } from "../../backend/src/prisma/contract.d";
 import { testEnvironment } from "../environment.mjs";
 
 // Playwright runs from the repository root
 const sample = (name: string) => resolve("samples", name);
 
 // The account is seeded straight into the test database: onboarding.spec.ts
-// already covers registering, verifying and paying.
+// already covers registering, verifying and paying. It opens its own client:
+// closing the shared one from backend/src/prisma/db.ts would break any later
+// test in this worker, e.g. a retry or --repeat-each.
 async function seedAccount() {
     Object.assign(process.env, testEnvironment());
-    const { db } = await import("../../backend/src/prisma/db.js");
+    const { default: postgres } =
+        await import("../../backend/node_modules/@prisma/orm-postgres/dist/runtime.mjs");
+    const { default: contractJson } = await import(
+        "../../backend/src/prisma/contract.json",
+        { with: { type: "json" } }
+    );
+    const db = postgres<Contract>({
+        contractJson,
+        url: process.env["DATABASE_URL"]!,
+    });
     const now = new Date().toISOString();
     const user = await db.orm.public.User.create({
         email: `e2e-datasets-${randomUUID()}@example.com`,
@@ -20,7 +32,7 @@ async function seedAccount() {
     });
     const token = randomBytes(32).toString("base64url");
     await db.orm.public.Session.create({
-        id: token,
+        id: createHash("sha256").update(token).digest("hex"),
         userId: user.id,
         expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     });
@@ -68,9 +80,7 @@ test("import CSV files, see the error report and delete a dataset", async ({
         // the previous file's report goes away as soon as another is chosen
         await expect(page.locator("#report")).toBeHidden();
         await expect(page.locator("#import-error")).toBeHidden();
-        await page
-            .locator('cds-text-input[name="name"] input')
-            .fill("Web server");
+        await page.getByLabel("Name (optional)").fill("Web server");
         await page.locator("#import-button").click();
         await expect(page.locator("#import-success")).toHaveText(
             'Imported 650 rows into "Web server".',

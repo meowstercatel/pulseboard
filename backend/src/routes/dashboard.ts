@@ -1,12 +1,20 @@
+import { setImmediate } from "node:timers/promises";
 import { Hono } from "hono";
 import { requireAuth, requireLicense, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
+import {
+    CAPACITY_HORIZON_DAYS,
+    CAPACITY_HORIZON_HOURS,
+    compareCapacity,
+} from "../forecast/capacity.js";
 import {
     forecast,
     HOUR_MS,
     InsufficientHistory,
     MIN_DAYS,
+    NOTE,
     observedDays,
+    THRESHOLDS,
 } from "../forecast/index.js";
 
 export const MAX_CHART_POINTS = 600;
@@ -440,5 +448,100 @@ dashboard.get("/:id/forecast", async (c) => {
             days,
         },
         ...result,
+    });
+});
+
+const capacityMetrics = ["diskPercent", "ramPercent"] as const;
+
+// Disk and RAM forecasts for every host in the dataset, CAPACITY_HORIZON_HOURS
+// ahead, in compareCapacity's order: soonest trouble first.
+dashboard.get("/:id/capacity", async (c) => {
+    const id = Number(c.req.param("id"));
+    const lookbackMs = FORECAST_LOOKBACK_DAYS * 86400000;
+    // The hourly averages /forecast uses, for both metrics and every host at once.
+    const plan = db.raw.sql`
+        WITH latest AS (
+            SELECT host, max(timestamp) AS last FROM "Metric" WHERE "datasetId" = ${id} GROUP BY host
+        )
+        SELECT host, start::text AS start, "diskPercent", "ramPercent" FROM (
+            SELECT m.host,
+                date_bin(${HOUR_MS}::double precision * interval '1 millisecond', m.timestamp, timestamptz '1970-01-01Z') AS start,
+                avg(m."diskPercent") AS "diskPercent", avg(m."ramPercent") AS "ramPercent"
+            FROM "Metric" m JOIN latest l USING (host)
+            WHERE m."datasetId" = ${id}
+                AND m.timestamp > l.last - ${lookbackMs}::double precision * interval '1 millisecond'
+            GROUP BY 1, 2
+        ) hourly
+        ORDER BY host, hourly.start`
+        .returnsRow({
+            host: "pg/text@1",
+            start: "pg/text@1",
+            diskPercent: "pg/float8@1",
+            ramPercent: "pg/float8@1",
+        })
+        .build();
+    type Readings = {
+        start: number;
+        disk: Map<number, number>;
+        ram: Map<number, number>;
+    };
+    const hosts = new Map<string, Readings>();
+    for await (const row of db.runtime().query(plan)) {
+        const t = Date.parse(row.start);
+        let host = hosts.get(row.host);
+        if (!host) {
+            host = { start: t, disk: new Map(), ram: new Map() };
+            hosts.set(row.host, host);
+        }
+        host.disk.set(t, row.diskPercent);
+        host.ram.set(t, row.ramPercent);
+    }
+
+    const forecastHost = ([host, readings]: [string, Readings]) => {
+        const end = Math.max(...readings.disk.keys());
+        const hours = (end - readings.start) / HOUR_MS + 1;
+        return capacityMetrics.map((metric) => {
+            const byHour =
+                metric === "diskPercent" ? readings.disk : readings.ram;
+            const values = Array.from(
+                { length: hours },
+                (_, i) => byHour.get(readings.start + i * HOUR_MS) ?? null,
+            );
+            const days = observedDays(values);
+            if (days < MIN_DAYS)
+                return {
+                    host,
+                    metric,
+                    insufficient: { days, requiredDays: MIN_DAYS },
+                };
+            const result = forecast(
+                { start: readings.start, values },
+                { horizonHours: CAPACITY_HORIZON_HOURS, percent: true },
+            );
+            return {
+                host,
+                metric,
+                model: result.model,
+                latest: values.findLast((v) => v !== null) ?? null,
+                thresholds: result.thresholds!,
+            };
+        });
+    };
+    const rows: ReturnType<typeof forecastHost> = [];
+    for (const entry of hosts) {
+        rows.push(...forecastHost(entry));
+        // A forecast takes ~10 ms and a large dataset has hundreds of hosts:
+        // let other requests run between hosts instead of blocking for seconds.
+        await setImmediate();
+    }
+
+    rows.sort(compareCapacity);
+
+    return c.json({
+        datasetId: id,
+        horizon: `${CAPACITY_HORIZON_DAYS}d`,
+        thresholds: THRESHOLDS,
+        rows,
+        note: NOTE,
     });
 });

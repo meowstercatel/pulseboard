@@ -1,44 +1,57 @@
 ---
 import AuthLayout from "../layouts/AuthLayout.astro";
 import OAuthButtons from "../components/OAuthButtons.astro";
+import Field from "../components/Field.astro";
 ---
 
-<AuthLayout>
-    <form id="register-form">
-        <cds-text-input
+<AuthLayout title="Create account">
+    <form id="register-form" method="post" novalidate>
+        <Field
+            id="register-email"
             label="Email"
             name="email"
             type="email"
-            autocomplete="email"
-        ></cds-text-input>
-        <cds-text-input
+            autocomplete="username"
+        />
+        <!-- a display name: you log in with the email, so it isn't "username" -->
+        <Field
+            id="register-username"
             label="Username (optional)"
             name="username"
-            autocomplete="username"
-        ></cds-text-input>
-        <cds-text-input
+            autocomplete="nickname"
+        />
+        <Field
+            id="register-password"
             label="Password"
             name="password"
             type="password"
-            show-password-visibility-toggle
             autocomplete="new-password"
-            helper-text="At least 8 characters"
-        ></cds-text-input>
-        <cds-text-input
+            helper="At least 8 characters"
+            strength
+        />
+        <Field
+            id="register-confirm"
             label="Repeat password"
             name="confirm"
             type="password"
-            show-password-visibility-toggle
             autocomplete="new-password"
-        ></cds-text-input>
+        />
         <cds-inline-notification
             kind="error"
             title="Couldn't register"
             hide-close-button
             hidden
         ></cds-inline-notification>
-        <cds-button>Register</cds-button>
+        <button class="button" type="submit" disabled>
+            Create account
+        </button>
     </form>
+    <div id="sent" hidden>
+        <p>
+            Check your inbox at <strong id="sent-email"></strong>. Open the link
+            we sent to finish setting up your account.
+        </p>
+    </div>
     <OAuthButtons />
     <p>
         By creating an account you agree to the{" "}
@@ -46,16 +59,33 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         <cds-link href="/privacy">Privacy Policy</cds-link>
     </p>
     <p>
-        Already have an account? <cds-link href="/login">Log in</cds-link>
+        Already have an account?{" "}
+        <cds-link id="login-link" href="/login">
+            Log in
+        </cds-link>
     </p>
 </AuthLayout>
 
 <script>
-    import { accountDestination, currentUser, register } from "../lib/auth";
+    import {
+        accountDestination,
+        currentUser,
+        register,
+        safeNext,
+    } from "../lib/auth";
     import { bindForm } from "../lib/form";
 
+    // passed on from the login page; dropped once the new account has to
+    // verify its email
+    const next = safeNext(new URLSearchParams(location.search).get("next"));
+    if (next) {
+        document
+            .getElementById("login-link")!
+            .setAttribute("href", `/login?${new URLSearchParams({ next })}`);
+    }
+
     currentUser().then((user) => {
-        if (user) location.replace(accountDestination(user));
+        if (user) location.replace(accountDestination(user, next));
     });
 
     bindForm(
@@ -64,13 +94,16 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             if (field("password") !== field("confirm")) {
                 return "Passwords don't match";
             }
-            const result = await register(
-                field("email"),
+            const email = field("email");
+            const error = await register(
+                email,
                 field("password"),
                 field("username"),
             );
-            if ("error" in result) return result.error;
-            location.href = "/verify-email";
+            if (error) return error;
+            document.getElementById("sent-email")!.textContent = email.trim();
+            document.getElementById("register-form")!.hidden = true;
+            document.getElementById("sent")!.hidden = false;
             return null;
         },
     );

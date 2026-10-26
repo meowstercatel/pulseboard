@@ -17,30 +17,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12.10.1
-      - name: Install dependencies
+      # pnpm version comes from packageManager in package.json
+      - name: Enable pnpm
+        id: pnpm
         run: |
-          npm ci
-          pnpm --dir backend install --frozen-lockfile
-          npm --prefix frontend ci
+          corepack enable
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm.outputs.store }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm run format:check
       - name: Check test types
-        run: npm run test:typecheck
+        run: pnpm run test:typecheck
       - name: Unit tests
-        run: npm test
+        run: pnpm test
       - name: Start test PostgreSQL and Mailpit
-        run: npm run test:services
+        run: pnpm run test:services
       - name: API integration tests
-        run: npm run test:integration
+        run: pnpm run test:integration
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
       - name: Build both apps and run browser tests
-        run: npm run test:e2e
+        run: pnpm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -51,4 +55,4 @@ jobs:
           retention-days: 7
       - name: Stop test services
         if: always()
-        run: npm run test:services:stop
+        run: pnpm run test:services:stop

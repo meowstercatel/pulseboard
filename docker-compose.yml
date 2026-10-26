@@ -14,13 +14,12 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: brings the database schema up to the Prisma contract, then exits.
-  # Applies additive and widening changes; refuses destructive ones (e.g. drops).
+  # One-shot: applies the pending migrations in backend/migrations, then exits.
   migrate:
     build:
       context: .
       target: backend
-    command: ["pnpm", "prisma", "db", "update", "--no-interactive"]
+    command: ["pnpm", "prisma", "db", "migrate", "--no-interactive"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}
     depends_on:
@@ -34,12 +33,16 @@ services:
       args:
         GIT_BRANCH: ${GIT_BRANCH:-}
         GIT_COMMIT: ${GIT_COMMIT:-}
+        PUBLIC_URL: ${PUBLIC_URL:-}
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      # only nginx on this host should connect: X-Forwarded-For is trusted from
+      # the Docker gateway, which direct connections can also arrive from
+      - "127.0.0.1:${PORT:-3000}:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}
-      # set to "true" when the server sits behind a reverse proxy, see src/auth/rateLimit.ts
+      # set to "true" when the server sits behind a reverse proxy; X-Forwarded-For is then
+      # read only from loopback/private peers, see src/auth/rateLimit.ts
       TRUST_PROXY: ${TRUST_PROXY:-}
       # public origin, e.g. https://pulseboard.example.com; OAuth redirect URIs are built from it
       PUBLIC_URL: ${PUBLIC_URL:-}
@@ -56,6 +59,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_SUBSCRIPTION: ${STRIPE_PRICE_SUBSCRIPTION:-}
+      STRIPE_PRICE_YEARLY: ${STRIPE_PRICE_YEARLY:-}
       STRIPE_PRICE_LIFETIME: ${STRIPE_PRICE_LIFETIME:-}
     depends_on:
       db:
