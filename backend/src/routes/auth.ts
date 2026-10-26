@@ -1,6 +1,5 @@
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import {
-    createVerificationMail,
     sendVerificationEmail,
     trySendVerificationEmail,
     verifyEmailToken,
@@ -29,7 +28,7 @@ import {
     tooManyRequests,
 } from "../auth/rateLimit.js";
 import { accountExistsTemplate } from "../mail/accountExistsTemplate.js";
-import { sendMail, type Mail } from "../mail/mailer.js";
+import { sendMail } from "../mail/mailer.js";
 import { db } from "../prisma/db.js";
 import { cancelSubscriptionOf } from "./billing.js";
 import { isUniqueViolation } from "../prisma/errors.js";
@@ -140,27 +139,22 @@ auth.post("/register", limitByIp(registerIpLimiter), async (c) => {
     // Hashed even when the email is taken, so both cases take as long
     const passwordHash = await hashPassword(password);
     const padding = new Promise((r) => setTimeout(r, MIN_REGISTER_RESPONSE_MS));
-    // Not awaited, so a slow mail server doesn't reveal which email was sent
-    const mail = await registrationEmail(c, email, username, passwordHash);
-    if (mail) {
-        sendMail(mail).catch((err) => {
-            console.error("Couldn't send registration email", err);
-        });
-    }
+    await registerOrNotify(c, email, username, passwordHash);
     await padding;
     // The same answer whether or not the email is taken. The session comes from
     // the verification link, which only the owner of the address gets.
     return c.body(null, 202);
 });
 
-// Creates the account and returns its verification email, or, if the address
-// already has an account, a note telling its owner to log in instead
-async function registrationEmail(
+// Creates the account and emails its verification link, or, if the address
+// already has an account, emails its owner to log in instead. Mail goes out in
+// the background, so a slow mail server doesn't reveal which one was sent.
+async function registerOrNotify(
     c: Context,
     email: string,
     username: string | undefined,
     passwordHash: string,
-): Promise<Mail | null> {
+) {
     const existing = await db.orm.public.User.where({ email })
         .select("id")
         .first();
@@ -171,29 +165,26 @@ async function registrationEmail(
                 username: username ?? null,
                 passwordHash,
             });
-            return await createVerificationMail(c, user.id).catch((err) => {
-                console.error(
-                    `Couldn't create verification email for user ${user.id}`,
-                    err,
-                );
-                return null;
-            });
+            await trySendVerificationEmail(c, user.id);
+            return;
         } catch (err) {
             // Lost a race with a parallel registration of the same email
             if (!isUniqueViolation(err)) throw err;
         }
     }
 
-    if (accountExistsEmailLimiter.retryAfter(email)) return null;
+    if (accountExistsEmailLimiter.retryAfter(email)) return;
     accountExistsEmailLimiter.hit(email);
-    return {
+    sendMail({
         to: email,
         ...accountExistsTemplate(
             publicUrl(c, "/login"),
             publicUrl(c, "/forgot-password"),
             email,
         ),
-    };
+    }).catch((err) => {
+        console.error("Couldn't send account exists email", err);
+    });
 }
 
 auth.post("/login", limitByIp(loginIpLimiter), async (c) => {

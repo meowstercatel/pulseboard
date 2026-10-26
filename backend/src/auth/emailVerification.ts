@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
-import { sendMail, type Mail } from "../mail/mailer.js";
+import { sendMail } from "../mail/mailer.js";
 import { verifyEmailTemplate } from "../mail/verifyEmailTemplate.js";
 import { db } from "../prisma/db.js";
 import { publicUrl } from "./publicUrl.js";
@@ -12,13 +12,9 @@ function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
 }
 
-// Stores a new link for this user, replacing any earlier one so only the
-// newest works, and returns the email to send. Returns null if the email is
-// already verified.
-export async function createVerificationMail(
-    c: Context,
-    userId: number,
-): Promise<Mail | null> {
+// Replaces any earlier link for this user, so only the newest one works.
+// Returns null if the email is already verified.
+async function createVerificationMail(c: Context, userId: number) {
     const token = randomBytes(32).toString("base64url");
     const user = await db.transaction(async (tx) => {
         // A no-op update locks the user row until commit, so an email change
