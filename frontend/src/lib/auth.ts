@@ -6,8 +6,48 @@ export type User = {
     emailVerified: boolean;
 };
 
-export function accountDestination(user: User): string {
+// Pages that would send a logged-in user straight back out
+const AUTH_PAGES = new Set(["/login", "/register"]);
+const BASE = "http://pulseboard.invalid";
+// The OAuth state cookie carries it, and cookies are capped at about 4 KB
+const MAX_LENGTH = 1024;
+
+// A ?next= value is followed only if it is a page on this site. Browsers treat
+// "//host" and backslashes as another origin and drop tabs and newlines.
+export function safeNext(raw: string | null | undefined): string | null {
+    if (!raw || raw.length > MAX_LENGTH) return null;
+    if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+    if (/[\\\u0000-\u0020\u007f]/.test(raw)) return null;
+    let url: URL;
+    try {
+        url = new URL(raw, BASE);
+    } catch {
+        return null;
+    }
+    if (url.origin !== BASE) return null;
+    // the static server also answers /login/ and /login/index.html
+    const page = url.pathname
+        .toLowerCase()
+        .replace(/\/index\.html$/, "")
+        .replace(/\/+$/, "");
+    if (AUTH_PAGES.has(page) || page === "/api" || page.startsWith("/api/")) {
+        return null;
+    }
+    return url.pathname + url.search + url.hash;
+}
+
+// The login page, set to come back to the current page afterwards
+export function loginUrl(): string {
+    const here = globalThis.location?.pathname;
+    const next = here && safeNext(here + location.search);
+    return next ? `/login?${new URLSearchParams({ next })}` : "/login";
+}
+
+export function accountDestination(user: User, next?: string | null): string {
     if (!user.emailVerified) return "/verify-email";
+    // the page itself sends an unlicensed user on to /buy if it needs to
+    const requested = safeNext(next);
+    if (requested) return requested;
     return user.licensePlan ? "/overview" : "/buy";
 }
 
@@ -66,7 +106,7 @@ export async function resendVerificationEmail(): Promise<string | null> {
             method: "POST",
         });
         if (res.ok) return null;
-        if (res.status === 401) location.replace("/login");
+        if (res.status === 401) location.replace(loginUrl());
         const data = await res.json().catch(() => null);
         return data?.error ?? `Couldn't send the email (${res.status})`;
     } catch {
@@ -98,7 +138,7 @@ export function resetPassword(token: string, newPassword: string) {
 async function updateAccount(path: string, body: unknown): Promise<AuthResult> {
     const result = await post(path, body);
     if ("error" in result && result.status === 401) {
-        location.replace("/login");
+        location.replace(loginUrl());
     }
     return result;
 }
@@ -126,7 +166,7 @@ export async function deleteAccount(
             body: JSON.stringify({ confirmation, currentPassword }),
         });
         if (res.status === 204) return { deleted: true };
-        if (res.status === 401) location.replace("/login");
+        if (res.status === 401) location.replace(loginUrl());
         const data = await res.json().catch(() => null);
         return {
             error: data?.error ?? `Couldn't delete account (${res.status})`,
@@ -161,21 +201,33 @@ export async function currentUser(): Promise<User | null> {
     }
 }
 
-export async function requireUser(): Promise<User | null> {
+// Protected pages start hidden (HtmlTemplate's requiresAuth) so they don't
+// flash before a redirect; they are shown once the user may see them.
+async function guard(
+    redirect: (user: User) => string | null,
+): Promise<User | null> {
     const user = await currentUser();
-    if (!user) location.replace("/login");
+    const to = user ? redirect(user) : loginUrl();
+    if (to) {
+        location.replace(to);
+        return null;
+    }
+    globalThis.document?.documentElement.removeAttribute("data-auth-pending");
     return user;
 }
 
-// Unverified users are sent to the page asking them to check their inbox
-export async function requireVerifiedUser(): Promise<User | null> {
-    const user = await requireUser();
-    if (user && !user.emailVerified) location.replace("/verify-email");
-    return user?.emailVerified ? user : null;
+export function requireUser(): Promise<User | null> {
+    return guard(() => null);
 }
 
-export async function requireLicense(): Promise<User | null> {
-    const user = await requireVerifiedUser();
-    if (user && !user.licensePlan) location.replace("/buy");
-    return user?.licensePlan ? user : null;
+// Unverified users are sent to the page asking them to check their inbox
+export function requireVerifiedUser(): Promise<User | null> {
+    return guard((user) => (user.emailVerified ? null : "/verify-email"));
+}
+
+export function requireLicense(): Promise<User | null> {
+    return guard((user) => {
+        if (!user.emailVerified) return "/verify-email";
+        return user.licensePlan ? null : "/buy";
+    });
 }

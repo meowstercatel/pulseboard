@@ -1,5 +1,6 @@
 // Dataset, host and time-range selection shared by /overview, /history and
 // /forecast.
+import { loginUrl } from "./auth";
 import { listDatasets, type Dataset } from "./datasets";
 
 export const metricFields = [
@@ -49,7 +50,7 @@ export async function dashboardGet<T>(
     const res = await fetch(url, { signal, cache: "no-store" });
     const body = await res.json().catch(() => null);
     if (!res.ok) {
-        if (res.status === 401) location.replace("/login");
+        if (res.status === 401) location.replace(loginUrl());
         if (res.status === 402) location.replace("/buy");
         if (res.status === 403) location.replace("/verify-email");
         throw new DashboardError(

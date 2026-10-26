@@ -13,6 +13,7 @@ import {
     claimUnverifiedUser,
     trySendVerificationEmail,
 } from "../auth/emailVerification.js";
+import { safeNext } from "../auth/nextPath.js";
 import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
 import { publicUrl } from "../auth/publicUrl.js";
 import { createSession, type AuthEnv } from "../auth/session.js";
@@ -30,10 +31,16 @@ function redirectUri(c: Context, provider: string): string {
     return publicUrl(c, `/api/auth/oauth/${provider}/callback`);
 }
 
-// Only a code and the provider name go in the URL, so a crafted link can't put
-// its own text on the login page
-function fail(c: Context, code: OAuthErrorCode, provider: string) {
+// Only a code, the provider name and a checked same-origin path go in the
+// URL, so a crafted link can't put its own text on the login page
+function fail(
+    c: Context,
+    code: OAuthErrorCode,
+    provider: string,
+    next: string | null,
+) {
     const query = new URLSearchParams({ oauth_error: code, provider });
+    if (next) query.set("next", next);
     return c.redirect(`/login?${query}`);
 }
 
@@ -118,7 +125,11 @@ oauth.get("/:provider", (c) => {
 
     const state = randomBytes(16).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
-    setCookie(c, STATE_COOKIE, `${name}.${state}.${verifier}`, {
+    // the page to return to; encoded because the cookie is split on "."
+    const next = Buffer.from(safeNext(c.req.query("next")) ?? "").toString(
+        "base64url",
+    );
+    setCookie(c, STATE_COOKIE, `${name}.${state}.${verifier}.${next}`, {
         httpOnly: true,
         secure: process.env["NODE_ENV"] === "production",
         // Lax so the cookie comes back on the provider's top-level redirect
@@ -139,11 +150,15 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
 
     const cookie = getCookie(c, STATE_COOKIE);
     deleteCookie(c, STATE_COOKIE, { path: "/api/auth/oauth" });
-    const [cookieProvider, state, verifier] = cookie?.split(".") ?? [];
+    const [cookieProvider, state, verifier, encodedNext] =
+        cookie?.split(".") ?? [];
+    const next = safeNext(
+        Buffer.from(encodedNext ?? "", "base64url").toString(),
+    );
 
     // The user pressed "cancel" on the provider's consent screen
     if (c.req.query("error")) {
-        return fail(c, "cancelled", name);
+        return fail(c, "cancelled", name, next);
     }
 
     const code = c.req.query("code");
@@ -154,7 +169,7 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
         cookieProvider !== name ||
         c.req.query("state") !== state
     ) {
-        return fail(c, "expired", name);
+        return fail(c, "expired", name, next);
     }
 
     let user, created;
@@ -172,13 +187,15 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
             ({ user, created } = await resolveUser(name, provider, profile));
         }
     } catch (err) {
-        if (err instanceof OAuthError) return fail(c, err.code, name);
+        if (err instanceof OAuthError) return fail(c, err.code, name, next);
         console.error(`${label} sign-in failed`, err);
-        return fail(c, "failed", name);
+        return fail(c, "failed", name, next);
     }
 
     if (created && !user.emailVerifiedAt)
         await trySendVerificationEmail(c, user.id);
     await createSession(c, user.id);
+    // like the password login: unverified users go via /buy to /verify-email
+    if (next && user.emailVerifiedAt) return c.redirect(next);
     return c.redirect(user.licensePlan ? "/overview" : "/buy");
 });

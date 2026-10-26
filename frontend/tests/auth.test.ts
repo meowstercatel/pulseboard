@@ -1,11 +1,14 @@
+import { Window } from "happy-dom";
 import { expect, it, vi } from "vitest";
 import {
     accountDestination,
     type User,
     login,
+    loginUrl,
     requireUser,
     requireVerifiedUser,
     requireLicense,
+    safeNext,
 } from "../src/lib/auth";
 
 it.each([
@@ -17,6 +20,65 @@ it.each([
     expect(accountDestination({ emailVerified, licensePlan } as User)).toBe(
         expected,
     );
+});
+
+it.each([
+    ["/history", "/history"],
+    ["/overview?dataset=3", "/overview?dataset=3"],
+    ["/settings#delete", "/settings#delete"],
+    ["/a/../history", "/history"],
+    ["/%2F%2Fevil.example", "/%2F%2Fevil.example"],
+])("follows the same-origin path %s", (raw, expected) => {
+    expect(safeNext(raw)).toBe(expected);
+});
+
+it.each([
+    null,
+    "",
+    "history",
+    "//evil.example",
+    "///evil.example",
+    "/\\evil.example",
+    "\\evil.example",
+    "/\t/evil.example",
+    "/\n/evil.example",
+    " /history",
+    "https://evil.example/history",
+    "javascript:alert(1)",
+    "/login",
+    "/register?next=/history",
+    "/a/../login",
+    "/login/",
+    "/LOGIN",
+    "/register/index.html",
+    "/api/auth/oauth/google",
+    "/./api/auth/logout",
+    "/" + "a".repeat(1100),
+])("ignores %j as a next page", (raw) => {
+    expect(safeNext(raw)).toBeNull();
+});
+
+it.each([
+    [false, null, "/history", "/verify-email"],
+    [true, null, "/settings", "/settings"],
+    [true, "lifetime", "/history?dataset=2", "/history?dataset=2"],
+    [true, "lifetime", "//evil.example", "/overview"],
+])(
+    "returns a verified user to the requested page",
+    (emailVerified, licensePlan, next, expected) => {
+        expect(
+            accountDestination({ emailVerified, licensePlan } as User, next),
+        ).toBe(expected);
+    },
+);
+
+it.each([
+    ["/history", "?dataset=2", "/login?next=%2Fhistory%3Fdataset%3D2"],
+    ["/settings", "", "/login?next=%2Fsettings"],
+    ["/login", "", "/login"],
+])("sends %s%s to the login page and back", (pathname, search, expected) => {
+    vi.stubGlobal("location", { pathname, search });
+    expect(loginUrl()).toBe(expected);
 });
 
 it("turns a network failure into a form error", async () => {
@@ -90,4 +152,24 @@ it("allows a verified user with a license", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ user })));
     expect(await requireLicense()).toEqual(user);
     expect(replace).not.toHaveBeenCalled();
+});
+
+it("shows a protected page only once the user may see it", async () => {
+    const { document } = new Window();
+    vi.stubGlobal("document", document);
+    const root = document.documentElement;
+    root.setAttribute("data-auth-pending", "");
+    vi.stubGlobal("location", { replace: vi.fn() });
+    vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+            Response.json({
+                user: { emailVerified: true, licensePlan: null },
+            }),
+        ),
+    );
+    await requireLicense();
+    expect(root.hasAttribute("data-auth-pending")).toBe(true);
+    await requireVerifiedUser();
+    expect(root.hasAttribute("data-auth-pending")).toBe(false);
 });
