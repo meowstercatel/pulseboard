@@ -5,8 +5,6 @@ export { HOUR_MS, type Series } from "./models.js";
 
 export const MIN_DAYS = 14;
 export const THRESHOLDS = [80, 90, 100];
-// How far ahead /capacity forecasts disk and RAM for every host
-export const CAPACITY_HORIZON_HOURS = 720;
 export const BAND_LEVEL = 0.8;
 export const NOTE = "Forecasts are estimates, not a guarantee.";
 

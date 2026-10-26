@@ -4,10 +4,8 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { Contract } from "../../backend/src/prisma/contract.d";
 import { LIMITS } from "../../backend/src/datasets/limits";
-import {
-    CAPACITY_HORIZON_HOURS,
-    THRESHOLDS,
-} from "../../backend/src/forecast/index";
+import { CAPACITY_HORIZON_DAYS } from "../../backend/src/forecast/capacity";
+import { THRESHOLDS } from "../../backend/src/forecast/index";
 import { contactEmail } from "../../frontend/src/lib/legal";
 import { plans, price } from "../../frontend/src/lib/pricing";
 import { testEnvironment } from "../environment.mjs";
@@ -286,8 +284,13 @@ test("the demo shows only what PulseBoard shows for a CSV", async ({
         hasText: "Disk and RAM capacity",
     });
     await expect(capacity).toContainText(
-        `${CAPACITY_HORIZON_HOURS / 24} days past its latest reading`,
+        `${CAPACITY_HORIZON_DAYS} days past its latest reading`,
     );
+    await expect(
+        capacity.getByRole("cell", {
+            name: `Not within ${CAPACITY_HORIZON_DAYS} days`,
+        }),
+    ).not.toHaveCount(0);
     for (const percent of THRESHOLDS) {
         await expect(
             capacity.getByRole("columnheader", { name: `Reaches ${percent}%` }),

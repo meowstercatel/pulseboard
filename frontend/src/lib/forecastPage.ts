@@ -18,6 +18,7 @@ import {
     type History,
 } from "./history";
 import { renderHistoryChart } from "./historyChart";
+import { CAPACITY_HORIZON_DAYS } from "../../../backend/src/forecast/capacity";
 
 export type ModelName = "linear-trend" | "hour-of-week-trend" | "holt-winters";
 export type Crossing = {
@@ -125,7 +126,7 @@ export const crossingText = (t: Crossing) =>
     t.alreadyAbove
         ? "Already above"
         : t.crossesAt === null
-          ? "Not within 30 days"
+          ? `Not within ${CAPACITY_HORIZON_DAYS} days`
           : utc(Date.parse(t.crossesAt));
 
 export function initForecast(doc: Document = document) {

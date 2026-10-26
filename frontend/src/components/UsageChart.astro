@@ -24,14 +24,15 @@ const span = times.at(-1)! - start;
 const x = (t: number) => ((t - start) / span) * W;
 const y = (v: number) => H - v;
 // One polyline per run of readings with no gap inside it
-const segments: string[] = [];
+const segments: string[][] = [];
 times.forEach((t, i) => {
-    const point = `${x(t)},${y(values[i]!)}`;
     const broken =
         i === 0 || gaps.some((g) => g.start > times[i - 1]! && g.end <= t);
-    if (broken) segments.push(point);
-    else segments[segments.length - 1] += ` ${point}`;
+    if (broken) segments.push([]);
+    segments.at(-1)!.push(`${x(t)},${y(values[i]!)}`);
 });
+// A lone reading is drawn as a dot by a zero-length line's round caps
+const polylines = segments.map((p) => (p.length === 1 ? [p[0], p[0]] : p));
 const ticks = [0, 25, 50, 75, 100];
 // The middle label goes on the reading nearest the middle of the span
 const middle = times.reduce(
@@ -87,8 +88,8 @@ const last = values.at(-1)!;
                         height={H}
                     />
                 ))}
-                {segments.map((points) => (
-                    <polyline class="line" points={points} />
+                {polylines.map((points) => (
+                    <polyline class="line" points={points.join(" ")} />
                 ))}
             </svg>
             {spikes.map((i) => (
@@ -99,7 +100,7 @@ const last = values.at(-1)!;
                 />
             ))}
             <span class="end-label" style={`top: ${100 - last}%`}>
-                {last}%
+                {last} %
             </span>
             <div class="crosshair" hidden></div>
             <div class="dot" hidden></div>
@@ -164,7 +165,7 @@ const last = values.at(-1)!;
         position: relative;
         flex: 1;
         height: 8rem;
-        margin-inline-end: 2.5rem;
+        margin-inline-end: 3rem;
         cursor: crosshair;
         outline-offset: 4px;
     }
@@ -205,6 +206,7 @@ const last = values.at(-1)!;
         position: absolute;
         left: calc(100% + 0.5rem);
         transform: translateY(-50%);
+        white-space: nowrap;
         font-size: 0.75rem;
         font-weight: 600;
         color: var(--cds-text-primary, #161616);
@@ -249,7 +251,7 @@ const last = values.at(-1)!;
     .x-axis {
         position: relative;
         height: 1rem;
-        margin-inline: 2.75rem 2.5rem;
+        margin-inline: 2.75rem 3rem;
     }
     .x-axis span {
         position: absolute;

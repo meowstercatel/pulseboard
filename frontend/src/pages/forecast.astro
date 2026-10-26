@@ -5,6 +5,7 @@ import TrialBadge from "../components/TrialBadge.astro";
 import DashboardControls from "../components/DashboardControls.astro";
 import { metricFields } from "../lib/dashboardControls";
 import { horizons } from "../lib/forecastPage";
+import { limits } from "../lib/limits";
 ---
 
 <HtmlTemplate title="Forecast · PulseBoard" requiresAuth>
@@ -130,8 +131,8 @@ import { horizons } from "../lib/forecastPage";
             <cds-tile id="capacity" hidden>
                 <h3>Disk and RAM capacity</h3>
                 <p class="meta">
-                    Every host in the dataset, 30 days past its latest reading,
-                    soonest first.
+                    Every host in the dataset, {limits.capacityDays} days past
+                    its latest reading, soonest first.
                 </p>
                 <p id="capacity-status" role="status"></p>
                 <div class="table-wrap" id="capacity-table" hidden>
