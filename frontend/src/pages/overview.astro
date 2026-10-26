@@ -321,7 +321,13 @@ import { metricFields } from "../lib/dashboard";
     }
 </style>
 <script>
-    import "@carbon/web-components/es/components/ui-shell/index.js";
+    // only the header parts in use, not the side nav and switcher
+    import "@carbon/web-components/es/components/ui-shell/header.js";
+    import "@carbon/web-components/es/components/ui-shell/header-name.js";
+    import "@carbon/web-components/es/components/ui-shell/header-nav.js";
+    import "@carbon/web-components/es/components/ui-shell/header-nav-item.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu-item.js";
     import "@carbon/web-components/es/components/tile/index.js";
     import "@carbon/web-components/es/components/link/index.js";
     import "@carbon/web-components/es/components/button/index.js";

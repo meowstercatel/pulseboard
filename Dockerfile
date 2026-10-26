@@ -25,6 +25,9 @@ ARG GIT_BRANCH=
 ARG GIT_COMMIT=
 ENV PUBLIC_GIT_BRANCH=$GIT_BRANCH \
     PUBLIC_GIT_COMMIT=$GIT_COMMIT
+# canonical URLs, the sitemap and Open Graph links point at this origin
+ARG PUBLIC_URL=
+ENV PUBLIC_URL=$PUBLIC_URL
 RUN pnpm --dir frontend run build
 
 # ---- backend: install all deps and compile TypeScript ----

@@ -33,6 +33,7 @@ services:
       args:
         GIT_BRANCH: ${GIT_BRANCH:-}
         GIT_COMMIT: ${GIT_COMMIT:-}
+        PUBLIC_URL: ${PUBLIC_URL:-}
     restart: unless-stopped
     ports:
       # only nginx on this host should connect: X-Forwarded-For is trusted from

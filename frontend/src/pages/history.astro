@@ -751,7 +751,13 @@ const steps = ["0–20", "20–40", "40–60", "60–80", "80–100"];
     }
 </style>
 <script>
-    import "@carbon/web-components/es/components/ui-shell/index.js";
+    // only the header parts in use, not the side nav and switcher
+    import "@carbon/web-components/es/components/ui-shell/header.js";
+    import "@carbon/web-components/es/components/ui-shell/header-name.js";
+    import "@carbon/web-components/es/components/ui-shell/header-nav.js";
+    import "@carbon/web-components/es/components/ui-shell/header-nav-item.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu-item.js";
     import "@carbon/web-components/es/components/tile/index.js";
     import "@carbon/web-components/es/components/button/index.js";
     import { logout, requireLicense } from "../lib/auth";
