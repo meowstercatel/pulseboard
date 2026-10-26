@@ -1,5 +1,5 @@
 ```
-pnpm install
+pnpm install    # at the repository root; installs backend and frontend
 pnpm run dev
 ```
 

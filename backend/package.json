@@ -1,7 +1,6 @@
 {
   "name": "backend",
   "type": "module",
-  "packageManager": "pnpm@12.10.1",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
