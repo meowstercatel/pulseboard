@@ -8,8 +8,9 @@ const FROM =
 // SMTP_URL is e.g. smtp://mailpit:1025 or smtps://user:pass@smtp.example.com:465.
 // Without it mail is printed to the console, which is enough for local dev.
 const smtpUrl = process.env["SMTP_URL"];
-// Mail is sent while the request waits, so give up quickly on a dead server
-// instead of nodemailer's minutes-long defaults
+// Give up quickly on a dead server instead of nodemailer's minutes-long
+// defaults; some mail (resending a verification link) is sent while the
+// request waits
 const transport: Transporter | null = smtpUrl
     ? createTransport({
           url: smtpUrl,
