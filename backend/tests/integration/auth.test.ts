@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import {
     afterAll,
     afterEach,
@@ -59,6 +59,13 @@ function sessionCookie(response: Response) {
     return cookie!.split(";")[0];
 }
 
+async function trackUserByEmail(email: string) {
+    const row = await db.orm.public.User.where({ email }).first();
+    if (row) userIds.add(row.id);
+    return row;
+}
+
+// Registers, then logs in with the password: an unverified account with a session
 async function register() {
     const email = `api-${randomUUID()}@example.com`;
     const response = await request("auth/register", {
@@ -66,10 +73,12 @@ async function register() {
         password,
         username: " Alice ",
     });
-    const { user } = await response.json();
-    if (user) userIds.add(user.id);
-    expect(response.status).toBe(201);
-    return { email, user, response, cookie: sessionCookie(response) };
+    await trackUserByEmail(email);
+    expect(response.status).toBe(202);
+    const login = await request("auth/login", { email, password });
+    expect(login.status).toBe(200);
+    const { user } = await login.json();
+    return { email, user, response, cookie: sessionCookie(login) };
 }
 
 function lastToken() {
@@ -80,20 +89,44 @@ function lastToken() {
 }
 
 describe("registration and sessions", () => {
-    it("creates an account, sends verification and sets a private session cookie", async () => {
-        const { email, user, response, cookie } = await register();
+    it("creates an account and sends verification without signing in", async () => {
+        const email = `api-${randomUUID()}@example.com`;
+        const response = await request("auth/register", {
+            email,
+            password,
+            username: " Alice ",
+        });
+        expect(response.status).toBe(202);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        const row = await trackUserByEmail(email);
+        expect(row).toMatchObject({ username: "Alice", emailVerifiedAt: null });
+        expect(mail).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                to: email,
+                subject: "Verify your PulseBoard email address",
+            }),
+        );
+    });
+
+    it("signs in with the verification link and sets a private session cookie", async () => {
+        const email = `api-${randomUUID()}@example.com`;
+        await request("auth/register", { email, password, username: "Alice" });
+        await trackUserByEmail(email);
+        const response = await request("auth/verify-email", {
+            token: lastToken(),
+        });
+        expect(response.status).toBe(200);
+        const { user } = await response.json();
         expect(user).toEqual({
             id: expect.any(Number),
             email,
             username: "Alice",
             licensePlan: null,
-            emailVerified: false,
+            emailVerified: true,
         });
         expect(response.headers.get("set-cookie")).toContain("HttpOnly");
         expect(response.headers.get("set-cookie")).toContain("SameSite=Lax");
-        expect(mail).toHaveBeenCalledExactlyOnceWith(
-            expect.objectContaining({ to: email }),
-        );
+        const cookie = sessionCookie(response);
         const row = await db.orm.public.User.where({ id: user.id }).first();
         expect(row?.passwordHash).toMatch(/^scrypt\$/);
         expect(row?.passwordHash).not.toContain(password);
@@ -121,14 +154,50 @@ describe("registration and sessions", () => {
         expect(mail).not.toHaveBeenCalled();
     });
 
-    it("normalizes email before checking uniqueness", async () => {
-        const { email } = await register();
-        const duplicate = await request("auth/register", {
-            email: ` ${email.toUpperCase()} `,
+    it("answers the same for a taken email and mails its owner instead", async () => {
+        const { email, user } = await register();
+        mail.mockClear();
+        const freshEmail = `api-${randomUUID()}@example.com`;
+        const fresh = await request("auth/register", {
+            email: freshEmail,
             password,
         });
-        expect(duplicate.status).toBe(409);
-        expect(mail).toHaveBeenCalledTimes(1);
+        await trackUserByEmail(freshEmail);
+        const duplicate = await request("auth/register", {
+            email: ` ${email.toUpperCase()} `,
+            password: "The intruder's password!",
+        });
+        expect(duplicate.status).toBe(fresh.status);
+        expect(await duplicate.text()).toBe(await fresh.text());
+        expect(duplicate.headers.get("set-cookie")).toBeNull();
+        expect(mail).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                to: email,
+                subject: "You already have a PulseBoard account",
+            }),
+        );
+        expect(mail.mock.calls.at(-1)?.[0].text).toContain("/forgot-password");
+        // the existing account is untouched
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+        expect(await db.orm.public.User.where({ email }).all()).toHaveLength(1);
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.passwordHash,
+        ).toBeTruthy();
+    });
+
+    it("caps the emails to an existing address without changing the answer", async () => {
+        const { email } = await register();
+        mail.mockClear();
+        for (let attempt = 0; attempt < 5; attempt++) {
+            ip = `198.51.100.${attempt + 1}`;
+            expect(
+                (await request("auth/register", { email, password })).status,
+            ).toBe(202);
+        }
+        expect(mail).toHaveBeenCalledTimes(3);
     });
 
     it("logs in, logs out and rejects the revoked cookie", async () => {
@@ -180,10 +249,9 @@ describe("registration and sessions", () => {
         expect(await db.orm.public.Session.where({ id }).first()).toBeNull();
     });
 
-    it("rate limits failed logins per account even when the IP changes", async () => {
+    it("rate limits logins per account and IP without locking out other IPs", async () => {
         const { email } = await register();
         for (let attempt = 0; attempt < 10; attempt++) {
-            ip = `198.51.100.${attempt + 1}`;
             expect(
                 (await request("auth/login", { email, password: "wrong" }))
                     .status,
@@ -192,6 +260,69 @@ describe("registration and sessions", () => {
         const blocked = await request("auth/login", { email, password });
         expect(blocked.status).toBe(429);
         expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
+
+        ip = "198.51.100.1";
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+    });
+
+    it("doesn't count successful logins against the account", async () => {
+        const { email } = await register();
+        for (let attempt = 0; attempt < 12; attempt++) {
+            expect(
+                (await request("auth/login", { email, password })).status,
+            ).toBe(200);
+        }
+    });
+
+    it("rate limits failed logins per account spread across many IPs", async () => {
+        const { email } = await register();
+        // the per-account limit counts failures from every IP
+        await Promise.all(
+            Array.from({ length: 100 }, (_, attempt) =>
+                app.request("/api/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/json",
+                        "x-forwarded-for": `198.51.${Math.floor(attempt / 10)}.${attempt % 10}`,
+                    },
+                    body: JSON.stringify({ email, password: "wrong" }),
+                }),
+            ),
+        );
+        ip = "203.0.113.1";
+        const blocked = await request("auth/login", { email, password });
+        expect(blocked.status).toBe(429);
+    }, 60_000);
+
+    it("upgrades a hash with older scrypt parameters on the next login", async () => {
+        const { email, user } = await register();
+        const salt = randomBytes(16);
+        const legacy = `scrypt$${salt.toString("hex")}$${scryptSync(password, salt, 64).toString("hex")}`;
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: legacy,
+        });
+
+        expect(
+            (await request("auth/login", { email, password: "wrong password" }))
+                .status,
+        ).toBe(401);
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.passwordHash,
+        ).toBe(legacy);
+
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
+        const upgraded = (
+            await db.orm.public.User.where({ id: user.id }).first()
+        )?.passwordHash;
+        expect(upgraded).toMatch(/^scrypt\$ln=17,r=8,p=1\$/);
+        expect((await request("auth/login", { email, password })).status).toBe(
+            200,
+        );
     });
 
     it("changes the password and revokes other sessions while retaining this device", async () => {
@@ -234,7 +365,6 @@ describe("registration and sessions", () => {
         mail.mockRejectedValueOnce(new Error("SMTP unavailable"));
         vi.spyOn(console, "error").mockImplementation(() => {});
         const { cookie } = await register();
-        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
         expect(
             (await request("auth/verify-email/resend", {}, cookie)).status,
         ).toBe(204);
@@ -261,7 +391,7 @@ describe("email verification and licenses", () => {
         ).toBe(204);
     });
     it("accepts a token only once and makes the account verified", async () => {
-        const { cookie } = await register();
+        const { cookie, user } = await register();
         const token = lastToken();
         expect((await request("auth/verify-email", { token })).status).toBe(
             200,
@@ -271,6 +401,41 @@ describe("email verification and licenses", () => {
         );
         const me = await (await request("auth/me", undefined, cookie)).json();
         expect(me.user.emailVerified).toBe(true);
+        expect(
+            await db.orm.public.Session.where({ userId: user.id }).all(),
+        ).toHaveLength(2);
+    });
+
+    it("keeps the session when the account's own owner opens the link", async () => {
+        const { cookie, user } = await register();
+        const response = await request(
+            "auth/verify-email",
+            { token: lastToken() },
+            cookie,
+        );
+        expect(response.status).toBe(200);
+        expect(response.headers.get("set-cookie")).toBeNull();
+        expect(
+            await db.orm.public.Session.where({ userId: user.id }).all(),
+        ).toHaveLength(1);
+    });
+
+    it("signs out another account when its link is opened", async () => {
+        const first = await register();
+        const second = await register();
+        const response = await request(
+            "auth/verify-email",
+            { token: lastToken() },
+            first.cookie,
+        );
+        expect((await response.json()).user.id).toBe(second.user.id);
+        expect((await request("auth/me", undefined, first.cookie)).status).toBe(
+            401,
+        );
+        // the old cookie is cleared, then replaced
+        const cookie = response.headers.getSetCookie().at(-1)!.split(";")[0];
+        const me = await request("auth/me", undefined, cookie);
+        expect((await me.json()).user.id).toBe(second.user.id);
     });
 
     it("invalidates the earlier token when a new email is sent", async () => {

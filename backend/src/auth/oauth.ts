@@ -23,14 +23,25 @@ export type OAuthProvider = {
     ): Promise<OAuthProfile>;
 };
 
-// Thrown for anything the user should see as "couldn't sign in with X"
-export class OAuthError extends Error {}
+// Sent to /login as ?oauth_error=, which maps each code to a fixed message
+export type OAuthErrorCode =
+    "cancelled" | "expired" | "no_verified_email" | "email_taken" | "failed";
+
+// Thrown for anything the user should see as a sign-in error
+export class OAuthError extends Error {
+    constructor(
+        readonly code: OAuthErrorCode,
+        message: string = code,
+    ) {
+        super(message);
+    }
+}
 
 async function getJson(res: Response, what: string): Promise<any> {
     const data: any = await res.json().catch(() => null);
     if (!res.ok || !data) {
         console.error(`OAuth ${what} failed (${res.status})`, data);
-        throw new OAuthError(`Couldn't ${what}`);
+        throw new OAuthError("failed", `Couldn't ${what}`);
     }
     return data;
 }

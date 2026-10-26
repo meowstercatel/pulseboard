@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
-import { sendMail } from "../mail/mailer.js";
+import { sendMail, type Mail } from "../mail/mailer.js";
 import { verifyEmailTemplate } from "../mail/verifyEmailTemplate.js";
 import { db } from "../prisma/db.js";
 import { publicUrl } from "./publicUrl.js";
@@ -12,12 +12,13 @@ function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
 }
 
-// Replaces any earlier link for this user, so only the newest one works.
-// Returns false (and sends nothing) if the email is already verified.
-export async function sendVerificationEmail(
+// Stores a new link for this user, replacing any earlier one so only the
+// newest works, and returns the email to send. Returns null if the email is
+// already verified.
+export async function prepareVerificationEmail(
     c: Context,
     userId: number,
-): Promise<boolean> {
+): Promise<Mail | null> {
     const token = randomBytes(32).toString("base64url");
     const user = await db.transaction(async (tx) => {
         // A no-op update locks the user row until commit, so an email change
@@ -36,13 +37,20 @@ export async function sendVerificationEmail(
         });
         return user;
     });
-    if (!user) return false;
+    if (!user) return null;
 
     const link = publicUrl(c, `/verify-email?token=${token}`);
-    await sendMail({
-        to: user.email,
-        ...verifyEmailTemplate(link, user.email),
-    });
+    return { to: user.email, ...verifyEmailTemplate(link, user.email) };
+}
+
+// Returns false (and sends nothing) if the email is already verified.
+export async function sendVerificationEmail(
+    c: Context,
+    userId: number,
+): Promise<boolean> {
+    const mail = await prepareVerificationEmail(c, userId);
+    if (!mail) return false;
+    await sendMail(mail);
     return true;
 }
 
