@@ -5,13 +5,16 @@ import DashboardPreview from "../components/DashboardPreview.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import { limits } from "../lib/limits";
 import { planById, plans, price } from "../lib/pricing";
+import { softwareApplication } from "../lib/seo";
+
+const description = `Upload CSV exports of CPU, memory, disk and network readings. Get dashboards, history and forecasts of when disk and RAM reach ${limits.thresholds}.`;
 
 const features = [
     {
         number: "01",
         title: "See resource pressure.",
-        text: "CPU usage, memory consumption, and system load. Get the context you need to understand a busy server.",
-        tag: "CPU / MEMORY / LOAD",
+        text: "CPU, memory, disk and network for each host, starting with the latest reading you imported.",
+        tag: "CPU / MEMORY / DISK / NETWORK",
     },
     {
         number: "02",
@@ -22,14 +25,14 @@ const features = [
     {
         number: "03",
         title: "Keep storage in sight.",
-        text: "Check usage across mount points and see where space is getting tight, without losing the bigger picture.",
-        tag: "DISKS / MOUNT POINTS",
+        text: "Follow disk usage over time and see where space is getting tight, without losing the bigger picture.",
+        tag: "DISK USAGE",
     },
     {
         number: "04",
-        title: "Check what’s running.",
-        text: "Review service status and the processes consuming the most resources. Know where to look next.",
-        tag: "SERVICES / PROCESSES",
+        title: "Plan capacity.",
+        text: `Forecasts for each host, and the dates disk and RAM are expected to reach ${limits.thresholds}. Needs ${limits.forecastDays} days of readings.`,
+        tag: "FORECASTS / CAPACITY",
     },
 ];
 
@@ -118,8 +121,9 @@ const faq = [
 ---
 
 <HtmlTemplate
-    title="PulseBoard — Your server’s pulse, at a glance"
-    description="A clear view of Linux server health. Explore CPU, memory, storage, network, and services in the PulseBoard sample dashboard."
+    title="PulseBoard — Server metrics from CSV, as dashboards and forecasts"
+    description={description}
+    structuredData={softwareApplication(Astro.site!, description)}
 >
     <a class="skip-link" href="#main">
         Skip to content
@@ -183,9 +187,9 @@ const faq = [
                     </h1>
                     <div class="hero-copy">
                         <p>
-                            CPU, memory, storage, network, and services—in one
-                            clear dashboard. See what’s busy, what’s filling up,
-                            and what needs a closer look.
+                            Upload CSV exports of CPU, memory, disk and network
+                            readings. Get dashboards, history and forecasts of
+                            when disk and RAM will fill up.
                         </p>
                         <div class="hero-actions">
                             <cds-button href="/register" data-get-started>
@@ -258,10 +262,9 @@ const faq = [
                     </h2>
                 </div>
                 <p>
-                    Start with your server’s health at a glance. Look through
-                    usage charts, check individual disks, and inspect busy
-                    processes. See network activity alongside it all, in the
-                    same overview.
+                    Start with the latest readings for each host. Look through
+                    the history, its spikes and gaps, compare hosts side by
+                    side, and see when disk and RAM are expected to fill up.
                 </p>
             </section>
             <section class="data wrap" id="data" aria-labelledby="data-title">
