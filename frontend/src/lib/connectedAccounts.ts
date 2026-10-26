@@ -144,6 +144,8 @@ export function mountConnectedAccounts(
     const connect = section.querySelector<HTMLElement>(".connect")!;
     const buttons = section.querySelector<HTMLElement>(".connect-buttons")!;
     const password = section.querySelector<Input>('[name="currentPassword"]')!;
+    // a native input sits in a labelled .field, which is what gets hidden
+    const passwordField = password.closest<HTMLElement>(".field") ?? password;
     const status = section.querySelector<HTMLElement>(".success")!;
     const error = section.querySelector<Notification>(
         "cds-inline-notification",
@@ -232,14 +234,14 @@ export function mountConnectedAccounts(
         );
         connect.hidden = !linkable.length;
         // connecting and disconnecting both ask for the password
-        password.hidden =
+        passwordField.hidden =
             !data.hasPassword || (!linkable.length && !data.accounts.length);
         if (!data.hasPassword) password.value = "";
     };
 
     // Shows a hint and returns true if the password is needed but empty
     function needsPassword(action: string, provider: string): boolean {
-        if (password.hidden || password.value) return false;
+        if (passwordField.hidden || password.value) return false;
         showResult({
             ok: false,
             message: `Enter your current password to ${action} ${label(provider)}`,

@@ -51,6 +51,13 @@ async function storeToken(
     return token;
 }
 
+// After the #, so it never reaches a server or its logs. The reset page puts
+// it in a hidden username field, so password managers save the new password
+// for the right account.
+function emailHint(email: string) {
+    return `#email=${encodeURIComponent(email)}`;
+}
+
 // A verified account without a password gets the set-password link instead,
 // so an owner left with no login (see verifyEmailToken) can always get back
 // in. An unverified one gets a new verification link: proving its address is
@@ -73,7 +80,10 @@ async function createAndSendReset(c: Context, email: string) {
         return {
             to: user.email,
             ...passwordResetTemplate(
-                publicUrl(c, `/reset-password?token=${token}`),
+                publicUrl(
+                    c,
+                    `/reset-password?token=${token}${emailHint(user.email)}`,
+                ),
                 user.email,
             ),
             userId: user.id,
@@ -107,7 +117,10 @@ async function setupMail(
     return {
         to: user.email,
         ...setPasswordTemplate(
-            publicUrl(c, `/reset-password?purpose=set&token=${token}`),
+            publicUrl(
+                c,
+                `/reset-password?purpose=set&token=${token}${emailHint(user.email)}`,
+            ),
             user.email,
             logins.map(
                 ({ provider, email }) =>

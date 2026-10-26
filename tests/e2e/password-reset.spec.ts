@@ -24,7 +24,7 @@ test("reset a forgotten password from the emailed link", async ({
         await page.goto("/login");
         await page.getByText("Forgot password?").click();
         await expect(page).toHaveURL("/forgot-password");
-        await page.locator('cds-text-input[name="email"] input').fill(email);
+        await page.locator('input[name="email"]').fill(email);
         await page
             .getByRole("button", { name: "Send reset link", exact: true })
             .click();
@@ -54,18 +54,18 @@ test("reset a forgotten password from the emailed link", async ({
         ).json();
         expect(message.HTML).toContain(">reset password</a>");
         const link = message.Text.match(
-            /http:\/\/127\.0\.0\.1:\d+\/reset-password\?token=[A-Za-z0-9_-]+/,
+            /http:\/\/127\.0\.0\.1:\d+\/reset-password\?token=[A-Za-z0-9_-]+#email=\S+/,
         )?.[0];
         expect(link).toBeTruthy();
 
         await page.goto(link!);
         await expect(page).toHaveURL("/reset-password");
-        await page
-            .locator('cds-text-input[name="password"] input')
-            .fill(newPassword);
-        await page
-            .locator('cds-text-input[name="confirm"] input')
-            .fill(newPassword);
+        // password managers save the new password for this address
+        await expect(
+            page.locator('#reset-form input[autocomplete="username"]'),
+        ).toHaveValue(email);
+        await page.locator('input[name="password"]').fill(newPassword);
+        await page.locator('input[name="confirm"]').fill(newPassword);
         await page
             .getByRole("button", { name: "Reset password", exact: true })
             .click();

@@ -129,9 +129,7 @@ test("the address owner's verification link removes someone else's Facebook logi
     // Even after signing out, a password can be set from the login page
     await page.request.post("/api/auth/logout");
     await page.goto("/forgot-password");
-    await page
-        .locator('cds-text-input[name="email"] input')
-        .fill(account.email);
+    await page.locator('input[name="email"]').fill(account.email);
     await page.getByRole("button", { name: "Send reset link" }).click();
     await expect(page.locator("#sent")).toBeVisible();
     const setup = await findMail(request, "Set a password for PulseBoard");
@@ -142,8 +140,8 @@ test("the address owner's verification link removes someone else's Facebook logi
     )?.[0];
     expect(link).toBeTruthy();
     await page.goto(link!);
-    await page.locator('cds-text-input[name="password"] input').fill(password);
-    await page.locator('cds-text-input[name="confirm"] input').fill(password);
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('input[name="confirm"]').fill(password);
     await page
         .getByRole("button", { name: "Set password", exact: true })
         .click();

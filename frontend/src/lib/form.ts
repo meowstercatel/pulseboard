@@ -1,13 +1,21 @@
 type Field = HTMLElement & { value: string };
+type Button = HTMLElement & { disabled: boolean };
 
+// Wires a form whose submit button is a native <button type="submit"> (the
+// credential forms, so password managers see a real submission) or a
+// <cds-button>. The page stays put: onSubmit does the work and returns an
+// error message, or null. Native buttons start out disabled in the HTML, so
+// Enter can't post the form natively before this runs; updateButton enables
+// them.
 export function bindForm(
     form: HTMLFormElement,
     onSubmit: (field: (name: string) => string) => Promise<string | null>,
     canSubmit: () => boolean = () => true,
 ) {
-    const button = form.querySelector("cds-button") as HTMLElement & {
-        disabled: boolean;
-    };
+    const native = form.querySelector<HTMLButtonElement>(
+        'button[type="submit"]',
+    );
+    const button: Button = native ?? form.querySelector<Button>("cds-button")!;
     const error = form.querySelector(
         "cds-inline-notification",
     ) as HTMLElement & {
@@ -26,7 +34,12 @@ export function bindForm(
         button.disabled = true;
         error.hidden = true;
 
-        const message = await onSubmit(field);
+        let message: string | null;
+        try {
+            message = await onSubmit(field);
+        } catch {
+            message = "Something went wrong, please try again";
+        }
 
         busy = false;
         updateButton();
@@ -36,20 +49,14 @@ export function bindForm(
         }
     };
 
-    form.addEventListener("submit", (e) => e.preventDefault());
+    // Enter in a native input and the native button both submit the form
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        submit();
+    });
     form.addEventListener("input", updateButton);
     form.addEventListener("change", updateButton);
-    button.addEventListener("click", submit);
-    form.addEventListener("keydown", (e) => {
-        if (
-            e.key === "Enter" &&
-            (e.target as Element).closest("cds-text-input") &&
-            (e.composedPath()[0] as Element)?.tagName === "INPUT"
-        ) {
-            e.preventDefault();
-            submit();
-        }
-    });
+    if (!native) button.addEventListener("click", submit);
     updateButton();
     return updateButton;
 }
