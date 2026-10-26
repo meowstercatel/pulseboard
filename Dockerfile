@@ -2,41 +2,44 @@
 
 ARG NODE_VERSION=24
 
+# ---- deps: workspace manifests, shared by every stage that installs ----
+# pnpm (version pinned by packageManager in package.json) comes from corepack.
+FROM node:${NODE_VERSION}-alpine AS base
+RUN corepack enable
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY backend/package.json backend/
+COPY frontend/package.json frontend/
+
 # ---- frontend: build the static Astro site ----
-FROM node:${NODE_VERSION}-alpine AS frontend
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
-COPY frontend/ ./
+FROM base AS frontend
+RUN pnpm install --frozen-lockfile --filter frontend
+COPY frontend/ frontend/
 # shown in the corner on non-main deployments, see BuildBadge.astro
 ARG GIT_BRANCH=
 ARG GIT_COMMIT=
 ENV PUBLIC_GIT_BRANCH=$GIT_BRANCH \
     PUBLIC_GIT_COMMIT=$GIT_COMMIT
-RUN npm run build
+RUN pnpm --dir frontend run build
 
 # ---- backend: install all deps and compile TypeScript ----
 # This stage also keeps the Prisma CLI and backend/migrations, so docker compose
 # uses it to run `prisma db migrate`.
-FROM node:${NODE_VERSION}-alpine AS backend
-RUN corepack enable
+FROM base AS backend
+RUN pnpm install --frozen-lockfile --filter backend
+COPY backend/ backend/
 WORKDIR /app/backend
-COPY backend/package.json backend/pnpm-lock.yaml backend/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY backend/ ./
 RUN pnpm run build
 
 # ---- runtime: production deps + compiled backend + built frontend ----
-FROM node:${NODE_VERSION}-alpine AS runtime
-RUN corepack enable
+FROM base AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
     STATIC_DIR=/app/public
-WORKDIR /app
-COPY backend/package.json backend/pnpm-lock.yaml backend/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile --prod && pnpm store prune
-COPY --from=backend /app/backend/dist ./dist
-COPY --from=frontend /app/frontend/dist ./public
+RUN pnpm install --frozen-lockfile --prod --filter backend && pnpm store prune
+COPY --from=backend /app/backend/dist backend/dist
+COPY --from=frontend /app/frontend/dist public
+WORKDIR /app/backend
 USER node
 EXPOSE 3000
 CMD ["node", "dist/index.js"]

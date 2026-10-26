@@ -29,12 +29,12 @@ The broken rows have a bad or impossible timestamp, an empty host, a non-numeric
 The files come from `scripts/generate-samples.mjs` and are reproducible: the same options and seed give the same bytes.
 
 ```sh
-npm run samples                 # rewrite every file above
-npm run samples -- --help       # options for a custom file
+pnpm run samples                # rewrite every file above
+pnpm run samples --help         # options for a custom file
 ```
 
 Files for testing the size limits (25 MB, 500k rows) are too big to commit; generate them when needed:
 
 ```sh
-npm run samples -- --days 365 --hosts 15 --out /tmp/too-big.csv   # 525,600 rows, 28 MB
+pnpm run samples --days 365 --hosts 15 --out /tmp/too-big.csv   # 525,600 rows, 28 MB
 ```

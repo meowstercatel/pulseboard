@@ -1,7 +1,7 @@
 // Writes the sample CSV files in samples/, or one custom file.
 //
-//   npm run samples                         regenerate everything in samples/
-//   npm run samples -- --days 400 --hosts 20 --out big.csv
+//   pnpm run samples                        regenerate everything in samples/
+//   pnpm run samples --days 400 --hosts 20 --out big.csv
 //
 // Run with --help for all options.
 import { mkdirSync, writeFileSync } from "node:fs";

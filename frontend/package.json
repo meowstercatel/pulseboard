@@ -14,10 +14,8 @@
   "dependencies": {
     "@carbon/styles": "^1.116.0",
     "@carbon/web-components": "^2.64.0",
+    "@ibm/plex": "6.4.1",
     "astro": "^7.3.5",
     "sass": "^1.105.1"
-  },
-  "allowScripts": {
-    "esbuild": true
   }
 }
