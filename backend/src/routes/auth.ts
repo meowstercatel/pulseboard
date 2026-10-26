@@ -14,6 +14,7 @@ import {
     verifyPassword,
 } from "../auth/password.js";
 import { notifyAccountChange } from "../auth/accountNotice.js";
+import { PROVIDER_NAMES } from "../auth/oauth.js";
 import {
     requestPasswordReset,
     resetPassword,
@@ -237,25 +238,34 @@ auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
     if (!body || typeof body.token !== "string" || !body.token) {
         return c.json({ error: "Invalid request" }, 400);
     }
-    const user = await verifyEmailToken(body.token);
-    if (!user) {
+    // Only a session that already belongs to the account stays signed in
+    const current = await getSessionUser(c);
+    const verified = await verifyEmailToken(
+        body.token,
+        current ? requestSessionId(c) : null,
+    );
+    if (!verified) {
         return c.json(
             { error: "This verification link is invalid or has expired" },
             400,
         );
     }
     // The link proves the address, so it signs in to the account it verified.
-    // Every other session goes: whoever registered the address may not be its
-    // owner, and could still be logged in to the account the owner now uses.
-    const current = await getSessionUser(c);
-    const keep = current?.id === user.id ? requestSessionId(c) : null;
-    const others = db.orm.public.Session.where({ userId: user.id });
-    await (keep ? others.where((s) => s.id.neq(keep)) : others).deleteAll();
-    if (!keep) {
+    // Every other session is gone: whoever registered the address may not be
+    // its owner, and could still be logged in to the account the owner now
+    // uses (see verifyEmailToken for the logins that go with them).
+    const { user, kept, removedLogins, needsPassword } = verified;
+    if (!kept) {
         if (current) await destroySession(c);
         await createSession(c, user.id);
     }
-    return c.json({ user: toAuthUser(user) });
+    return c.json({
+        user: toAuthUser(user),
+        removedLogins: [
+            ...new Set(removedLogins.map((p) => PROVIDER_NAMES[p] ?? p)),
+        ],
+        needsPassword,
+    });
 });
 
 auth.post("/verify-email/resend", requireAuth, async (c) => {
@@ -564,6 +574,14 @@ auth.post("/password-reset/confirm", limitByIp(resetIpLimiter), async (c) => {
     // the account gained a way to log in, unlike a reset of a forgotten password
     if (reset.passwordWasSet) {
         notifyAccountChange(c, user, { kind: "password_set" });
+    }
+    // An owner who changed their address and reset before verifying it can
+    // lose logins they connected themselves, so they hear about each one
+    for (const provider of new Set(reset.removedLogins)) {
+        notifyAccountChange(c, user, {
+            kind: "unlinked",
+            provider: PROVIDER_NAMES[provider] ?? provider,
+        });
     }
     loginEmailLimiter.reset(user.email);
     loginIpEmailLimiter.reset(`${clientIp(c)} ${user.email}`);

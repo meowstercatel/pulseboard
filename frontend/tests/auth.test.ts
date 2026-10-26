@@ -1,5 +1,5 @@
 import { Window } from "happy-dom";
-import { expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
     accountDestination,
     type User,
@@ -9,6 +9,7 @@ import {
     requireVerifiedUser,
     requireLicense,
     safeNext,
+    verifiedStep,
 } from "../src/lib/auth";
 
 it.each([
@@ -172,4 +173,41 @@ it("shows a protected page only once the user may see it", async () => {
     expect(root.hasAttribute("data-auth-pending")).toBe(true);
     await requireVerifiedUser();
     expect(root.hasAttribute("data-auth-pending")).toBe(false);
+});
+
+describe("after the verification link", () => {
+    const user = { emailVerified: true, licensePlan: null } as User;
+
+    it("continues as usual when nothing was removed", () => {
+        expect(
+            verifiedStep({ user, removedLogins: [], needsPassword: false }),
+        ).toEqual({ message: "Your email address is verified.", href: "/buy" });
+    });
+
+    it("explains a removed login and sends a user with no other login to set a password", () => {
+        expect(
+            verifiedStep({
+                user,
+                removedLogins: ["Facebook"],
+                needsPassword: true,
+            }),
+        ).toEqual({
+            message:
+                "Your email address is verified. The Facebook login connected before you verified it was removed, because it may not have been yours. If it was, connect it again in Settings. Set a password in Settings, so you can log in again after you sign out.",
+            href: "/settings",
+        });
+    });
+
+    it("names several removed providers and keeps going when a login is left", () => {
+        const { message, href } = verifiedStep({
+            user: { ...user, licensePlan: "lifetime" },
+            removedLogins: ["Facebook", "Google"],
+            needsPassword: false,
+        });
+        expect(message).toContain(
+            "The Facebook and Google logins connected before you verified it were removed",
+        );
+        expect(message).not.toContain("Set a password");
+        expect(href).toBe("/overview");
+    });
 });

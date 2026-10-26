@@ -19,6 +19,7 @@ import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
 import { publicUrl } from "../auth/publicUrl.js";
 import { limitAccountChanges, reauthenticate } from "../auth/reauth.js";
 import {
+    clearSessionCookie,
     createSession,
     getSessionUser,
     requestSessionId,
@@ -160,6 +161,7 @@ function failLink(c: Context, code: LinkErrorCode, provider: string) {
 // to show it in the settings.
 async function linkAccount(
     userId: number,
+    sessionId: string,
     provider: string,
     profile: OAuthProfile,
 ) {
@@ -175,6 +177,18 @@ async function linkAccount(
             .where((u) => u.emailVerifiedAt.isNotNull())
             .update({ email: current.email });
         if (!user) throw new LinkError("unverified");
+        // The session may have ended since the request was checked (the
+        // owner verified the address, or signed out other devices). Locking
+        // its row means a sign-out either came first and stops this, or
+        // waits until the link is made.
+        const now = new Date().toISOString();
+        const session = await tx.orm.public.Session.where({
+            id: sessionId,
+            userId,
+        })
+            .where((s) => s.expiresAt.gt(now))
+            .update({ lastSeenAt: now });
+        if (!session) throw new LinkError("expired");
 
         const existing = await tx.orm.public.OAuthAccount.where({
             provider,
@@ -230,11 +244,11 @@ async function finishLink(
             verifier,
         );
         try {
-            result = await linkAccount(user.id, name, profile);
+            result = await linkAccount(user.id, linkSession, name, profile);
         } catch (err) {
             // Lost a race with a parallel sign-in or link of the same account
             if (!isUniqueViolation(err)) throw err;
-            result = await linkAccount(user.id, name, profile);
+            result = await linkAccount(user.id, linkSession, name, profile);
         }
     } catch (err) {
         if (err instanceof LinkError) return failLink(c, err.code, name);
@@ -387,13 +401,14 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
         return finishLink(c, name, provider, code, verifier, linkSession);
     }
 
-    let user, created;
+    let user, created, providerUserId;
     try {
         const profile = await provider.fetchProfile(
             code,
             redirectUri(c, name),
             verifier,
         );
+        providerUserId = profile.id;
         try {
             ({ user, created } = await resolveUser(name, provider, profile));
         } catch (err) {
@@ -409,7 +424,29 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
 
     if (created && !user.emailVerifiedAt)
         await trySendVerificationEmail(c, user.id);
-    await createSession(c, user.id);
+    // The login may have been removed since it was read (unlinked, or
+    // dropped when the address's owner verified it). Locking it while the
+    // session is made means a removal either comes first and stops this, or
+    // comes after and signs this session out with the rest.
+    let signedIn;
+    try {
+        signedIn = await db.transaction(async (tx) => {
+            const login = await tx.orm.public.OAuthAccount.where({
+                provider: name,
+                providerUserId,
+                userId: user.id,
+            }).update({ userId: user.id });
+            if (login) await createSession(c, user.id, tx);
+            return !!login;
+        });
+    } catch (err) {
+        console.error(`${label} sign-in failed`, err);
+        signedIn = false;
+    }
+    if (!signedIn) {
+        clearSessionCookie(c);
+        return fail(c, "failed", name, next);
+    }
     // like the password login: unverified users go via /buy to /verify-email
     if (next && user.emailVerifiedAt) return c.redirect(next);
     return c.redirect(user.licensePlan ? "/overview" : "/buy");
