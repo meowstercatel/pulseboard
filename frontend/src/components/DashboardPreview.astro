@@ -1,122 +1,228 @@
 ---
+// Landing page preview: what /overview, /history and /forecast show for an
+// uploaded CSV, with sample readings. Gaps, spikes and capacity cells come from
+// the same code as the app; thresholds and the horizon from lib/limits.
 import UsageChart from "./UsageChart.astro";
+import { metricFields, number, timestamp } from "../lib/dashboardControls";
+import { crossingText } from "../lib/forecastPage";
+import { duration, findGaps, findSpikes, utc } from "../lib/history";
+import { limits } from "../lib/limits";
 
+const HOUR = 3600000;
+const DAY = 24 * HOUR;
+// Hourly readings for web-01 on one day, none from 09:00 to 12:00
+const day = Date.UTC(2026, 8, 30);
+const hours = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+];
+const times = hours.map((h) => day + h * HOUR);
+const latestAt = times.at(-1)!;
 const cpu = [
-    31, 35, 28, 40, 44, 39, 52, 61, 58, 47, 43, 38, 41, 49, 55, 50, 46, 42, 37,
-    40, 45, 48, 44, 42,
+    31, 29, 27, 26, 25, 27, 30, 34, 38, 44, 46, 45, 91, 47, 45, 42, 40, 38, 36,
+    34, 33,
 ];
-const memory = [
-    64, 65, 65, 66, 68, 67, 69, 71, 72, 70, 70, 69, 70, 71, 72, 73, 72, 71, 71,
-    70, 71, 72, 71, 71,
-];
-const disks = [
-    { name: "/", used: "38.2 / 98 GiB", percent: 39 },
-    { name: "/var", used: "171.5 / 196 GiB", percent: 88 },
-];
-const services = [
-    { name: "nginx.service", active: true },
-    { name: "postgresql.service", active: true },
-    { name: "app-worker.service", active: false },
-];
+// Disk grows 1.3 points a day
+const diskPerDay = 1.3;
+const disk = times.map(
+    (t) => Math.round((83.4 - (diskPerDay * (latestAt - t)) / DAY) * 10) / 10,
+);
+const latest = {
+    cpuPercent: cpu.at(-1)!,
+    ramPercent: 71.4,
+    diskPercent: disk.at(-1)!,
+    netInMbps: 12.4,
+    netOutMbps: 3.1,
+};
+
+const gaps = findGaps(times, HOUR);
+const spikes = findSpikes("cpuPercent", times, cpu, HOUR, HOUR);
+const spiked = times
+    .map((_, i) => i)
+    .filter((i) =>
+        spikes.some((s) => times[i]! >= s.start && times[i]! < s.end),
+    );
+const label = (field: string) => metricFields.find(([f]) => f === field)![1];
+
+// Every host's disk and RAM, growing steadily from the latest reading
+const thresholds = limits.thresholdPercents;
+const capacity = [
+    { host: "web-01", resource: "Disk", latest: 83.4, perDay: diskPerDay },
+    { host: "web-01", resource: "RAM", latest: 71.4, perDay: 0.3 },
+    { host: "web-02", resource: "Disk", latest: 58, perDay: 0.2 },
+    { host: "web-02", resource: "RAM", latest: 49.6, perDay: 0 },
+    { host: "db-01", resource: "Disk", latest: 64.2, perDay: 0.9 },
+    { host: "db-01", resource: "RAM", latest: 62.3, perDay: 0.1 },
+].map((row) => ({
+    ...row,
+    thresholds: thresholds.map((percent) => {
+        const days = (percent - row.latest) / row.perDay;
+        return {
+            percent,
+            alreadyAbove: row.latest >= percent,
+            crossesAt:
+                days <= limits.capacityDays
+                    ? new Date(
+                          latestAt + Math.ceil(days * 24) * HOUR,
+                      ).toISOString()
+                    : null,
+        };
+    }),
+}));
+// Soonest first, as /forecast sorts: by when each host reaches the highest
+// threshold, then the next one down
+const urgency = (row: (typeof capacity)[number]) =>
+    row.thresholds
+        .toReversed()
+        .map((t) =>
+            t.alreadyAbove
+                ? 0
+                : t.crossesAt
+                  ? Date.parse(t.crossesAt)
+                  : Infinity,
+        );
+capacity.sort((a, b) => {
+    const ua = urgency(a);
+    const ub = urgency(b);
+    const i = ua.findIndex((t, k) => t !== ub[k]);
+    return i < 0 ? 0 : ua[i]! < ub[i]! ? -1 : 1;
+});
 ---
 
 <div class="dashboard">
     <div class="preview-header">
-        <span>PulseBoard / Overview</span>
-        <cds-tag type="gray" size="sm">
-            Sample data
-        </cds-tag>
+        <span>PulseBoard</span>
+        <span class="tag">Sample data</span>
     </div>
     <div class="dashboard-content">
-        <div class="server-heading">
-            <div>
-                <h3>
-                    web-01{" "}
-                    <cds-tag type="green" size="md">
-                        Online
-                    </cds-tag>
-                </h3>
-                <p class="meta">Ubuntu 24.04.1 LTS · 10.0.0.12</p>
-            </div>
-            <p class="meta">Uptime: 23d 4h 17m</p>
+        <div class="page-header">
+            <h2>web-01</h2>
+            <p class="meta">
+                Latest imported reading:{" "}
+                {timestamp(new Date(latestAt).toISOString())}
+            </p>
         </div>
-        <div class="metrics">
-            <cds-tile>
-                <p class="label">CPU</p>
-                <p class="value">
-                    42<span>%</span>
-                </p>
-                <cds-progress-bar
-                    label="CPU usage"
-                    hide-label
-                    value="42"
-                    status="active"
-                ></cds-progress-bar>
-                <p class="meta">8 cores · AMD EPYC 7763</p>
-            </cds-tile>
-            <cds-tile>
-                <p class="label">Memory</p>
-                <p class="value">
-                    71<span>%</span>
-                </p>
-                <cds-progress-bar
-                    label="Memory usage"
-                    hide-label
-                    value="71"
-                    status="active"
-                ></cds-progress-bar>
-                <p class="meta">11.4 / 16 GiB</p>
-            </cds-tile>
-            <cds-tile>
-                <p class="label">Network (eth0)</p>
-                <p class="value network">
-                    ↓ 12.4 MB/s
-                    <br />↑ 3.1 MB/s
-                </p>
-                <p class="meta">Incoming / outgoing traffic</p>
-            </cds-tile>
+        <div class="kpis">
+            {metricFields.map(([field, name, unit]) => (
+                <div class="tile">
+                    <p class="label">{name}</p>
+                    <p class="value">
+                        {number(latest[field])} {unit}
+                    </p>
+                </div>
+            ))}
         </div>
         <div class="charts">
-            <cds-tile>
-                <UsageChart title="CPU usage · last 2 hours" series={cpu} />
-            </cds-tile>
-            <cds-tile>
+            <div class="tile">
                 <UsageChart
-                    title="Memory usage · last 2 hours"
-                    series={memory}
+                    title={label("cpuPercent")}
+                    times={times}
+                    values={cpu}
+                    gaps={gaps}
+                    spikes={spiked}
                 />
-            </cds-tile>
+            </div>
+            <div class="tile">
+                <UsageChart
+                    title={label("diskPercent")}
+                    times={times}
+                    values={disk}
+                    gaps={gaps}
+                />
+            </div>
         </div>
-        <div class="details">
-            <cds-tile>
-                <h4>Storage</h4>
-                <div class="disks">
-                    {disks.map((disk) => (
-                        <cds-progress-bar
-                            label={disk.name}
-                            helper-text={`${disk.used} · ${disk.percent}%`}
-                            value={disk.percent}
-                            status="active"
-                        ></cds-progress-bar>
-                    ))}
+        <ul class="legend meta">
+            <li>
+                <span class="key line" aria-hidden="true"></span>Reading
+            </li>
+            <li>
+                <span class="key spike" aria-hidden="true"></span>Spike
+            </li>
+            <li>
+                <span class="key band" aria-hidden="true"></span>No readings
+            </li>
+        </ul>
+        <div class="lists">
+            <div class="tile">
+                <h3>Gaps</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th scope="col">Start (UTC)</th>
+                                <th scope="col">End (UTC)</th>
+                                <th scope="col">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {gaps.map((g) => (
+                                <tr>
+                                    <td>{utc(g.start)}</td>
+                                    <td>{utc(g.end)}</td>
+                                    <td>{duration(g.end - g.start)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            </cds-tile>
-            <cds-tile>
-                <h4>Services</h4>
-                <ul class="services">
-                    {services.map((service) => (
-                        <li>
-                            <span>{service.name}</span>
-                            <cds-tag
-                                type={service.active ? "green" : "red"}
-                                size="sm"
-                            >
-                                {service.active ? "active" : "failed"}
-                            </cds-tag>
-                        </li>
-                    ))}
-                </ul>
-            </cds-tile>
+            </div>
+            <div class="tile">
+                <h3>Spikes</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th scope="col">Metric</th>
+                                <th scope="col">Start (UTC)</th>
+                                <th scope="col">Peak</th>
+                                <th scope="col">Typical</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {spikes.map((s) => (
+                                <tr>
+                                    <td>{label(s.field)}</td>
+                                    <td>{utc(s.start)}</td>
+                                    <td>{number(s.peak)} %</td>
+                                    <td>{number(s.typical)} %</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="tile">
+            <h3>Disk and RAM capacity</h3>
+            <p class="meta">
+                Every host in the dataset, {limits.capacityDays} days past its
+                latest reading, soonest first.
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Host</th>
+                            <th scope="col">Resource</th>
+                            <th scope="col">Latest</th>
+                            {thresholds.map((percent) => (
+                                <th scope="col">Reaches {percent}%</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {capacity.map((row) => (
+                            <tr>
+                                <td>{row.host}</td>
+                                <td>{row.resource}</td>
+                                <td>{number(row.latest)} %</td>
+                                {row.thresholds.map((t) => (
+                                    <td>{crossingText(t)}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -136,28 +242,36 @@ const services = [
         border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
         font-size: 0.875rem;
     }
+    /* Carbon's small gray tag */
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 1.125rem;
+        padding: 0 0.5rem;
+        border-radius: 1rem;
+        background: var(--cds-tag-background-gray, #e0e0e0);
+        color: var(--cds-tag-color-gray, #161616);
+        font-size: 0.75rem;
+        line-height: 1rem;
+    }
     .dashboard-content {
         display: flex;
         flex-direction: column;
         gap: 1rem;
         padding: 1.5rem;
     }
-    .server-heading {
+    .page-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: baseline;
         flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-bottom: 0.5rem;
+        gap: 0.25rem 0.75rem;
     }
-    h3 {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
+    h2 {
         font-size: 1.5rem;
-        margin: 0 0 0.25rem;
+        margin: 0;
     }
-    h4,
+    h3,
     .label {
         font-size: 0.875rem;
         font-weight: 600;
@@ -171,58 +285,88 @@ const services = [
         font-size: 0.75rem;
         line-height: 1.5;
     }
-    .metrics,
-    .charts,
-    .details {
-        display: grid;
-        gap: 1rem;
-    }
-    .metrics {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .charts,
-    .details {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    cds-tile {
+    /* Carbon tile */
+    .tile {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
         min-width: 0;
+        padding: 1rem;
+        background: var(--cds-layer-01, #f4f4f4);
+    }
+    .kpis,
+    .charts,
+    .lists {
+        display: grid;
+        gap: 1rem;
+    }
+    .kpis {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    .charts,
+    .lists {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .value {
-        font-size: 2.25rem;
-        line-height: 1.2;
+        font-size: 1.5rem;
+        line-height: 1.25;
+        font-variant-numeric: tabular-nums;
     }
-    .value span {
-        font-size: 1rem;
-        margin-left: 0.125rem;
-    }
-    .network {
-        font-size: 1.25rem;
-    }
-    .charts :global(.plot) {
-        height: 8rem;
-    }
-    .disks {
+    .legend {
         display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
-        margin-top: 0.75rem;
-    }
-    .services {
-        list-style: none;
-        margin: 0;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        margin: -0.5rem 0 0;
         padding: 0;
+        list-style: none;
     }
-    .services li {
+    .legend li {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0;
+        gap: 0.375rem;
+    }
+    .key {
+        display: inline-block;
+        width: 1rem;
+        flex-shrink: 0;
+    }
+    .key.line {
+        border-top: 2px solid #0f62fe;
+    }
+    .key.spike {
+        width: 10px;
+        height: 10px;
+        border: 2px solid #da1e28;
+        border-radius: 50%;
+        box-sizing: border-box;
+    }
+    .key.band {
+        height: 0.75rem;
+        background: rgb(198 198 198 / 0.35);
+    }
+    .table-wrap {
+        overflow-x: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.75rem;
+        font-variant-numeric: tabular-nums;
+    }
+    th,
+    td {
+        padding: 0.5rem 0.75rem 0.5rem 0;
+        text-align: left;
         border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
-        font-size: 0.875rem;
+        white-space: nowrap;
+    }
+    th {
+        font-weight: 600;
+    }
+    @media (max-width: 900px) {
+        .kpis {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
     }
     @media (max-width: 700px) {
         .dashboard-content {
@@ -231,25 +375,23 @@ const services = [
         .preview-header {
             padding-inline: 1rem;
         }
-        .charts,
-        .details {
+        /* one row per metric: name, then the value */
+        .kpis {
             grid-template-columns: 1fr;
+            gap: 0;
         }
-        .metrics {
+        .kpis .tile {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: baseline;
+            padding-block: 0.5rem;
+        }
+        .kpis .value {
+            font-size: 1rem;
+        }
+        .charts,
+        .lists {
             grid-template-columns: 1fr;
         }
     }
 </style>
-
-<script>
-    import { whenVisible } from "../lib/whenVisible";
-
-    // The demo's components load once it is about to scroll into view
-    const dashboard = document.querySelector(".dashboard");
-    if (dashboard)
-        whenVisible(dashboard, () => {
-            import("@carbon/web-components/es/components/tile/index.js");
-            import("@carbon/web-components/es/components/tag/index.js");
-            import("@carbon/web-components/es/components/progress-bar/index.js");
-        });
-</script>

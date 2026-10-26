@@ -1,12 +1,5 @@
 // Hover/keyboard crosshair tooltip for a line chart: the landing page's
 // UsageChart.astro, or a chart drawn by historyChart.ts with its own data.
-const ago = (minutes: number) => {
-    if (minutes === 0) return "now";
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return `${h ? `${h}h ` : ""}${m ? `${m}m ` : ""}ago`;
-};
-
 export type UsageChartData = {
     // x position of each sample, e.g. a timestamp; must be ascending
     times: number[];
@@ -17,16 +10,17 @@ export type UsageChartData = {
     value: (index: number) => string;
 };
 
-// The landing chart: one evenly spaced 0-100% series ending "now".
+// The landing chart: a 0-100% series with its UTC labels in data attributes.
 function datasetData(chart: HTMLElement): UsageChartData {
-    const series: number[] = JSON.parse(chart.dataset.series ?? "[]");
-    const interval = Number(chart.dataset.interval ?? 5);
+    const json = (name: string) => JSON.parse(chart.dataset[name] ?? "[]");
+    const series: number[] = json("series");
+    const labels: string[] = json("labels");
     return {
-        times: series.map((_, i) => i),
+        times: json("times"),
         lines: [series],
         max: 100,
-        label: (i) => ago((series.length - 1 - i) * interval),
-        value: (i) => `${series[i]}%`,
+        label: (i) => labels[i] ?? "",
+        value: (i) => `${series[i]} %`,
     };
 }
 

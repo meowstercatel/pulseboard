@@ -2,7 +2,11 @@
 // the pages can't drift from what the API enforces. Only for page frontmatter:
 // the forecast module would otherwise end up in the browser bundle.
 import { LIMITS } from "../../../backend/src/datasets/limits";
-import { MIN_DAYS, THRESHOLDS } from "../../../backend/src/forecast/index";
+import {
+    CAPACITY_HORIZON_HOURS,
+    MIN_DAYS,
+    THRESHOLDS,
+} from "../../../backend/src/forecast/index";
 
 // At most one decimal, so 0.07 * 100 shows as 7 rather than 7.000000000000001
 const number = (value: number) =>
@@ -17,6 +21,8 @@ export const limits = {
     rejects: (invalidRows: number, totalRows: number) =>
         invalidRows / totalRows > LIMITS.maxInvalidShare,
     forecastDays: MIN_DAYS,
+    capacityDays: CAPACITY_HORIZON_HOURS / 24,
+    thresholdPercents: THRESHOLDS,
     // "80, 90 and 100%"
     thresholds: `${THRESHOLDS.slice(0, -1).join(", ")} and ${THRESHOLDS.at(-1)}%`,
 };

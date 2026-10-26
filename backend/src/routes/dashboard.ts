@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { requireAuth, requireLicense, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
 import {
+    CAPACITY_HORIZON_HOURS,
     forecast,
     HOUR_MS,
     InsufficientHistory,
@@ -446,7 +447,6 @@ dashboard.get("/:id/forecast", async (c) => {
     });
 });
 
-export const CAPACITY_HORIZON_HOURS = 720;
 const capacityMetrics = ["diskPercent", "ramPercent"] as const;
 
 // Disk and RAM forecasts for every host in the dataset, 30 days ahead, soonest

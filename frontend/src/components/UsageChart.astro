@@ -1,35 +1,61 @@
 ---
-// Area chart for a 0-100% series with a hover/keyboard crosshair tooltip.
+// Line chart of a 0-100% metric for the landing preview, drawn like /history:
+// the line breaks across gaps, which are shaded, and spikes are circled. Hover
+// and keyboard inspection come from initUsageChart() in usageChart.ts.
+import type { Gap } from "../lib/history";
+import { utc } from "../lib/history";
+
 interface Props {
     title: string;
-    series: number[];
-    // Minutes between samples; the last sample is "now".
-    interval?: number;
+    // Reading times in ms, ascending, and the reading at each
+    times: number[];
+    values: number[];
+    gaps: Gap[];
+    // Indices of readings inside a spike
+    spikes?: number[];
 }
 
-const { title, series, interval = 5 } = Astro.props;
+const { title, times, values, gaps, spikes = [] } = Astro.props;
 
 const W = 300;
 const H = 100;
-const x = (i: number) => (i / (series.length - 1)) * W;
+const start = times[0]!;
+const span = times.at(-1)! - start;
+const x = (t: number) => ((t - start) / span) * W;
 const y = (v: number) => H - v;
-const line = series.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-const area = `0,${H} ${line} ${W},${H}`;
+// One polyline per run of readings with no gap inside it
+const segments: string[] = [];
+times.forEach((t, i) => {
+    const point = `${x(t)},${y(values[i]!)}`;
+    const broken =
+        i === 0 || gaps.some((g) => g.start > times[i - 1]! && g.end <= t);
+    if (broken) segments.push(point);
+    else segments[segments.length - 1] += ` ${point}`;
+});
 const ticks = [0, 25, 50, 75, 100];
-const xTicks = [0, Math.round((series.length - 1) / 2), series.length - 1];
-const ago = (i: number) => {
-    const m = (series.length - 1 - i) * interval;
-    if (m === 0) return "now";
-    const h = Math.floor(m / 60);
-    return `${h ? `${h}h ` : ""}${m % 60 ? `${m % 60}m ` : ""}ago`;
-};
-const last = series[series.length - 1];
+// The middle label goes on the reading nearest the middle of the span
+const middle = times.reduce(
+    (best, t, i) =>
+        Math.abs(t - start - span / 2) <
+        Math.abs(times[best]! - start - span / 2)
+            ? i
+            : best,
+    0,
+);
+const xTicks = [0, middle, times.length - 1];
+const pct = (t: number) => `${(x(t) / W) * 100}%`;
+const hour = (t: number) => utc(t).slice(11);
+const labels = times.map(
+    (t, i) => `${utc(t)} UTC${spikes.includes(i) ? " · spike" : ""}`,
+);
+const last = values.at(-1)!;
 ---
 
 <div
     class="usage-chart"
-    data-series={JSON.stringify(series)}
-    data-interval={interval}
+    data-times={JSON.stringify(times)}
+    data-series={JSON.stringify(values)}
+    data-labels={JSON.stringify(labels)}
 >
     <p class="title">{title}</p>
     <div class="body">
@@ -52,9 +78,26 @@ const last = series[series.length - 1];
                 {ticks.map((t) => (
                     <line class="grid" x1="0" x2={W} y1={y(t)} y2={y(t)} />
                 ))}
-                <polygon class="area" points={area} />
-                <polyline class="line" points={line} />
+                {gaps.map((g) => (
+                    <rect
+                        class="band"
+                        x={x(g.start)}
+                        y="0"
+                        width={x(g.end) - x(g.start)}
+                        height={H}
+                    />
+                ))}
+                {segments.map((points) => (
+                    <polyline class="line" points={points} />
+                ))}
             </svg>
+            {spikes.map((i) => (
+                <span
+                    class="marker"
+                    aria-hidden="true"
+                    style={`left: ${pct(times[i]!)}; top: ${100 - values[i]!}%`}
+                />
+            ))}
             <span class="end-label" style={`top: ${100 - last}%`}>
                 {last}%
             </span>
@@ -68,21 +111,19 @@ const last = series[series.length - 1];
     </div>
     <div class="x-axis" aria-hidden="true">
         {xTicks.map((i) => (
-            <span style={`left: ${(i / (series.length - 1)) * 100}%`}>
-                {ago(i)}
-            </span>
+            <span style={`left: ${pct(times[i]!)}`}>{hour(times[i]!)}</span>
         ))}
     </div>
     <table class="sr-only">
         <caption>{title}</caption>
         <tr>
-            <th>Time</th>
+            <th>Time (UTC)</th>
             <th>Usage</th>
         </tr>
-        {series.map((v, i) => (
+        {times.map((_, i) => (
             <tr>
-                <td>{ago(i)}</td>
-                <td>{v}%</td>
+                <td>{labels[i]}</td>
+                <td>{values[i]} %</td>
             </tr>
         ))}
     </table>
@@ -91,6 +132,7 @@ const last = series[series.length - 1];
 <style>
     .usage-chart {
         --series: #0f62fe;
+        --spike: #da1e28;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -121,7 +163,7 @@ const last = series[series.length - 1];
     .plot {
         position: relative;
         flex: 1;
-        height: 10rem;
+        height: 8rem;
         margin-inline-end: 2.5rem;
         cursor: crosshair;
         outline-offset: 4px;
@@ -137,9 +179,8 @@ const last = series[series.length - 1];
         stroke-width: 1;
         vector-effect: non-scaling-stroke;
     }
-    .area {
-        fill: var(--series);
-        opacity: 0.1;
+    .band {
+        fill: rgb(198 198 198 / 0.35);
     }
     .line {
         fill: none;
@@ -148,6 +189,17 @@ const last = series[series.length - 1];
         stroke-linejoin: round;
         stroke-linecap: round;
         vector-effect: non-scaling-stroke;
+    }
+    .marker {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        box-sizing: border-box;
+        border: 2px solid var(--spike);
+        border-radius: 50%;
+        background: var(--cds-layer-01, #f4f4f4);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
     }
     .end-label {
         position: absolute;
