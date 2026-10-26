@@ -11,7 +11,7 @@ export type Strength = {
 
 const LABELS = ["", "Weak", "Fair", "Good", "Strong"] as const;
 // The start of a few lists everyone tries first
-const COMMON = /password|qwerty|12345|abcdef|letmein|iloveyou|admin/i;
+const COMMON = /password|qwerty|12345|abcdef|letmein|iloveyou|admin/gi;
 
 export function passwordStrength(password: string): Strength {
     if (!password) return { score: 0, label: "" };
@@ -25,8 +25,11 @@ export function passwordStrength(password: string): Strength {
     if (password.length >= 12) score++;
     if (password.length >= 16) score++;
     if (kinds >= 3) score++;
-    // long but predictable, like "aaaaaaaaaaaa" or "password1234!"
-    if (new Set(password).size < 5 || COMMON.test(password)) score = 1;
+    // long but predictable, like "aaaaaaaaaaaa" or "Password1234567!": too
+    // little is left once the common parts are taken out. "Badminton…" is
+    // fine, the rest of it is long enough.
+    const rest = password.replace(COMMON, "");
+    if (new Set(password).size < 5 || rest.length < MIN_PASSWORD) score = 1;
 
     const capped = Math.min(score, 4) as Strength["score"];
     return { score: capped, label: LABELS[capped] };

@@ -26,7 +26,13 @@ describe("passwordStrength", () => {
     it("keeps repeated and well-known passwords weak", () => {
         expect(passwordStrength("aaaaaaaaaaaaaaaaaaaa").label).toBe("Weak");
         expect(passwordStrength("Password1234567!").label).toBe("Weak");
-        expect(passwordStrength("Qwerty-is-my-pass-9").label).toBe("Weak");
+        expect(passwordStrength("qwerty123456!").label).toBe("Weak");
+    });
+
+    it("doesn't punish a long passphrase for containing a common word", () => {
+        expect(passwordStrength("Badminton-Court-At-7pm!").label).toBe(
+            "Strong",
+        );
     });
 });
 
@@ -64,6 +70,12 @@ describe("mountPasswordFields", () => {
         input().value = value;
         input().dispatchEvent(new Event("input"));
     };
+
+    it("wires each field once, however often it is mounted", () => {
+        mountPasswordFields(doc);
+        toggle().click();
+        expect(input().type).toBe("text");
+    });
 
     it("shows and hides the password without changing it", () => {
         type("Correct horse");

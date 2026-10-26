@@ -4,7 +4,9 @@ type Button = HTMLElement & { disabled: boolean };
 // Wires a form whose submit button is a native <button type="submit"> (the
 // credential forms, so password managers see a real submission) or a
 // <cds-button>. The page stays put: onSubmit does the work and returns an
-// error message, or null.
+// error message, or null. Native buttons start out disabled in the HTML, so
+// Enter can't post the form natively before this runs; updateButton enables
+// them.
 export function bindForm(
     form: HTMLFormElement,
     onSubmit: (field: (name: string) => string) => Promise<string | null>,
@@ -32,7 +34,12 @@ export function bindForm(
         button.disabled = true;
         error.hidden = true;
 
-        const message = await onSubmit(field);
+        let message: string | null;
+        try {
+            message = await onSubmit(field);
+        } catch {
+            message = "Something went wrong, please try again";
+        }
 
         busy = false;
         updateButton();

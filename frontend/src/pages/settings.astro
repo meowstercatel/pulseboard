@@ -2,6 +2,7 @@
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 import Field from "../components/Field.astro";
+import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
 ---
 
 <HtmlTemplate title="Account settings · PulseBoard" requiresAuth>
@@ -78,7 +79,7 @@ import Field from "../components/Field.astro";
                         role="status"
                         aria-live="polite"
                     ></p>
-                    <button class="button" type="submit">
+                    <button class="button" type="submit" disabled>
                         Save profile
                     </button>
                 </form>
@@ -130,7 +131,7 @@ import Field from "../components/Field.astro";
                         name="newPassword"
                         type="password"
                         autocomplete="new-password"
-                        helper="8–256 characters."
+                        helper={`${MIN_PASSWORD}–${MAX_PASSWORD} characters.`}
                         required
                         strength
                     />
@@ -157,7 +158,7 @@ import Field from "../components/Field.astro";
                     <p class="hint">
                         Changing your password signs you out on other devices.
                     </p>
-                    <button class="button" type="submit">
+                    <button class="button" type="submit" disabled>
                         Change password
                     </button>
                 </form>
@@ -581,6 +582,7 @@ import Field from "../components/Field.astro";
     import { planSummary } from "../lib/plan";
     import { bindForm } from "../lib/form";
     import { clearField } from "../lib/passwordField";
+    import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
     import { mountSessions } from "../lib/sessions";
     import {
         linkResult,
@@ -754,8 +756,8 @@ import Field from "../components/Field.astro";
         passwordSuccess.textContent = "";
         if (!field("currentPassword")) return "Enter your current password";
         const password = field("newPassword");
-        if (password.length < 8 || password.length > 256) {
-            return "New password must be 8–256 characters";
+        if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
+            return `New password must be ${MIN_PASSWORD}–${MAX_PASSWORD} characters`;
         }
         if (password !== field("confirm")) return "Passwords don't match";
         const result = await changePassword(field("currentPassword"), password);

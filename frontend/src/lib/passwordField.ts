@@ -1,10 +1,12 @@
 import { passwordStrength } from "./passwordStrength";
 
-// Wires the show/hide buttons and strength meters rendered by Field.astro
+// Wires the show/hide buttons and strength meters rendered by Field.astro.
+// Safe to call again: anything already wired is skipped.
 export function mountPasswordFields(root: ParentNode = document) {
     for (const toggle of root.querySelectorAll<HTMLButtonElement>(
-        "[data-password-toggle]",
+        "[data-password-toggle]:not([data-mounted])",
     )) {
+        toggle.dataset.mounted = "";
         const input = document.getElementById(
             toggle.getAttribute("aria-controls")!,
         ) as HTMLInputElement;
@@ -22,8 +24,9 @@ export function mountPasswordFields(root: ParentNode = document) {
     }
 
     for (const meter of root.querySelectorAll<HTMLElement>(
-        "[data-strength-for]",
+        "[data-strength-for]:not([data-mounted])",
     )) {
+        meter.dataset.mounted = "";
         const input = document.getElementById(
             meter.dataset.strengthFor!,
         ) as HTMLInputElement;

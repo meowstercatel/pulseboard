@@ -30,6 +30,9 @@ const {
     hidden,
 } = Astro.props;
 const password = type === "password";
+// emails and passwords aren't words
+const free = type === "text";
+const spell = spellcheck ?? (free ? undefined : false);
 const describedBy =
     [helper && `${id}-helper`, strength && `${id}-strength`]
         .filter(Boolean)
@@ -46,14 +49,8 @@ const describedBy =
             class={password ? "has-toggle" : undefined}
             autocomplete={autocomplete}
             required={required}
-            spellcheck={
-                spellcheck === undefined
-                    ? type === "text"
-                        ? undefined
-                        : "false"
-                    : String(spellcheck)
-            }
-            autocapitalize={type === "text" ? undefined : "none"}
+            spellcheck={spell === undefined ? undefined : String(spell)}
+            autocapitalize={free ? undefined : "none"}
             aria-describedby={describedBy}
         />
         {password && (
