@@ -358,7 +358,9 @@ describe("setting a password on a social-only account", () => {
         ).toHaveLength(0);
     });
 
-    it("still doesn't send forgotten-password links to social-only accounts", async () => {
+    // An owner whose only login was dropped at verification must always be
+    // able to get back in, so the login page offers the set-password link
+    it("sends a set-password link from the forgotten-password form to a verified social-only account", async () => {
         const user = await account({ links: [{ provider: "google" }] });
         const response = await request("auth/password-reset", {
             method: "POST",
@@ -367,7 +369,41 @@ describe("setting a password on a social-only account", () => {
         expect(response.status).toBe(204);
         expect(
             await db.orm.public.PasswordReset.where({ userId: user.id }).all(),
+        ).toHaveLength(1);
+        await vi.waitFor(() =>
+            expect(mail).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({
+                    to: user.email,
+                    subject: "Set a password for PulseBoard",
+                    text: expect.stringContaining(
+                        `It can already be logged in to with: Google (${user.email})`,
+                    ),
+                }),
+            ),
+        );
+    });
+
+    it("sends an unverified social-only account a verification link instead", async () => {
+        const user = await account({
+            verified: false,
+            links: [{ provider: "facebook" }],
+        });
+        const response = await request("auth/password-reset", {
+            method: "POST",
+            body: { email: user.email },
+        });
+        expect(response.status).toBe(204);
+        expect(
+            await db.orm.public.PasswordReset.where({ userId: user.id }).all(),
         ).toHaveLength(0);
+        await vi.waitFor(() =>
+            expect(mail).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({
+                    to: user.email,
+                    subject: "Verify your PulseBoard email address",
+                }),
+            ),
+        );
     });
 
     it("limits how many links one account can ask for", async () => {

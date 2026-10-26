@@ -83,9 +83,12 @@ export function accountDestination(user: User, next?: string | null): string {
     return hasAccess(user) ? "/overview" : "/buy";
 }
 
-type AuthResult = { user: User } | { error: string; status?: number };
+type AuthResult<T = { user: User }> = T | { error: string; status?: number };
 
-async function post(path: string, body: unknown): Promise<AuthResult> {
+async function post<T extends { user: User } = { user: User }>(
+    path: string,
+    body: unknown,
+): Promise<AuthResult<T>> {
     try {
         const res = await fetch(`/api/${path}`, {
             method: "POST",
@@ -93,7 +96,7 @@ async function post(path: string, body: unknown): Promise<AuthResult> {
             body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => null);
-        if (res.ok && data?.user) return { user: data.user };
+        if (res.ok && data?.user) return data as T;
         return {
             error: data?.error ?? `Something went wrong (${res.status})`,
             status: res.status,
@@ -128,8 +131,39 @@ export async function register(
     }
 }
 
+export type Verification = {
+    user: User;
+    // names of the logins removed because they may have been someone else's
+    removedLogins: string[];
+    // the account has no password or other login left
+    needsPassword: boolean;
+};
+
 export function verifyEmail(token: string) {
-    return post("auth/verify-email", { token });
+    return post<Verification>("auth/verify-email", { token });
+}
+
+// What the verify page says after the link worked, and where it goes next
+export function verifiedStep({
+    user,
+    removedLogins,
+    needsPassword,
+}: Verification) {
+    let message = "Your email address is verified.";
+    if (removedLogins.length) {
+        // the server lists each provider once
+        const names = removedLogins;
+        message +=
+            names.length === 1
+                ? ` The ${names[0]} login connected before you verified it was removed, because it may not have been yours. If it was, connect it again in Settings.`
+                : ` The ${names.join(" and ")} logins connected before you verified it were removed, because they may not have been yours. If they were, connect them again in Settings.`;
+    }
+    if (needsPassword) {
+        message +=
+            " Set a password in Settings, so you can log in again after you sign out.";
+        return { message, href: "/settings" };
+    }
+    return { message, href: accountDestination(user) };
 }
 
 export async function resendVerificationEmail(): Promise<string | null> {
