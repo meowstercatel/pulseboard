@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { Contract } from "../../backend/src/prisma/contract.d";
 import { LIMITS } from "../../backend/src/datasets/limits";
+import { CAPACITY_HORIZON_DAYS } from "../../backend/src/forecast/capacity";
+import { THRESHOLDS } from "../../backend/src/forecast/index";
 import { contactEmail } from "../../frontend/src/lib/legal";
 import { plans, price } from "../../frontend/src/lib/pricing";
 import { testEnvironment } from "../environment.mjs";
@@ -245,6 +247,90 @@ test("/samples offers the repository's sample files", async ({ page }) => {
         const expected = await readFile(join("samples", file));
         expect(Buffer.compare(await res.body(), expected), file).toBe(0);
     }
+});
+
+test("the demo shows only what PulseBoard shows for a CSV", async ({
+    page,
+}) => {
+    await page.goto("/");
+    const demo = page.locator(".dashboard");
+    // nothing a CSV import can't know
+    for (const text of ["Online", "Uptime", "Ubuntu", "Services", "/var"]) {
+        await expect(demo).not.toContainText(text);
+    }
+    // the readings /overview shows
+    for (const label of [
+        "CPU usage",
+        "RAM usage",
+        "Disk usage",
+        "Incoming network",
+        "Outgoing network",
+    ]) {
+        await expect(demo.locator(".kpis")).toContainText(label);
+    }
+    await expect(demo).toContainText("Latest imported reading:");
+    // history with a gap and a spike, as /history lists them
+    await expect(demo.locator(".usage-chart")).toHaveCount(2);
+    await expect(demo.locator(".usage-chart .band")).toHaveCount(2);
+    await expect(demo.locator(".usage-chart .marker")).toHaveCount(1);
+    await expect(
+        demo.getByRole("columnheader", { name: "Duration" }),
+    ).toBeVisible();
+    await expect(
+        demo.getByRole("columnheader", { name: "Typical" }),
+    ).toBeVisible();
+    // capacity dates for every host at the backend's thresholds and horizon
+    const capacity = demo.locator(".tile").filter({
+        hasText: "Disk and RAM capacity",
+    });
+    await expect(capacity).toContainText(
+        `${CAPACITY_HORIZON_DAYS} days past its latest reading`,
+    );
+    await expect(
+        capacity.getByRole("cell", {
+            name: `Not within ${CAPACITY_HORIZON_DAYS} days`,
+        }),
+    ).not.toHaveCount(0);
+    for (const percent of THRESHOLDS) {
+        await expect(
+            capacity.getByRole("columnheader", { name: `Reaches ${percent}%` }),
+        ).toBeVisible();
+    }
+    for (const host of ["web-01", "web-02", "db-01"]) {
+        await expect(
+            capacity.getByRole("cell", { name: host, exact: true }),
+        ).toHaveCount(2);
+    }
+    await expect(capacity).toContainText("Already above");
+    // the preview needs no Carbon components of its own
+    expect(
+        await demo
+            .locator("*")
+            .evaluateAll(
+                (els) =>
+                    els.filter((el) => el.localName.startsWith("cds-")).length,
+            ),
+    ).toBe(0);
+});
+
+test("the demo chart can be inspected by keyboard", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    const chart = page.locator(".usage-chart").first();
+    await chart.scrollIntoViewIfNeeded();
+    await chart.locator(".plot").focus();
+    const tooltip = chart.locator(".tooltip");
+    await expect(tooltip).toContainText("33 %");
+    await expect(tooltip).toContainText("2026-09-30 23:00 UTC");
+    // back across the gap: 12:00 is followed by 08:00
+    for (let i = 0; i < 11; i++) await page.keyboard.press("ArrowLeft");
+    await expect(tooltip).toContainText("2026-09-30 12:00 UTC");
+    await page.keyboard.press("ArrowLeft");
+    await expect(tooltip).toContainText("2026-09-30 08:00 UTC");
+    await page.keyboard.press("End");
+    for (let i = 0; i < 8; i++) await page.keyboard.press("ArrowLeft");
+    await expect(tooltip).toContainText("91 %");
+    await expect(tooltip).toContainText("15:00 UTC · spike");
 });
 
 test("the demo moves on its own until the visitor reaches for it", async ({

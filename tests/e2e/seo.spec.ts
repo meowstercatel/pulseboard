@@ -145,6 +145,19 @@ test("icons, manifest and share image are served", async ({ request }) => {
         expect(res.headers()["content-type"], icon.src).toBe("image/png");
     }
 
+    // the favicons are the same blue "P" as the icons above, not Astro's
+    expect(links("icon").map((l) => l["href"])).toEqual([
+        "/favicon.svg",
+        "/favicon.ico",
+    ]);
+    const svg = await request.get("/favicon.svg");
+    expect(svg.headers()["content-type"]).toContain("image/svg+xml");
+    expect(await svg.text()).toContain('fill="#0f62fe"');
+    const ico = await (await request.get("/favicon.ico")).body();
+    // ICONDIR: reserved 0, type 1 (icon), then the number of images
+    expect([ico.readUInt16LE(0), ico.readUInt16LE(2)]).toEqual([0, 1]);
+    expect(ico.readUInt16LE(4)).toBeGreaterThan(0);
+
     // PNG width and height are big-endian at bytes 16 and 20
     const png = await (await request.get("/og.png")).body();
     expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);

@@ -3,6 +3,11 @@ import { Hono } from "hono";
 import { requireAuth, requireLicense, type AuthEnv } from "../auth/session.js";
 import { db } from "../prisma/db.js";
 import {
+    CAPACITY_HORIZON_DAYS,
+    CAPACITY_HORIZON_HOURS,
+    compareCapacity,
+} from "../forecast/capacity.js";
+import {
     forecast,
     HOUR_MS,
     InsufficientHistory,
@@ -446,13 +451,10 @@ dashboard.get("/:id/forecast", async (c) => {
     });
 });
 
-export const CAPACITY_HORIZON_HOURS = 720;
 const capacityMetrics = ["diskPercent", "ramPercent"] as const;
 
-// Disk and RAM forecasts for every host in the dataset, 30 days ahead, soonest
-// trouble first: by when each host reaches 100%, then 90%, then 80%. A host
-// already above a threshold reaches it now. Hosts that reach none follow, then
-// hosts with too little history to forecast.
+// Disk and RAM forecasts for every host in the dataset, CAPACITY_HORIZON_HOURS
+// ahead, in compareCapacity's order: soonest trouble first.
 dashboard.get("/:id/capacity", async (c) => {
     const id = Number(c.req.param("id"));
     const lookbackMs = FORECAST_LOOKBACK_DAYS * 86400000;
@@ -533,35 +535,11 @@ dashboard.get("/:id/capacity", async (c) => {
         await setImmediate();
     }
 
-    // [100%, 90%, 80%] as ms; already above is 0, never within the horizon is Infinity.
-    const urgency = (row: (typeof rows)[number]) =>
-        "thresholds" in row
-            ? [...row.thresholds!]
-                  .reverse()
-                  .map((t) =>
-                      t.alreadyAbove
-                          ? 0
-                          : t.crossesAt === null
-                            ? Infinity
-                            : Date.parse(t.crossesAt),
-                  )
-            : null;
-    const order = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-    rows.sort((a, b) => {
-        const ua = urgency(a),
-            ub = urgency(b);
-        if (!ua || !ub) {
-            if (ua || ub) return ua ? -1 : 1;
-        } else {
-            const i = ua.findIndex((t, k) => t !== ub[k]);
-            if (i >= 0) return ua[i]! < ub[i]! ? -1 : 1;
-        }
-        return order(a.host, b.host) || order(a.metric, b.metric);
-    });
+    rows.sort(compareCapacity);
 
     return c.json({
         datasetId: id,
-        horizon: "30d",
+        horizon: `${CAPACITY_HORIZON_DAYS}d`,
         thresholds: THRESHOLDS,
         rows,
         note: NOTE,

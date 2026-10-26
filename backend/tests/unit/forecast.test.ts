@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { errors, origins } from "../../src/forecast/backtest.js";
+import { compareCapacity } from "../../src/forecast/capacity.js";
 import {
     crossings,
     forecast,
@@ -232,5 +233,49 @@ describe("forecast", () => {
         ).toThrow(
             "Forecasting needs at least 14 days of readings for this host; it has 7.0.",
         );
+    });
+});
+
+describe("compareCapacity", () => {
+    const at = (day: number | null) =>
+        day === null
+            ? null
+            : `2026-10-${String(day).padStart(2, "0")}T00:00:00Z`;
+    // crossings for 80, 90 and 100%; "now" is already above
+    const row = (
+        host: string,
+        metric: string,
+        ...days: (number | null | "now")[]
+    ) => ({
+        host,
+        metric,
+        thresholds: days.map((d) => ({
+            alreadyAbove: d === "now",
+            crossesAt: d === "now" ? null : at(d),
+        })),
+    });
+
+    it("puts the soonest 100%, then 90%, then 80% first, ties by host and metric", () => {
+        const insufficient = { host: "a-01", metric: "diskPercent" };
+        const rows = [
+            insufficient,
+            row("web-02", "ramPercent", null, null, null),
+            row("web-02", "diskPercent", null, null, null),
+            row("db-01", "ramPercent", 5, null, null),
+            row("db-01", "diskPercent", 3, 9, null),
+            row("app-01", "diskPercent", "now", "now", 20),
+            row("web-01", "diskPercent", "now", 6, 13),
+        ];
+        expect(
+            rows.toSorted(compareCapacity).map((r) => `${r.host} ${r.metric}`),
+        ).toEqual([
+            "web-01 diskPercent",
+            "app-01 diskPercent",
+            "db-01 diskPercent",
+            "db-01 ramPercent",
+            "web-02 diskPercent",
+            "web-02 ramPercent",
+            "a-01 diskPercent",
+        ]);
     });
 });
