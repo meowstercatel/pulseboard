@@ -72,10 +72,27 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 
             <section aria-labelledby="password-heading">
                 <h2 id="password-heading">Password</h2>
-                <p class="description">
+                <p class="description" id="password-description">
                     Choose a new password to keep your account secure.
                 </p>
-                <form id="password-form">
+                <div id="set-password" hidden>
+                    <p class="description">
+                        You log in with Google or Facebook. Add a password to
+                        also log in with your email address, and to be able to
+                        change it. We'll email you a link to choose one.
+                    </p>
+                    <cds-inline-notification
+                        kind="error"
+                        title="Couldn't send the link"
+                        hide-close-button
+                        hidden
+                    ></cds-inline-notification>
+                    <p class="success" role="status" aria-live="polite"></p>
+                    <cds-button id="send-setup" type="button">
+                        Email me a link to set a password
+                    </cds-button>
+                </div>
+                <form id="password-form" hidden>
                     <cds-text-input
                         label="Current password"
                         name="currentPassword"
@@ -141,6 +158,38 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                 >
                     Log out everywhere else
                 </cds-button>
+            </section>
+
+            <section
+                id="connected-accounts"
+                aria-labelledby="connected-heading"
+            >
+                <h2 id="connected-heading">Connected accounts</h2>
+                <p class="description">
+                    Google and Facebook accounts you can log in with. Connecting
+                    or disconnecting one emails you, and disconnecting signs out
+                    your other devices.
+                </p>
+                <ul class="accounts" aria-label="Connected accounts"></ul>
+                <cds-inline-notification
+                    kind="error"
+                    title="Couldn't update connected accounts"
+                    hide-close-button
+                    hidden
+                ></cds-inline-notification>
+                <p class="success" role="status" aria-live="polite"></p>
+                <div class="connect" hidden>
+                    <cds-text-input
+                        label="Current password"
+                        name="currentPassword"
+                        type="password"
+                        show-password-visibility-toggle
+                        autocomplete="current-password"
+                        helper-text="Required to connect another account."
+                        hidden
+                    ></cds-text-input>
+                    <div class="connect-buttons"></div>
+                </div>
             </section>
 
             <section class="danger" aria-labelledby="delete-heading">
@@ -345,6 +394,62 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     .sessions :global(cds-button) {
         flex-shrink: 0;
     }
+    .accounts {
+        list-style: none;
+        margin: 0 0 1rem;
+        padding: 0;
+    }
+    .accounts:empty {
+        display: none;
+    }
+    .accounts :global(li) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .accounts :global(li:first-child) {
+        padding-top: 0;
+    }
+    .accounts :global(.provider) {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    .accounts :global(.meta) {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        overflow-wrap: anywhere;
+    }
+    .accounts :global(.visually-hidden) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    .accounts :global(cds-button) {
+        flex-shrink: 0;
+    }
+    .connect {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .connect-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    #connected-accounts .success,
+    #connected-accounts cds-inline-notification,
+    #set-password .success,
+    #set-password cds-inline-notification {
+        margin-bottom: 1rem;
+    }
     #sessions .success {
         margin-bottom: 1rem;
     }
@@ -429,6 +534,11 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     } from "../lib/auth";
     import { bindForm } from "../lib/form";
     import { mountSessions } from "../lib/sessions";
+    import {
+        linkResult,
+        mountConnectedAccounts,
+        requestPasswordSetup,
+    } from "../lib/connectedAccounts";
 
     type Input = HTMLElement & { value: string };
     const profileForm = document.getElementById(
@@ -482,6 +592,47 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 
     const sessions = mountSessions(document.getElementById("sessions")!);
 
+    // Social-only accounts are offered a link to set a password instead of
+    // the change password form
+    const setPassword = document.getElementById("set-password")!;
+    const connected = mountConnectedAccounts(
+        document.getElementById("connected-accounts")!,
+        ({ hasPassword }) => {
+            passwordForm.hidden = !hasPassword;
+            document.getElementById("password-description")!.hidden =
+                !hasPassword;
+            setPassword.hidden = hasPassword;
+        },
+    );
+    // set by the server when a Google/Facebook connection finishes
+    const linked = linkResult(new URLSearchParams(location.search));
+    if (linked) {
+        connected.showResult(linked);
+        history.replaceState(null, "", "/settings");
+    }
+
+    const sendSetup = setPassword.querySelector<
+        HTMLElement & { disabled: boolean }
+    >("#send-setup")!;
+    const setupError = setPassword.querySelector<
+        HTMLElement & { subtitle: string }
+    >("cds-inline-notification")!;
+    const setupStatus = setPassword.querySelector<HTMLElement>(".success")!;
+    sendSetup.addEventListener("click", async () => {
+        if (sendSetup.disabled) return;
+        sendSetup.disabled = true;
+        setupError.hidden = true;
+        setupStatus.textContent = "";
+        const result = await requestPasswordSetup();
+        sendSetup.disabled = false;
+        if ("error" in result) {
+            setupError.subtitle = result.error;
+            setupError.hidden = false;
+        } else {
+            setupStatus.textContent = `We sent a link to ${savedEmail}. It expires in 1 hour.`;
+        }
+    });
+
     document.getElementById("logout")!.addEventListener("click", logout);
     profileForm.addEventListener("input", () => {
         profileSuccess.textContent = "";
@@ -506,6 +657,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         document.getElementById("loading")!.hidden = true;
         document.getElementById("settings")!.hidden = false;
         sessions.load();
+        connected.load();
     });
 
     bindForm(profileForm, async (field) => {

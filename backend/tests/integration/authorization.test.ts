@@ -207,7 +207,8 @@ describe("dataset id routes", () => {
                     (r) =>
                         /\/:id(\/|$)/.test(r.path) &&
                         !r.path.endsWith("*") &&
-                        !r.path.startsWith("/api/auth/sessions/"),
+                        !r.path.startsWith("/api/auth/sessions/") &&
+                        !r.path.startsWith("/api/auth/connected-accounts/"),
                 )
                 .map((r) => `${r.method} ${r.path}`),
         );
@@ -309,6 +310,50 @@ describe("sessions", () => {
             b.cookie,
         );
         expect(await others.json()).toEqual({ revoked: 0 });
+
+        expect(await snapshot(a.id)).toEqual(before);
+        expect((await request("auth/me", undefined, a.cookie)).status).toBe(
+            200,
+        );
+    });
+});
+
+describe("connected accounts", () => {
+    it("lists every connected account id route", () => {
+        const routes = app.routes
+            .filter(
+                (r) =>
+                    r.path.startsWith("/api/auth/connected-accounts/") &&
+                    !r.path.endsWith("*"),
+            )
+            .map((r) => `${r.method} ${r.path}`);
+        expect(routes.sort()).toEqual([
+            "DELETE /api/auth/connected-accounts/:id",
+        ]);
+    });
+
+    it("never lists or disconnects another user's logins", async () => {
+        const a = await account();
+        const b = await account();
+        const link = await db.orm.public.OAuthAccount.create({
+            provider: "google",
+            providerUserId: `g-${randomUUID()}`,
+            userId: a.id,
+            email: a.email,
+        });
+        const before = await snapshot(a.id);
+
+        const list = await request(
+            "auth/connected-accounts",
+            undefined,
+            b.cookie,
+        );
+        expect((await list.json()).accounts).toEqual([]);
+        const unlink = await app.request(
+            `/api/auth/connected-accounts/${link.id}`,
+            { method: "DELETE", headers: { cookie: b.cookie, origin } },
+        );
+        expect(unlink.status).toBe(404);
 
         expect(await snapshot(a.id)).toEqual(before);
         expect((await request("auth/me", undefined, a.cookie)).status).toBe(

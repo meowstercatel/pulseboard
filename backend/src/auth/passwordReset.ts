@@ -2,7 +2,9 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Context } from "hono";
 import { sendMail } from "../mail/mailer.js";
 import { passwordResetTemplate } from "../mail/passwordResetTemplate.js";
+import { setPasswordTemplate } from "../mail/setPasswordTemplate.js";
 import { db } from "../prisma/db.js";
+import { PROVIDER_NAMES } from "./oauth.js";
 import { hashPassword } from "./password.js";
 import { publicUrl } from "./publicUrl.js";
 
@@ -20,27 +22,36 @@ export async function requestPasswordReset(c: Context, email: string) {
     await padding;
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Replaces any earlier link for this user, so only the newest one works
+async function storeToken(
+    tx: Tx,
+    user: { id: number; email: string },
+): Promise<string> {
+    const token = randomBytes(32).toString("base64url");
+    await tx.orm.public.PasswordReset.where({ userId: user.id }).deleteAll();
+    await tx.orm.public.PasswordReset.create({
+        tokenHash: hashToken(token),
+        userId: user.id,
+        email: user.email,
+        expiresAt: new Date(Date.now() + TOKEN_TTL_MS).toISOString(),
+    });
+    return token;
+}
+
 async function createAndSendReset(c: Context, email: string) {
     const linkPrefix = publicUrl(c, "/reset-password?token=");
-    const token = randomBytes(32).toString("base64url");
-    const user = await db.transaction(async (tx) => {
+    const reset = await db.transaction(async (tx) => {
         // no-op update to lock the user row until commit
         const user = await tx.orm.public.User.where({ email })
             .where((u) => u.passwordHash.isNotNull())
             .update({ email });
         if (!user) return null;
-        await tx.orm.public.PasswordReset.where({
-            userId: user.id,
-        }).deleteAll();
-        await tx.orm.public.PasswordReset.create({
-            tokenHash: hashToken(token),
-            userId: user.id,
-            email: user.email,
-            expiresAt: new Date(Date.now() + TOKEN_TTL_MS).toISOString(),
-        });
-        return user;
+        return { user, token: await storeToken(tx, user) };
     });
-    if (!user) return;
+    if (!reset) return;
+    const { user, token } = reset;
 
     sendMail({
         to: user.email,
@@ -53,6 +64,54 @@ async function createAndSendReset(c: Context, email: string) {
     });
 }
 
+// Emails a link that adds a password to an account that only signs in with
+// Google/Facebook. It is a password reset link (same table, page and confirm
+// endpoint), only worded differently. The address must already be verified,
+// so this link never becomes a second way to verify it. Returns false if the
+// account has a password or an unverified email.
+export async function sendPasswordSetup(
+    c: Context,
+    userId: number,
+): Promise<boolean> {
+    const linkPrefix = publicUrl(c, "/reset-password?purpose=set&token=");
+    const setup = await db.transaction(async (tx) => {
+        const current = await tx.orm.public.User.where({ id: userId })
+            .where((u) => u.passwordHash.isNull())
+            .where((u) => u.emailVerifiedAt.isNotNull())
+            .first();
+        if (!current) return null;
+        // no-op update to lock the user row until commit, and only while
+        // the address is still the one just checked
+        const user = await tx.orm.public.User.where({
+            id: userId,
+            email: current.email,
+        })
+            .where((u) => u.passwordHash.isNull())
+            .update({ email: current.email });
+        if (!user) return null;
+        const logins = await tx.orm.public.OAuthAccount.where({ userId })
+            .select("provider", "email")
+            .all();
+        return { user, logins, token: await storeToken(tx, user) };
+    });
+    if (!setup) return false;
+    await sendMail({
+        to: setup.user.email,
+        ...setPasswordTemplate(
+            linkPrefix + setup.token,
+            setup.user.email,
+            setup.logins.map(
+                ({ provider, email }) =>
+                    (PROVIDER_NAMES[provider] ?? provider) +
+                    (email ? ` (${email})` : ""),
+            ),
+        ),
+    });
+    return true;
+}
+
+// Returns the user, and whether the account had no password before (a link
+// from sendPasswordSetup), or null if the link is invalid or expired
 export async function resetPassword(token: string, newPassword: string) {
     const tokenHash = hashToken(token);
     const passwordHash = await hashPassword(newPassword);
@@ -91,6 +150,6 @@ export async function resetPassword(token: string, newPassword: string) {
             userId: user.id,
         }).deleteAll();
         await tx.orm.public.Session.where({ userId: user.id }).deleteAll();
-        return user;
+        return { user, passwordWasSet: current.passwordHash === null };
     });
 }

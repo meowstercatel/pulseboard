@@ -7,6 +7,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { checkPublicUrl } from "./auth/publicUrl.js";
 import { auth } from "./routes/auth.js";
 import { billing } from "./routes/billing.js";
+import { connectedAccounts } from "./routes/connectedAccounts.js";
 import { dashboard } from "./routes/dashboard.js";
 import { datasets } from "./routes/datasets.js";
 import { oauth } from "./routes/oauth.js";
@@ -48,6 +49,7 @@ export function createApp() {
 
     app.route("/api/auth/oauth", oauth);
     app.route("/api/auth/sessions", sessions);
+    app.route("/api/auth/connected-accounts", connectedAccounts);
     app.route("/api/auth", auth);
     app.route("/api/billing", billing);
     app.route("/api/datasets", datasets);

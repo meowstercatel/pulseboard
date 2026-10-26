@@ -10,14 +10,21 @@ import {
     needsRehash,
     verifyPassword,
 } from "../auth/password.js";
-import { requestPasswordReset, resetPassword } from "../auth/passwordReset.js";
+import { notifyAccountChange } from "../auth/accountNotice.js";
+import {
+    requestPasswordReset,
+    resetPassword,
+    sendPasswordSetup,
+} from "../auth/passwordReset.js";
 import { publicUrl } from "../auth/publicUrl.js";
+import { reauthenticate } from "../auth/reauth.js";
 import {
     createSession,
     destroySession,
     getSessionUser,
     requestSessionId,
     requireAuth,
+    revokeOtherSessions,
     toAuthUser,
     type AuthEnv,
 } from "../auth/session.js";
@@ -41,8 +48,6 @@ const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 256;
 
 const MINUTE = 60 * 1000;
-// Social-only accounts prove it's them by signing in again shortly before deleting
-const REAUTH_WINDOW_MS = 10 * MINUTE;
 // Every login request from one IP, to slow down credential stuffing
 const loginIpLimiter = new RateLimiter(30, 15 * MINUTE);
 // Logins per account from one IP, so one client can't lock the owner out
@@ -67,6 +72,8 @@ const resetIpEmailLimiter = new RateLimiter(3, 15 * MINUTE);
 // Over the limit requests are dropped silently, so strangers can't lock someone out
 const resetEmailLimiter = new RateLimiter(5, 60 * MINUTE);
 const resetIpLimiter = new RateLimiter(30, 15 * MINUTE);
+// "Set a password" links per account, so the endpoint can't be used to spam an inbox
+const setupLimiter = new RateLimiter(3, 15 * MINUTE);
 
 const limitAccountChanges: MiddlewareHandler<AuthEnv> = async (c, next) => {
     const key = String(c.get("user").id);
@@ -313,29 +320,21 @@ auth.post("/delete-account", requireAuth, limitAccountChanges, async (c) => {
             400,
         );
     }
-    if (current.passwordHash) {
-        if (
-            !validPassword(body.currentPassword) ||
-            !(await verifyPassword(body.currentPassword, current.passwordHash))
-        ) {
-            return c.json({ error: "Current password is incorrect" }, 400);
-        }
-    } else {
-        const session = await db.orm.public.Session.where({
-            id: c.get("sessionId"),
-        }).first();
-        if (
-            !session ||
-            Date.now() - new Date(session.createdAt).getTime() >
-                REAUTH_WINDOW_MS
-        ) {
-            return c.json(
-                {
-                    error: "Sign in again with Google or Facebook, then delete your account within 10 minutes",
-                },
-                403,
-            );
-        }
+    const reauth = await reauthenticate(
+        current,
+        c.get("sessionId"),
+        body.currentPassword,
+    );
+    if (reauth === "wrong_password") {
+        return c.json({ error: "Current password is incorrect" }, 400);
+    }
+    if (reauth === "sign_in_again") {
+        return c.json(
+            {
+                error: "Sign in again with Google or Facebook, then delete your account within 10 minutes",
+            },
+            403,
+        );
     }
 
     // Foreign keys atomically cascade to sessions, OAuth links, datasets, and metrics.
@@ -381,7 +380,7 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
     if (email !== current.email && !current.passwordHash) {
         return c.json(
             {
-                error: "Email changes require a password-based account. This account uses social sign-in",
+                error: "Set a password first (under Password below) to change your email address",
             },
             400,
         );
@@ -417,9 +416,7 @@ auth.post("/profile", requireAuth, limitAccountChanges, async (c) => {
                 userId: updated.id,
             }).deleteAll();
             // Keep this device signed in and revoke every other session atomically.
-            await tx.orm.public.Session.where({ userId: updated.id })
-                .where((session) => session.id.neq(c.get("sessionId")))
-                .deleteAll();
+            await revokeOtherSessions(updated.id, c.get("sessionId"), tx);
             return updated;
         });
         if (!user)
@@ -488,9 +485,7 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
             userId: current.id,
         }).deleteAll();
         // Keep this device signed in and revoke every other session atomically.
-        await tx.orm.public.Session.where({ userId: current.id })
-            .where((session) => session.id.neq(c.get("sessionId")))
-            .deleteAll();
+        await revokeOtherSessions(current.id, c.get("sessionId"), tx);
         return updated;
     });
     if (!user)
@@ -499,6 +494,41 @@ auth.post("/password", requireAuth, limitAccountChanges, async (c) => {
             409,
         );
     return c.json({ user: toAuthUser(user) });
+});
+
+// Emails a link to add a password to an account that only signs in with
+// Google/Facebook; the link is a password reset link. Without a password the
+// email can't be changed either, so this also unlocks that.
+auth.post("/password/setup", requireAuth, limitAccountChanges, async (c) => {
+    const user = c.get("user");
+    if (!user.emailVerified) {
+        return c.json({ error: "Verify your email address first" }, 403);
+    }
+    const key = String(user.id);
+    const retryAfter = setupLimiter.retryAfter(key);
+    if (retryAfter) return tooManyRequests(c, retryAfter);
+    setupLimiter.hit(key);
+
+    let sent;
+    try {
+        sent = await sendPasswordSetup(c, user.id);
+    } catch (err) {
+        console.error(
+            `Couldn't send password setup email to user ${user.id}`,
+            err,
+        );
+        return c.json(
+            { error: "Couldn't send the email, try again later" },
+            502,
+        );
+    }
+    if (!sent) {
+        return c.json(
+            { error: "This account already has a password. Reload the page" },
+            409,
+        );
+    }
+    return c.body(null, 204);
 });
 
 auth.post("/password-reset", limitByIp(resetRequestIpLimiter), async (c) => {
@@ -535,12 +565,17 @@ auth.post("/password-reset/confirm", limitByIp(resetIpLimiter), async (c) => {
             400,
         );
     }
-    const user = await resetPassword(body.token, body.newPassword);
-    if (!user) {
+    const reset = await resetPassword(body.token, body.newPassword);
+    if (!reset) {
         return c.json(
             { error: "This reset link is invalid or has expired" },
             400,
         );
+    }
+    const { user } = reset;
+    // the account gained a way to log in, unlike a reset of a forgotten password
+    if (reset.passwordWasSet) {
+        notifyAccountChange(c, user, { kind: "password_set" });
     }
     loginEmailLimiter.reset(user.email);
     loginIpEmailLimiter.reset(`${clientIp(c)} ${user.email}`);
