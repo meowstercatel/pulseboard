@@ -27,7 +27,7 @@ Tests ignore the application's `DATABASE_URL`. Override the test database only w
 
 API tests use `app.request()` without opening a port, real PostgreSQL queries and transactions, and a mocked mail sender. Each test uses unique account addresses and a separate rate-limit IP key, and removes its accounts afterward. Expired database records are seeded directly; unit tests use a fake clock for limiter boundaries.
 
-The browser test uses the built Astro site, the real backend and SMTP through Mailpit. It registers a unique account, follows the verification link from its email, selects a lifetime license and checks the dashboard and persisted session. Stripe HTTP responses are intercepted by Nock using dummy credentials: the checkout fixture redirects to the real success page, which confirms the session through the backend. No real payment or hosted Stripe form is exercised. API tests also check unpaid sessions and reject confirmation by another account. OAuth providers are disabled in this initial suite; provider callback coverage can be added with controlled provider responses.
+The browser test uses the built Astro site, the real backend and SMTP through Mailpit. It registers a unique account, follows the verification link from its email, selects a lifetime license and checks the dashboard and persisted session. Stripe HTTP responses are intercepted by Nock using dummy credentials: the checkout fixture redirects to the real success page, which confirms the session through the backend. No real payment or hosted Stripe form is exercised. API tests also check unpaid sessions and reject confirmation by another account. Google is enabled in the browser suite and answered by `tests/google.mjs`: the test plays Google's consent page and puts the profile it wants in the `code`. Facebook stays disabled there; its callbacks are covered by the API tests.
 
 ## Adding coverage
 
@@ -116,3 +116,19 @@ write, the recorded user agent and client IP, listing, revoking one session,
 user's sessions. `frontend/tests/sessions.test.ts` covers the settings list in
 Happy DOM and `tests/e2e/sessions.spec.ts` signs a second browser context out
 from the settings page, one device and then all others.
+
+## Connected accounts and setting a password
+
+`backend/tests/integration/connectedAccounts.test.ts` covers the "set a
+password" link for social-only accounts (a password reset token, sent only to
+verified, password-less accounts), the notice emails, and linking from the
+settings: password or fresh-sign-in re-authentication, attaching to the signed-in
+user rather than by email, the session binding of the state cookie, provider
+accounts already used elsewhere, and unverified provider emails. Unlinking asks for the same re-authentication, stays disconnected (Google no
+longer links by email to an account with a password), checks
+the last-login rule (including parallel requests and disabled providers) and
+signs out other sessions. `authorization.test.ts` checks that no one lists or
+disconnects another user's logins. `frontend/tests/connectedAccounts.test.ts`
+covers the settings section in Happy DOM, and `tests/e2e/connected-accounts.spec.ts`
+signs in with Google, sets a password from the Mailpit link, then disconnects and
+reconnects Google.

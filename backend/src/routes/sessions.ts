@@ -1,5 +1,10 @@
 import { Hono } from "hono";
-import { destroySession, requireAuth, type AuthEnv } from "../auth/session.js";
+import {
+    destroySession,
+    requireAuth,
+    revokeOtherSessions,
+    type AuthEnv,
+} from "../auth/session.js";
 import { db } from "../prisma/db.js";
 
 // Session ids are the SHA-256 (hex) of the cookie token. Exposing them is safe:
@@ -33,11 +38,10 @@ sessions.get("/", async (c) => {
 
 // Signs out every session but this one
 sessions.post("/revoke-others", async (c) => {
-    const revoked = await db.orm.public.Session.where({
-        userId: c.get("user").id,
-    })
-        .where((s) => s.id.neq(c.get("sessionId")))
-        .deleteAndCount();
+    const revoked = await revokeOtherSessions(
+        c.get("user").id,
+        c.get("sessionId"),
+    );
     return c.json({ revoked });
 });
 

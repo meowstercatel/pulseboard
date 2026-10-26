@@ -79,8 +79,8 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         ],
         [
             "email_taken",
-            () =>
-                "An account with this email already exists. Log in with your password or Google.",
+            (label) =>
+                `An account with this email already exists. Log in to it, then connect ${label} in your account settings.`,
         ],
         ["failed", (label) => `Couldn't sign in with ${label}`],
     ]);

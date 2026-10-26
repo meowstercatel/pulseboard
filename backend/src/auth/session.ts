@@ -128,6 +128,20 @@ export async function getSessionUser(c: Context): Promise<AuthUser | null> {
     return toAuthUser(session.user);
 }
 
+type Queries = Pick<typeof db, "orm">;
+
+// Signs out every session of the user except `keep` (the current device).
+// Pass a transaction to revoke atomically with another account change.
+export function revokeOtherSessions(
+    userId: number,
+    keep: string,
+    queries: Queries = db,
+): Promise<number> {
+    return queries.orm.public.Session.where({ userId })
+        .where((s) => s.id.neq(keep))
+        .deleteAndCount();
+}
+
 export async function destroySession(c: Context) {
     const token = getCookie(c, COOKIE_NAME);
     if (token) {
