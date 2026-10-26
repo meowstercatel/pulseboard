@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 import { plans } from "../../frontend/src/lib/pricing";
 import { disallowed, publicPages } from "../../frontend/src/lib/seo";
 

@@ -4,14 +4,12 @@ const branch = import.meta.env.PUBLIC_GIT_BRANCH;
 const commit = import.meta.env.PUBLIC_GIT_COMMIT;
 ---
 
-{
-    branch && branch !== "main" && (
-        <div class="build-badge">
-            {branch}
-            {commit && ` (${commit})`}
-        </div>
-    )
-}
+{branch && branch !== "main" && (
+    <div class="build-badge">
+        {branch}
+        {commit && ` (${commit})`}
+    </div>
+)}
 
 <style>
     .build-badge {

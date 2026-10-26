@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "./fixtures";
 
 const mailpit = process.env.TEST_MAILPIT_URL || "http://127.0.0.1:58025";
 const password = "A secure verification password!";
@@ -109,6 +109,9 @@ test("unverified login stays restricted; replaced and used links recover clearly
         await expect(page.locator("#pending")).toContainText(email);
 
         await page.goto(replacement);
+        // #done ships hidden with this text, so wait until the page shows it:
+        // leaving earlier would let the next visit use the link first
+        await expect(page.locator("#done")).toBeVisible();
         await expect(page.locator("#done")).toContainText(
             "Your email address is verified.",
         );

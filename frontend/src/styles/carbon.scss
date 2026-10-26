@@ -39,9 +39,3 @@ cds-button::part(button) {
 cds-button:has([slot="icon"])::part(button) {
     padding-inline-end: 3rem;
 }
-
-cds-text-input::part(input) {
-    border-radius: var(--pulse-control-radius);
-    border-block-end: 0;
-    box-shadow: none;
-}

@@ -12,6 +12,7 @@ interface Props {
     type?: "text" | "email" | "password";
     helper?: string;
     required?: boolean;
+    maxlength?: number;
     // a strength meter, for fields that choose a new password
     strength?: boolean;
     spellcheck?: boolean;
@@ -25,6 +26,7 @@ const {
     type = "text",
     helper,
     required,
+    maxlength,
     strength,
     spellcheck,
     hidden,
@@ -49,6 +51,7 @@ const describedBy =
             class={password ? "has-toggle" : undefined}
             autocomplete={autocomplete}
             required={required}
+            maxlength={maxlength}
             spellcheck={spell === undefined ? undefined : String(spell)}
             autocapitalize={free ? undefined : "none"}
             aria-describedby={describedBy}
