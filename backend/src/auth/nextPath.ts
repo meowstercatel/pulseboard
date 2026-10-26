@@ -7,7 +7,7 @@ const BASE = "http://pulseboard.invalid";
 // Mirrors safeNext in frontend/src/lib/auth.ts.
 export function safeNext(raw: string | null | undefined): string | null {
     if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
-    if (/[\\\u0000- \u007f]/.test(raw)) return null;
+    if (/[\\\u0000-\u0020\u007f]/.test(raw)) return null;
     let url: URL;
     try {
         url = new URL(raw, BASE);

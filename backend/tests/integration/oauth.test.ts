@@ -20,7 +20,6 @@ vi.hoisted(() => {
 });
 
 import { createApp } from "../../src/app.js";
-import { verifyOAuthLinkedUsers } from "../../src/auth/emailVerification.js";
 import { sendMail } from "../../src/mail/mailer.js";
 import { db } from "../../src/prisma/db.js";
 
@@ -31,8 +30,6 @@ vi.mock("../../src/mail/mailer.js", () => ({
 const app = createApp();
 const mail = vi.mocked(sendMail);
 const password = "Correct horse battery staple!";
-const facebookTakenError =
-    "An account with this email already exists. Log in with your password or Google.";
 const userIds = new Set<number>();
 let ip: string;
 let ipSequence = 0;
@@ -76,8 +73,11 @@ function sessionCookie(response: Response) {
 
 async function register(verified: boolean) {
     const email = `oauth-${randomUUID()}@example.com`;
-    const response = await request("auth/register", { email, password });
-    expect(response.status).toBe(201);
+    expect((await request("auth/register", { email, password })).status).toBe(
+        202,
+    );
+    const response = await request("auth/login", { email, password });
+    expect(response.status).toBe(200);
     const { user } = await response.json();
     userIds.add(user.id);
     if (verified) {
@@ -259,7 +259,7 @@ describe("Facebook sign-in", () => {
         const { location, cookie } = await signIn("facebook");
 
         expect(location).toBe(
-            `/login?oauth_error=${encodeURIComponent(facebookTakenError)}`,
+            "/login?oauth_error=email_taken&provider=facebook",
         );
         expect(cookie).toBeUndefined();
         expect(await oauthAccounts(id)).toEqual(before);
@@ -342,7 +342,7 @@ describe("Facebook sign-in", () => {
         mockFacebook({ id: facebookId, email });
         const again = await signIn("facebook");
         expect(again.location).toBe(
-            `/login?oauth_error=${encodeURIComponent(facebookTakenError)}`,
+            "/login?oauth_error=email_taken&provider=facebook",
         );
         expect(again.cookie).toBeUndefined();
     });
@@ -361,44 +361,28 @@ describe("provider names", () => {
     );
 });
 
-describe("startup verification of old links", () => {
-    it("clears the password, sessions and links made with another address", async () => {
-        const { email, id, cookie } = await register(false);
-        for (const linkEmail of [email, "someone-else@example.com", null]) {
-            await db.orm.public.OAuthAccount.create({
-                provider: "google",
-                providerUserId: `g-${randomUUID()}`,
-                userId: id,
-                email: linkEmail,
-            });
-        }
+describe("sign-in errors", () => {
+    it.each([
+        ["error=access_denied", "cancelled"],
+        ["code=x&state=y", "expired"],
+    ])(
+        "redirects with a code instead of a message: %s",
+        async (query, code) => {
+            const response = await request(
+                `auth/oauth/google/callback?${query}`,
+            );
+            expect(response.status).toBe(302);
+            expect(response.headers.get("location")).toBe(
+                `/login?oauth_error=${code}&provider=google`,
+            );
+        },
+    );
 
-        await verifyOAuthLinkedUsers();
-
-        const user = await db.orm.public.User.where({ id }).first();
-        expect(user!.emailVerifiedAt).not.toBeNull();
-        expect(user!.passwordHash).toBeNull();
-        expect((await loginWithPassword(email)).status).toBe(401);
-        expect((await request("auth/me", undefined, cookie)).status).toBe(401);
-        expect(await oauthAccounts(id)).toMatchObject([{ email }]);
-    });
-
-    it("doesn't count a Facebook link as proof of the address", async () => {
-        const { email, id, cookie } = await register(false);
-        await db.orm.public.OAuthAccount.create({
-            provider: "facebook",
-            providerUserId: `fb-${randomUUID()}`,
-            userId: id,
-            email,
-        });
-
-        await verifyOAuthLinkedUsers();
-
-        const user = await db.orm.public.User.where({ id }).first();
-        expect(user!.emailVerifiedAt).toBeNull();
-        expect((await loginWithPassword(email)).status).toBe(200);
-        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
-        expect(await oauthAccounts(id)).toHaveLength(1);
+    it("reports a failed provider request as a generic failure", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        nock("https://oauth2.googleapis.com").post("/token").reply(500, {});
+        const { location } = await signIn("google");
+        expect(location).toBe("/login?oauth_error=failed&provider=google");
     });
 });
 
@@ -436,9 +420,9 @@ describe("returning to the requested page", () => {
         expect(location).toBe("/buy");
     });
 
-    it("keeps the page when the sign-in fails", async () => {
+    it("keeps the page when the sign-in fails, with only a code", async () => {
         const start = await request(
-            `auth/oauth/google?${new URLSearchParams({ next: "/history" })}`,
+            `auth/oauth/google?${new URLSearchParams({ next: "/history?range=7d" })}`,
         );
         const stateCookie = start.headers.get("set-cookie")!.split(";")[0];
         const response = await request(
@@ -446,11 +430,20 @@ describe("returning to the requested page", () => {
             undefined,
             stateCookie,
         );
-        const location = new URL(response.headers.get("location")!, "http://x");
-        expect(location.pathname).toBe("/login");
-        expect(location.searchParams.get("next")).toBe("/history");
-        expect(location.searchParams.get("oauth_error")).toBe(
-            "Google sign-in was cancelled",
+        expect(response.headers.get("location")).toBe(
+            "/login?oauth_error=cancelled&provider=google&next=%2Fhistory%3Frange%3D7d",
+        );
+    });
+
+    it("doesn't pass on an off-site page planted in the state cookie", async () => {
+        const planted = Buffer.from("//evil.example").toString("base64url");
+        const response = await request(
+            "auth/oauth/google/callback?error=access_denied",
+            undefined,
+            `oauth_state=google.state.verifier.${planted}`,
+        );
+        expect(response.headers.get("location")).toBe(
+            "/login?oauth_error=cancelled&provider=google",
         );
     });
 });

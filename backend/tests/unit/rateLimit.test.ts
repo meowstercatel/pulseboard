@@ -36,6 +36,19 @@ describe("RateLimiter", () => {
         expect(limiter.retryAfter("bob")).toBe(60);
     });
 
+    it("takes back a single hit within the window", () => {
+        const limiter = new RateLimiter(2, 1000);
+        limiter.hit("alice");
+        limiter.hit("alice");
+        limiter.undo("alice");
+        expect(limiter.retryAfter("alice")).toBe(0);
+        limiter.undo("alice");
+        limiter.undo("alice");
+        limiter.hit("alice");
+        limiter.hit("alice");
+        expect(limiter.retryAfter("alice")).toBe(1);
+    });
+
     it("returns 429 and Retry-After through the middleware", async () => {
         vi.stubEnv("TRUST_PROXY", "true");
         const app = new Hono();

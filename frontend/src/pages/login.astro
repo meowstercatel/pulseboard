@@ -65,13 +65,40 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         if (user) location.replace(accountDestination(user, next));
     });
 
+    // Fixed messages, so a crafted link can't show its own text here
+    const PROVIDER_LABELS = new Map([
+        ["google", "Google"],
+        ["facebook", "Facebook"],
+    ]);
+    const OAUTH_ERRORS = new Map<string, (label: string) => string>([
+        ["cancelled", (label) => `${label} sign-in was cancelled`],
+        ["expired", (label) => `${label} sign-in expired, please try again`],
+        [
+            "no_verified_email",
+            (label) => `Your ${label} account has no verified email address`,
+        ],
+        [
+            "email_taken",
+            () =>
+                "An account with this email already exists. Log in with your password or Google.",
+        ],
+        ["failed", (label) => `Couldn't sign in with ${label}`],
+    ]);
+
+    function oauthErrorMessage(params: URLSearchParams): string {
+        const message = OAUTH_ERRORS.get(params.get("oauth_error")!);
+        const label = PROVIDER_LABELS.get(params.get("provider") ?? "");
+        return message && label
+            ? message(label)
+            : "Couldn't sign in, please try again";
+    }
+
     // set by the server when a Google/Facebook sign-in fails
-    const oauthError = params.get("oauth_error");
-    if (oauthError) {
+    if (params.has("oauth_error")) {
         const error = document.querySelector(
             "#login-form cds-inline-notification",
         ) as HTMLElement & { subtitle: string };
-        error.subtitle = oauthError;
+        error.subtitle = oauthErrorMessage(params);
         error.hidden = false;
         history.replaceState(null, "", `/login${keepNext}`);
     }

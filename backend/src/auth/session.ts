@@ -54,6 +54,12 @@ export async function createSession(c: Context, userId: number) {
     });
 }
 
+// The stored id of this request's session cookie, if it has one
+export function requestSessionId(c: Context): string | null {
+    const token = getCookie(c, COOKIE_NAME);
+    return token ? sessionIdFor(token) : null;
+}
+
 export async function getSessionUser(c: Context): Promise<AuthUser | null> {
     const token = getCookie(c, COOKIE_NAME);
     if (!token) return null;

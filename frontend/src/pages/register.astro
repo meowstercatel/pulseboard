@@ -39,6 +39,12 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         ></cds-inline-notification>
         <cds-button>Create account</cds-button>
     </form>
+    <div id="sent" hidden>
+        <p>
+            Check your inbox at <strong id="sent-email"></strong>. Open the link
+            we sent to finish setting up your account.
+        </p>
+    </div>
     <OAuthButtons />
     <p>
         By creating an account you agree to the{" "}
@@ -81,13 +87,16 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             if (field("password") !== field("confirm")) {
                 return "Passwords don't match";
             }
-            const result = await register(
-                field("email"),
+            const email = field("email");
+            const error = await register(
+                email,
                 field("password"),
                 field("username"),
             );
-            if ("error" in result) return result.error;
-            location.href = "/verify-email";
+            if (error) return error;
+            document.getElementById("sent-email")!.textContent = email.trim();
+            document.getElementById("register-form")!.hidden = true;
+            document.getElementById("sent")!.hidden = false;
             return null;
         },
     );

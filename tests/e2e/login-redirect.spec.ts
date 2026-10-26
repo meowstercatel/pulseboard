@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { Contract } from "../../backend/src/prisma/contract.d";
 import { testEnvironment } from "../environment.mjs";
 
@@ -45,6 +45,12 @@ test.afterAll(async () => {
     await account.cleanup();
 });
 
+// Carbon keeps the notification text in a property, not an attribute
+const subtitle = (notification: Locator) =>
+    notification.evaluate(
+        (el) => (el as HTMLElement & { subtitle: string }).subtitle,
+    );
+
 async function logIn(page: Page, email: string) {
     await page.locator('cds-text-input[name="email"] input').fill(email);
     await page.locator('cds-text-input[name="password"] input').fill(password);
@@ -74,6 +80,28 @@ test("login ignores a next page on another site", async ({ page }) => {
         await logIn(page, account.email);
         await expect(page).toHaveURL("/overview");
     }
+});
+
+test("an OAuth error shows a fixed message and keeps the next page", async ({
+    page,
+}) => {
+    await page.context().clearCookies();
+    const crafted = "Your account is locked, call +1 555 0100";
+    await page.goto(
+        `/login?${new URLSearchParams({ oauth_error: crafted, provider: "google", next: "/history" })}`,
+    );
+    const error = page.locator("#login-form cds-inline-notification");
+    await expect(error).toBeVisible();
+    expect(await subtitle(error)).toBe("Couldn't sign in, please try again");
+    await expect(page.getByText(crafted)).toHaveCount(0);
+    await expect(page).toHaveURL("/login?next=%2Fhistory");
+
+    await page.goto(
+        "/login?oauth_error=cancelled&provider=google&next=%2Fhistory",
+    );
+    expect(await subtitle(error)).toBe("Google sign-in was cancelled");
+    await logIn(page, account.email);
+    await expect(page).toHaveURL("/history");
 });
 
 test("a protected page stays hidden until the session is checked", async ({

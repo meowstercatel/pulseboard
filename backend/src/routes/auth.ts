@@ -1,14 +1,22 @@
-import { Hono, type MiddlewareHandler } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import {
     sendVerificationEmail,
     trySendVerificationEmail,
     verifyEmailToken,
 } from "../auth/emailVerification.js";
-import { DUMMY_HASH, hashPassword, verifyPassword } from "../auth/password.js";
+import {
+    DUMMY_HASH,
+    hashPassword,
+    needsRehash,
+    verifyPassword,
+} from "../auth/password.js";
 import { requestPasswordReset, resetPassword } from "../auth/passwordReset.js";
+import { publicUrl } from "../auth/publicUrl.js";
 import {
     createSession,
     destroySession,
+    getSessionUser,
+    requestSessionId,
     requireAuth,
     toAuthUser,
     type AuthEnv,
@@ -19,6 +27,8 @@ import {
     limitByIp,
     tooManyRequests,
 } from "../auth/rateLimit.js";
+import { accountExistsTemplate } from "../mail/accountExistsTemplate.js";
+import { sendMail } from "../mail/mailer.js";
 import { db } from "../prisma/db.js";
 import { cancelSubscriptionOf } from "./billing.js";
 import { isUniqueViolation } from "../prisma/errors.js";
@@ -35,10 +45,18 @@ const MINUTE = 60 * 1000;
 const REAUTH_WINDOW_MS = 10 * MINUTE;
 // Every login request from one IP, to slow down credential stuffing
 const loginIpLimiter = new RateLimiter(30, 15 * MINUTE);
-// Failed logins per account, to stop password guessing spread across many IPs
-const loginEmailLimiter = new RateLimiter(10, 15 * MINUTE);
+// Logins per account from one IP, so one client can't lock the owner out
+const loginIpEmailLimiter = new RateLimiter(10, 15 * MINUTE);
+// Failed logins per account from all IPs, against password guessing spread
+// across many IPs. High, so it takes a lot of addresses to lock the owner out.
+const loginEmailLimiter = new RateLimiter(100, 60 * MINUTE);
 // Account creation from one IP
 const registerIpLimiter = new RateLimiter(5, 60 * MINUTE);
+// "You already have an account" emails per address; over the limit they're
+// dropped silently, so the register form can't be used to spam an inbox
+const accountExistsEmailLimiter = new RateLimiter(3, 60 * MINUTE);
+// Padding so the response time doesn't reveal whether the account exists
+const MIN_REGISTER_RESPONSE_MS = 250;
 const accountLimiter = new RateLimiter(10, 15 * MINUTE);
 // Verification emails resent per account, so the endpoint can't be used to spam an inbox
 const resendLimiter = new RateLimiter(3, 15 * MINUTE);
@@ -118,37 +136,56 @@ auth.post("/register", limitByIp(registerIpLimiter), async (c) => {
         );
     }
 
+    // Hashed even when the email is taken, so both cases take as long
+    const passwordHash = await hashPassword(password);
+    const padding = new Promise((r) => setTimeout(r, MIN_REGISTER_RESPONSE_MS));
+    await registerOrNotify(c, email, username, passwordHash);
+    await padding;
+    // The same answer whether or not the email is taken. The session comes from
+    // the verification link, which only the owner of the address gets.
+    return c.body(null, 202);
+});
+
+// Creates the account and emails its verification link, or, if the address
+// already has an account, emails its owner to log in instead. Mail goes out in
+// the background, so a slow mail server doesn't reveal which one was sent.
+async function registerOrNotify(
+    c: Context,
+    email: string,
+    username: string | undefined,
+    passwordHash: string,
+) {
     const existing = await db.orm.public.User.where({ email })
         .select("id")
         .first();
-    if (existing) {
-        return c.json(
-            { error: "An account with this email already exists" },
-            409,
-        );
-    }
-
-    let user;
-    try {
-        user = await db.orm.public.User.create({
-            email,
-            username: username ?? null,
-            passwordHash: await hashPassword(password),
-        });
-    } catch (err) {
-        if (isUniqueViolation(err)) {
-            return c.json(
-                { error: "An account with this email already exists" },
-                409,
-            );
+    if (!existing) {
+        try {
+            const user = await db.orm.public.User.create({
+                email,
+                username: username ?? null,
+                passwordHash,
+            });
+            await trySendVerificationEmail(c, user.id);
+            return;
+        } catch (err) {
+            // Lost a race with a parallel registration of the same email
+            if (!isUniqueViolation(err)) throw err;
         }
-        throw err;
     }
 
-    await trySendVerificationEmail(c, user.id);
-    await createSession(c, user.id);
-    return c.json({ user: toAuthUser(user) }, 201);
-});
+    if (accountExistsEmailLimiter.retryAfter(email)) return;
+    accountExistsEmailLimiter.hit(email);
+    sendMail({
+        to: email,
+        ...accountExistsTemplate(
+            publicUrl(c, "/login"),
+            publicUrl(c, "/forgot-password"),
+            email,
+        ),
+    }).catch((err) => {
+        console.error("Couldn't send account exists email", err);
+    });
+}
 
 auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     const creds = await readCredentials(c.req.raw);
@@ -156,9 +193,14 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
         return c.json({ error: "Invalid request" }, 400);
     }
 
-    const retryAfter = loginEmailLimiter.retryAfter(creds.email);
+    const ipEmailKey = `${clientIp(c)} ${creds.email}`;
+    const retryAfter = Math.max(
+        loginIpEmailLimiter.retryAfter(ipEmailKey),
+        loginEmailLimiter.retryAfter(creds.email),
+    );
     if (retryAfter) return tooManyRequests(c, retryAfter);
     // Counted up front so parallel guesses can't all slip past the check
+    loginIpEmailLimiter.hit(ipEmailKey);
     loginEmailLimiter.hit(creds.email);
 
     const user = await db.orm.public.User.where({ email: creds.email }).first();
@@ -169,7 +211,22 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     if (!user || !ok) {
         return c.json({ error: "Wrong email or password" }, 401);
     }
-    loginEmailLimiter.reset(creds.email);
+    loginIpEmailLimiter.reset(ipEmailKey);
+    // only failures count against the account
+    loginEmailLimiter.undo(creds.email);
+
+    if (user.passwordHash && needsRehash(user.passwordHash)) {
+        // Conditional, so a password changed in the meantime isn't overwritten.
+        // The upgrade can wait for the next login if it fails.
+        try {
+            await db.orm.public.User.where({
+                id: user.id,
+                passwordHash: user.passwordHash,
+            }).update({ passwordHash: await hashPassword(creds.password) });
+        } catch (err) {
+            console.error(`Couldn't rehash password of user ${user.id}`, err);
+        }
+    }
 
     await createSession(c, user.id);
     return c.json({ user: toAuthUser(user) });
@@ -195,6 +252,17 @@ auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
             { error: "This verification link is invalid or has expired" },
             400,
         );
+    }
+    // The link proves the address, so it signs in to the account it verified.
+    // Every other session goes: whoever registered the address may not be its
+    // owner, and could still be logged in to the account the owner now uses.
+    const current = await getSessionUser(c);
+    const keep = current?.id === user.id ? requestSessionId(c) : null;
+    const others = db.orm.public.Session.where({ userId: user.id });
+    await (keep ? others.where((s) => s.id.neq(keep)) : others).deleteAll();
+    if (!keep) {
+        if (current) await destroySession(c);
+        await createSession(c, user.id);
     }
     return c.json({ user: toAuthUser(user) });
 });
@@ -475,6 +543,7 @@ auth.post("/password-reset/confirm", limitByIp(resetIpLimiter), async (c) => {
         );
     }
     loginEmailLimiter.reset(user.email);
+    loginIpEmailLimiter.reset(`${clientIp(c)} ${user.email}`);
     await createSession(c, user.id);
     return c.json({ user: toAuthUser(user) });
 });

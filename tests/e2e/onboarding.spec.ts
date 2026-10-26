@@ -25,8 +25,10 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
         await page
             .getByRole("button", { name: "Create account", exact: true })
             .click();
-        await expect(page).toHaveURL("/verify-email");
-        await expect(page.locator("#pending")).toContainText(email);
+        await expect(page.locator("#sent")).toContainText(email);
+        await expect(page).toHaveURL("/register");
+        // the verification link below is what signs the new account in
+        expect((await page.request.get("/api/auth/me")).status()).toBe(401);
 
         await expect
             .poll(

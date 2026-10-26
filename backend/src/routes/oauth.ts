@@ -5,6 +5,7 @@ import {
     OAuthError,
     PROVIDER_NAMES,
     providers,
+    type OAuthErrorCode,
     type OAuthProfile,
     type OAuthProvider,
 } from "../auth/oauth.js";
@@ -30,12 +31,17 @@ function redirectUri(c: Context, provider: string): string {
     return publicUrl(c, `/api/auth/oauth/${provider}/callback`);
 }
 
-// Back to the login page, keeping the page the user asked for
-function fail(c: Context, message: string, next: string | null) {
-    const keepNext = next ? `&next=${encodeURIComponent(next)}` : "";
-    return c.redirect(
-        `/login?oauth_error=${encodeURIComponent(message)}${keepNext}`,
-    );
+// Only a code, the provider name and a checked same-origin path go in the
+// URL, so a crafted link can't put its own text on the login page
+function fail(
+    c: Context,
+    code: OAuthErrorCode,
+    provider: string,
+    next: string | null,
+) {
+    const query = new URLSearchParams({ oauth_error: code, provider });
+    if (next) query.set("next", next);
+    return c.redirect(`/login?${query}`);
 }
 
 // Finds the user this provider account belongs to. If it isn't linked yet, it
@@ -69,18 +75,14 @@ async function resolveUser(
 
     const email = profile.email?.trim().toLowerCase();
     if (!email || !profile.emailVerified) {
-        throw new OAuthError(
-            `Your ${PROVIDER_NAMES[provider]} account has no verified email address`,
-        );
+        throw new OAuthError("no_verified_email");
     }
 
     return db.transaction(async (tx) => {
         let user = await tx.orm.public.User.where({ email }).first();
         const created = !user;
         if (user && !linksByEmail) {
-            throw new OAuthError(
-                "An account with this email already exists. Log in with your password or Google.",
-            );
+            throw new OAuthError("email_taken");
         }
         if (user) {
             // The email owner just proved control of it, so sign out any
@@ -156,7 +158,7 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
 
     // The user pressed "cancel" on the provider's consent screen
     if (c.req.query("error")) {
-        return fail(c, `${label} sign-in was cancelled`, next);
+        return fail(c, "cancelled", name, next);
     }
 
     const code = c.req.query("code");
@@ -167,7 +169,7 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
         cookieProvider !== name ||
         c.req.query("state") !== state
     ) {
-        return fail(c, `${label} sign-in expired, please try again`, next);
+        return fail(c, "expired", name, next);
     }
 
     let user, created;
@@ -185,9 +187,9 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
             ({ user, created } = await resolveUser(name, provider, profile));
         }
     } catch (err) {
-        if (err instanceof OAuthError) return fail(c, err.message, next);
+        if (err instanceof OAuthError) return fail(c, err.code, name, next);
         console.error(`${label} sign-in failed`, err);
-        return fail(c, `Couldn't sign in with ${label}`, next);
+        return fail(c, "failed", name, next);
     }
 
     if (created && !user.emailVerifiedAt)
