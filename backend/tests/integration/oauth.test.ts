@@ -651,7 +651,7 @@ describe("Facebook pre-hijack through the verification link", () => {
         ]);
     });
 
-    it("leaves a password account's logins alone, as before", async () => {
+    it("leaves a password account's logins alone once its password is given, as before", async () => {
         const { email, id, cookie } = await register(false);
         await db.orm.public.OAuthAccount.create({
             provider: "facebook",
@@ -662,6 +662,7 @@ describe("Facebook pre-hijack through the verification link", () => {
 
         const response = await request("auth/verify-email", {
             token: lastLink("/verify-email"),
+            password,
         });
 
         expect(await response.json()).toMatchObject({

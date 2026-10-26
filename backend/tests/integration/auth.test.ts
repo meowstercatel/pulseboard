@@ -112,8 +112,10 @@ describe("registration and sessions", () => {
         const email = `api-${randomUUID()}@example.com`;
         await request("auth/register", { email, password, username: "Alice" });
         await trackUserByEmail(email);
+        // opened outside the account's session, so it asks for the password
         const response = await request("auth/verify-email", {
             token: lastToken(),
+            password,
         });
         expect(response.status).toBe(200);
         const { user } = await response.json();
@@ -297,6 +299,26 @@ describe("registration and sessions", () => {
         expect(statuses.filter((status) => status === 429)).toHaveLength(10);
     }, 60_000);
 
+    it("signs in parallel logins that both upgrade an older hash", async () => {
+        const { email, user } = await register();
+        const salt = randomBytes(16);
+        await db.orm.public.User.where({ id: user.id }).update({
+            passwordHash: `scrypt$${salt.toString("hex")}$${scryptSync(password, salt, 64).toString("hex")}`,
+        });
+
+        const logins = await Promise.all(
+            Array.from({ length: 3 }, () =>
+                request("auth/login", { email, password }),
+            ),
+        );
+
+        expect(logins.map((login) => login.status)).toEqual([200, 200, 200]);
+        expect(
+            (await db.orm.public.User.where({ id: user.id }).first())
+                ?.passwordHash,
+        ).toMatch(/^scrypt\$ln=17,r=8,p=1\$/);
+    });
+
     it("upgrades a hash with older scrypt parameters on the next login", async () => {
         const { email, user } = await register();
         const salt = randomBytes(16);
@@ -404,16 +426,14 @@ describe("email verification and licenses", () => {
         expect(me.user.emailVerified).toBe(true);
     });
 
-    it("signs out whoever registered the address when its owner opens the link", async () => {
-        // the intruder registered someone else's address and logged in
-        const { cookie: intruder, user } = await register();
+    it("signs out every other session when the link is opened with the password elsewhere", async () => {
+        const { cookie: other, user } = await register();
         const response = await request("auth/verify-email", {
             token: lastToken(),
+            password,
         });
         expect(response.status).toBe(200);
-        expect((await request("auth/me", undefined, intruder)).status).toBe(
-            401,
-        );
+        expect((await request("auth/me", undefined, other)).status).toBe(401);
         const sessions = await db.orm.public.Session.where({
             userId: user.id,
         }).all();
@@ -446,7 +466,7 @@ describe("email verification and licenses", () => {
         const second = await register();
         const response = await request(
             "auth/verify-email",
-            { token: lastToken() },
+            { token: lastToken(), password },
             first.cookie,
         );
         expect((await response.json()).user.id).toBe(second.user.id);
@@ -470,9 +490,9 @@ describe("email verification and licenses", () => {
         expect(
             (await request("auth/verify-email", { token: oldToken })).status,
         ).toBe(400);
-        expect((await request("auth/verify-email", { token })).status).toBe(
-            200,
-        );
+        expect(
+            (await request("auth/verify-email", { token, password })).status,
+        ).toBe(200);
     });
 
     it("rejects expired tokens", async () => {
@@ -506,7 +526,12 @@ describe("email verification and licenses", () => {
             (await request("auth/verify-email", { token: oldToken })).status,
         ).toBe(400);
         expect(
-            (await request("auth/verify-email", { token: lastToken() })).status,
+            (
+                await request("auth/verify-email", {
+                    token: lastToken(),
+                    password,
+                })
+            ).status,
         ).toBe(200);
     });
 

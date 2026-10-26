@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accountChangedTemplate } from "../../src/mail/accountChangedTemplate.js";
+import { claimAccountTemplate } from "../../src/mail/claimAccountTemplate.js";
+import { escapeHtml } from "../../src/mail/layout.js";
 import { setPasswordTemplate } from "../../src/mail/setPasswordTemplate.js";
 
 const settings = "https://pulseboard.example/settings";
@@ -73,5 +75,28 @@ describe("setPasswordTemplate", () => {
             setPasswordTemplate("https://x.example/l", "a@example.com", [])
                 .text,
         ).not.toContain("already be logged in");
+    });
+});
+
+describe("claimAccountTemplate", () => {
+    const link =
+        "https://pulseboard.example/reset-password?purpose=set&token=abc#email=a%40example.com";
+
+    it("explains what happened and links to choosing a password", () => {
+        const mail = claimAccountTemplate(link, "a@example.com");
+        expect(mail.subject).toBe("Choose a password for PulseBoard");
+        expect(mail.text).toContain(
+            "didn't create the PulseBoard account for a@example.com",
+        );
+        expect(mail.text).toContain("signed out");
+        expect(mail.text).toContain(link);
+        expect(mail.text).toContain("Forgot password?");
+        expect(mail.html).toContain(`href="${escapeHtml(link)}"`);
+    });
+
+    it("escapes the address in the HTML", () => {
+        const mail = claimAccountTemplate(link, "<b>@example.com");
+        expect(mail.html).not.toContain("<b>@example.com");
+        expect(mail.html).toContain("&#60;b&#62;@example.com");
     });
 });
