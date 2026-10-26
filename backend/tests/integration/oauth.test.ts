@@ -30,8 +30,6 @@ vi.mock("../../src/mail/mailer.js", () => ({
 const app = createApp();
 const mail = vi.mocked(sendMail);
 const password = "Correct horse battery staple!";
-const facebookTakenError =
-    "An account with this email already exists. Log in with your password or Google.";
 const userIds = new Set<number>();
 let ip: string;
 let ipSequence = 0;
@@ -75,8 +73,11 @@ function sessionCookie(response: Response) {
 
 async function register(verified: boolean) {
     const email = `oauth-${randomUUID()}@example.com`;
-    const response = await request("auth/register", { email, password });
-    expect(response.status).toBe(201);
+    expect((await request("auth/register", { email, password })).status).toBe(
+        202,
+    );
+    const response = await request("auth/login", { email, password });
+    expect(response.status).toBe(200);
     const { user } = await response.json();
     userIds.add(user.id);
     if (verified) {
@@ -255,7 +256,7 @@ describe("Facebook sign-in", () => {
         const { location, cookie } = await signIn("facebook");
 
         expect(location).toBe(
-            `/login?oauth_error=${encodeURIComponent(facebookTakenError)}`,
+            "/login?oauth_error=email_taken&provider=facebook",
         );
         expect(cookie).toBeUndefined();
         expect(await oauthAccounts(id)).toEqual(before);
@@ -338,7 +339,7 @@ describe("Facebook sign-in", () => {
         mockFacebook({ id: facebookId, email });
         const again = await signIn("facebook");
         expect(again.location).toBe(
-            `/login?oauth_error=${encodeURIComponent(facebookTakenError)}`,
+            "/login?oauth_error=email_taken&provider=facebook",
         );
         expect(again.cookie).toBeUndefined();
     });
@@ -355,4 +356,29 @@ describe("provider names", () => {
             ).toBe(404);
         },
     );
+});
+
+describe("sign-in errors", () => {
+    it.each([
+        ["error=access_denied", "cancelled"],
+        ["code=x&state=y", "expired"],
+    ])(
+        "redirects with a code instead of a message: %s",
+        async (query, code) => {
+            const response = await request(
+                `auth/oauth/google/callback?${query}`,
+            );
+            expect(response.status).toBe(302);
+            expect(response.headers.get("location")).toBe(
+                `/login?oauth_error=${code}&provider=google`,
+            );
+        },
+    );
+
+    it("reports a failed provider request as a generic failure", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        nock("https://oauth2.googleapis.com").post("/token").reply(500, {});
+        const { location } = await signIn("google");
+        expect(location).toBe("/login?oauth_error=failed&provider=google");
+    });
 });

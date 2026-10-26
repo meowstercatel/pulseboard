@@ -32,6 +32,12 @@ export class RateLimiter {
         }
     }
 
+    // Takes back one hit, e.g. for an attempt counted up front that succeeded
+    undo(key: string) {
+        const w = this.windows.get(key);
+        if (w && w.resetAt > Date.now() && w.count > 0) w.count--;
+    }
+
     reset(key: string) {
         this.windows.delete(key);
     }

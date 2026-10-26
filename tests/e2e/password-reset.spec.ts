@@ -15,7 +15,7 @@ test("reset a forgotten password from the emailed link", async ({
         const registered = await page.request.post("/api/auth/register", {
             data: { email, password: oldPassword },
         });
-        expect(registered.status()).toBe(201);
+        expect(registered.status()).toBe(202);
         await page.request.post("/api/auth/logout", {
             // a browser sends this itself; the API client does not
             headers: { origin: baseURL! },

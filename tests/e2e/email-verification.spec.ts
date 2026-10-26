@@ -52,7 +52,7 @@ test("unverified login stays restricted; replaced and used links recover clearly
                     data: { email, password },
                 })
             ).status(),
-        ).toBe(201);
+        ).toBe(202);
         const original = await verificationLink(request, email);
         await page.request.post("/api/auth/logout", {
             // a browser sends this itself; the API client does not

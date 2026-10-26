@@ -35,8 +35,25 @@ export function login(email: string, password: string) {
     return post("auth/login", { email, password });
 }
 
-export function register(email: string, password: string, username: string) {
-    return post("auth/register", { email, password, username });
+// Answers the same whether or not the email is taken; the link in the email
+// that follows signs the new account in
+export async function register(
+    email: string,
+    password: string,
+    username: string,
+): Promise<string | null> {
+    try {
+        const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email, password, username }),
+        });
+        if (res.ok) return null;
+        const data = await res.json().catch(() => null);
+        return data?.error ?? `Something went wrong (${res.status})`;
+    } catch {
+        return "Can't reach the server";
+    }
 }
 
 export function verifyEmail(token: string) {
