@@ -555,6 +555,27 @@
                   "kind": "scalar"
                 }
               },
+              "ip": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastSeenAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "userAgent": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "userId": {
                 "nullable": false,
                 "type": {
@@ -591,6 +612,15 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "ip": {
+                  "column": "ip"
+                },
+                "lastSeenAt": {
+                  "column": "lastSeenAt"
+                },
+                "userAgent": {
+                  "column": "userAgent"
                 },
                 "userId": {
                   "column": "userId"
@@ -1270,6 +1300,21 @@
                   "dataType": "pg/text",
                   "nullable": false
                 },
+                "ip": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "lastSeenAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true
+                },
+                "userAgent": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "userId": {
                   "codecId": "pg/int4@1",
                   "dataType": "pg/int4",
@@ -1414,7 +1459,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "491b34cb2e0440598e17329e28ce57d484e36bf2cbbf5cf6e72741874b3bf1e3"
+    "storageHash": "de3e046d41aceb46c7e258e0bf5b0896bb99f4027b4d79f9a990484cbe8f2e61"
   },
   "execution": {
     "executionHash": "98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09",

@@ -38,7 +38,8 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-pulseboard}
-      # set to "true" when the server sits behind a reverse proxy, see src/auth/rateLimit.ts
+      # set to "true" when the server sits behind a reverse proxy; X-Forwarded-For is then
+      # read only from loopback/private peers (the proxy), see src/auth/rateLimit.ts
       TRUST_PROXY: ${TRUST_PROXY:-}
       # public origin, e.g. https://pulseboard.example.com; OAuth redirect URIs are built from it
       PUBLIC_URL: ${PUBLIC_URL:-}

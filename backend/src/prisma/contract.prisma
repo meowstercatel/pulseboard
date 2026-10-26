@@ -48,8 +48,15 @@ model Session {
   id        String   @id
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // pushed forward while the session is in use, see src/auth/session.ts
   expiresAt TimestamptzString
   createdAt TimestamptzString @default(now())
+  // shown on the settings page so users can tell their sessions apart;
+  // null for sessions created before these were recorded
+  userAgent  String?
+  ip         String?
+  // updated at most every few minutes, not on every request
+  lastSeenAt TimestamptzString?
 
   @@index([userId])
 }

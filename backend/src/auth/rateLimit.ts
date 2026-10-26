@@ -1,4 +1,5 @@
 import { getConnInfo } from "@hono/node-server/conninfo";
+import { BlockList, isIPv4, isIPv6 } from "node:net";
 import type { Context, MiddlewareHandler } from "hono";
 
 type Window = { count: number; resetAt: number };
@@ -50,15 +51,51 @@ export class RateLimiter {
     }
 }
 
+// Where a reverse proxy can connect from: this host or the Docker network
+const proxyNetworks = new BlockList();
+proxyNetworks.addSubnet("127.0.0.0", 8, "ipv4");
+proxyNetworks.addSubnet("10.0.0.0", 8, "ipv4");
+proxyNetworks.addSubnet("172.16.0.0", 12, "ipv4");
+proxyNetworks.addSubnet("192.168.0.0", 16, "ipv4");
+proxyNetworks.addAddress("::1", "ipv6");
+proxyNetworks.addSubnet("fc00::", 7, "ipv6");
+
+export function isProxyAddress(address: string): boolean {
+    const plain = unmapped(address);
+    if (isIPv4(plain)) return proxyNetworks.check(plain, "ipv4");
+    return isIPv6(plain) && proxyNetworks.check(plain, "ipv6");
+}
+
+// undefined for requests made in-process with app.request(), as in tests
+function socketAddress(c: Context): string | undefined {
+    try {
+        return getConnInfo(c).remote.address;
+    } catch {
+        return undefined;
+    }
+}
+
 // Behind a reverse proxy the socket address is the proxy's, so with
 // TRUST_PROXY=true we take the address the proxy appended to X-Forwarded-For.
-// Leave it unset when the server is reachable directly, or clients could spoof it.
+// The header only counts when the connection comes from a private or loopback
+// address, where the proxy sits; a client reaching the published port directly
+// can't spoof it. Leave TRUST_PROXY unset when there is no proxy.
 export function clientIp(c: Context): string {
-    if (process.env["TRUST_PROXY"] === "true") {
+    const peer = socketAddress(c);
+    if (
+        process.env["TRUST_PROXY"] === "true" &&
+        (peer === undefined || isProxyAddress(peer))
+    ) {
         const forwarded = c.req.header("x-forwarded-for")?.split(",").at(-1);
-        if (forwarded?.trim()) return forwarded.trim();
+        if (forwarded?.trim()) return unmapped(forwarded.trim());
     }
-    return getConnInfo(c).remote.address ?? "unknown";
+    return peer ? unmapped(peer) : "unknown";
+}
+
+// "::ffff:192.0.2.1", how a dual-stack socket reports IPv4, as "192.0.2.1"
+function unmapped(address: string): string {
+    const v4 = address.replace(/^::ffff:/i, "");
+    return isIPv4(v4) ? v4 : address;
 }
 
 export function tooManyRequests(c: Context, retryAfter: number) {

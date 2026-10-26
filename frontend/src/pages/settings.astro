@@ -119,6 +119,30 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     <cds-button type="button">Change password</cds-button>
                 </form>
             </section>
+            <section id="sessions" aria-labelledby="sessions-heading">
+                <h2 id="sessions-heading">Where you're signed in</h2>
+                <p class="description">
+                    Sign out any device you don't recognize, then change your
+                    password.
+                </p>
+                <ul class="sessions" aria-label="Signed-in devices"></ul>
+                <cds-inline-notification
+                    kind="error"
+                    title="Couldn't update sessions"
+                    hide-close-button
+                    hidden
+                ></cds-inline-notification>
+                <p class="success" role="status" aria-live="polite"></p>
+                <cds-button
+                    id="revoke-others"
+                    type="button"
+                    kind="tertiary"
+                    disabled
+                >
+                    Log out everywhere else
+                </cds-button>
+            </section>
+
             <section class="danger" aria-labelledby="delete-heading">
                 <h2 id="delete-heading">Delete account</h2>
                 <p class="description">
@@ -280,6 +304,53 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     [hidden] {
         display: none !important;
     }
+    .sessions {
+        list-style: none;
+        margin: 0 0 1rem;
+        padding: 0;
+    }
+    .sessions:empty {
+        display: none;
+    }
+    .sessions :global(li) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .sessions :global(li:first-child) {
+        padding-top: 0;
+    }
+    .sessions :global(.device) {
+        font-size: 0.875rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+    .sessions :global(.meta) {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        overflow-wrap: anywhere;
+    }
+    .sessions :global(.visually-hidden) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+    .sessions :global(cds-button) {
+        flex-shrink: 0;
+    }
+    #sessions .success {
+        margin-bottom: 1rem;
+    }
+    #sessions cds-inline-notification {
+        margin-bottom: 1rem;
+    }
     .danger {
         border-top: 2px solid var(--cds-support-error, #da1e28);
     }
@@ -348,6 +419,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     import "@carbon/web-components/es/components/text-input/index.js";
     import "@carbon/web-components/es/components/notification/index.js";
     import "@carbon/web-components/es/components/link/index.js";
+    import "@carbon/web-components/es/components/tag/index.js";
     import {
         changePassword,
         deleteAccount,
@@ -356,6 +428,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         updateProfile,
     } from "../lib/auth";
     import { bindForm } from "../lib/form";
+    import { mountSessions } from "../lib/sessions";
 
     type Input = HTMLElement & { value: string };
     const profileForm = document.getElementById(
@@ -407,6 +480,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         openDelete.shadowRoot?.querySelector("button")?.focus();
     });
 
+    const sessions = mountSessions(document.getElementById("sessions")!);
+
     document.getElementById("logout")!.addEventListener("click", logout);
     profileForm.addEventListener("input", () => {
         profileSuccess.textContent = "";
@@ -430,6 +505,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         }
         document.getElementById("loading")!.hidden = true;
         document.getElementById("settings")!.hidden = false;
+        sessions.load();
     });
 
     bindForm(profileForm, async (field) => {
@@ -456,6 +532,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         input(profileForm, "username").value = result.user.username ?? "";
         input(profileForm, "email").value = result.user.email;
         input(profileForm, "currentPassword").value = "";
+        // a new email signs out other devices
+        sessions.load();
         profileSuccess.textContent = result.user.emailVerified
             ? "Profile saved."
             : `Profile saved. We sent a verification link to ${result.user.email}.`;
@@ -480,6 +558,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         input(profileForm, "currentPassword").value = "";
         passwordSuccess.textContent =
             "Password changed. Other devices have been signed out.";
+        sessions.load();
         return null;
     });
 
