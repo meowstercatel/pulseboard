@@ -567,6 +567,23 @@ const faq = [
     cds-button {
         flex-shrink: 0;
     }
+    /* Until Carbon's script defines it, cds-button is plain inline text. Give
+       it the button's box (lg, or md in the nav) so the nav row on phones and
+       the hero keep their height when it upgrades. */
+    cds-button:not(:defined) {
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        min-height: 3rem;
+        padding-inline: 1rem 3rem;
+        font-size: 0.875rem;
+    }
+    cds-button[size="md"]:not(:defined) {
+        min-height: 2.5rem;
+    }
+    cds-button:not(:defined) > [slot="icon"] {
+        display: none;
+    }
     .hero {
         padding-top: 78px;
     }

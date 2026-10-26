@@ -31,6 +31,8 @@ jobs:
           restore-keys: pnpm-${{ runner.os }}-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm run format:check
       - name: Check test types
         run: pnpm run test:typecheck
       - name: Unit tests

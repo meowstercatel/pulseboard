@@ -27,7 +27,7 @@ Tests ignore the application's `DATABASE_URL`. Override the test database only w
 
 API tests use `app.request()` without opening a port, real PostgreSQL queries and transactions, and a mocked mail sender. Each test uses unique account addresses and a separate rate-limit IP key, and removes its accounts afterward. Expired database records are seeded directly; unit tests use a fake clock for limiter boundaries.
 
-The browser test uses the built Astro site, the real backend and SMTP through Mailpit. It registers a unique account, follows the verification link from its email, which starts the free trial and opens the dashboard, then selects a lifetime license and checks the dashboard and persisted session. Stripe HTTP responses are intercepted by Nock using dummy credentials: the checkout fixture redirects to the real success page, which confirms the session through the backend. No real payment or hosted Stripe form is exercised. API tests also check unpaid sessions and reject confirmation by another account. Google is enabled in the browser suite and answered by `tests/google.mjs`: the test plays Google's consent page and puts the profile it wants in the `code`. Facebook stays disabled there; its callbacks are covered by the API tests.
+The browser test uses the built Astro site, the real backend and SMTP through Mailpit. It registers a unique account, follows the verification link from its email, which starts the free trial and opens the dashboard, then selects a lifetime license and checks the dashboard and persisted session. Stripe HTTP responses are intercepted by Nock using dummy credentials: the checkout fixture redirects to the real success page, which confirms the session through the backend. No real payment or hosted Stripe form is exercised. The rate limiters live in the one server process for the whole run, so `tests/e2e/fixtures.ts` gives every test its own client address through `X-Forwarded-For`; specs import `test` and `expect` from there. That keeps retries and `--repeat-each` within the limits. API tests also check unpaid sessions and reject confirmation by another account. Google is enabled in the browser suite and answered by `tests/google.mjs`: the test plays Google's consent page and puts the profile it wants in the `code`. Facebook stays disabled there; its callbacks are covered by the API tests.
 
 ## Adding coverage
 
@@ -36,7 +36,7 @@ The browser test uses the built Astro site, the real backend and SMTP through Ma
 - `backend/tests/integration/`: API contracts and persisted account/session behavior.
 - `tests/e2e/`: critical browser journeys; prefer roles and labels, or Carbon host selectors when necessary for shadow DOM.
 
-CI runs unit tests, API integration tests, both builds and the Chromium scenario on pull requests and pushes to main/staging. On failure it uploads the Playwright report, screenshots and traces. To inspect a local report, run `pnpm exec playwright show-report`.
+CI checks formatting (`pnpm run format:check`) and runs unit tests, API integration tests, both builds and the Chromium scenario on pull requests and pushes to main/staging. On failure it uploads the Playwright report, screenshots and traces. To inspect a local report, run `pnpm exec playwright show-report`.
 
 ## Imported metrics dashboard
 
