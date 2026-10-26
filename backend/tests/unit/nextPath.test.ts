@@ -21,6 +21,10 @@ it.each([
     "javascript:alert(1)",
     "/login",
     "/register",
+    "/login/",
+    "/Login/index.html",
+    "/api/auth/oauth/facebook",
+    "/" + "a".repeat(1100),
 ])("ignores %j as a next page", (raw) => {
     expect(safeNext(raw)).toBeNull();
 });

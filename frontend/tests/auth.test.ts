@@ -48,6 +48,12 @@ it.each([
     "/login",
     "/register?next=/history",
     "/a/../login",
+    "/login/",
+    "/LOGIN",
+    "/register/index.html",
+    "/api/auth/oauth/google",
+    "/./api/auth/logout",
+    "/" + "a".repeat(1100),
 ])("ignores %j as a next page", (raw) => {
     expect(safeNext(raw)).toBeNull();
 });
