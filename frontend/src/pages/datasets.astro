@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import { limits } from "../lib/limits";
 ---
 
 <HtmlTemplate title="Datasets · PulseBoard" requiresAuth>
@@ -41,12 +42,17 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     they are. Timestamps without a time zone are read as UTC.
                 </p>
                 <ul class="description limits">
-                    <li>Up to 25 MB and 500,000 rows per file.</li>
+                    <li>
+                        Up to {limits.fileSize} and {limits.rows} rows per file.
+                    </li>
                     <li>
                         Rows with mistakes are skipped and listed below. If more
-                        than 5% of rows have mistakes, nothing is imported.
+                        than {limits.invalidShare} of rows have mistakes,
+                        nothing is imported.
                     </li>
-                    <li id="dataset-limit">Up to 5 datasets per account.</li>
+                    <li id="dataset-limit">
+                        Up to {limits.datasets} datasets per account.
+                    </li>
                 </ul>
                 <form id="import-form">
                     <div class="file-field">
@@ -125,8 +131,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                 ></cds-inline-notification>
                 <p class="description" id="empty" hidden>
                     No datasets yet. Import a CSV file to get started, or try
-                    one of the sample files in the repository's
-                    <code>samples/</code> folder.
+                    one of the <cds-link href="/samples">sample files</cds-link>
+                    .
                 </p>
                 <div class="table-wrap" id="list" hidden>
                     <table aria-labelledby="list-heading">
@@ -331,12 +337,12 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         type Dataset,
         type ImportReport,
     } from "../lib/datasets";
+    import { MAX_FILE_BYTES } from "../../../backend/src/datasets/limits";
 
     type Input = HTMLElement & { value: string };
     type Button = HTMLElement & { disabled: boolean };
     type Notification = HTMLElement & { subtitle: string };
 
-    const MAX_FILE_BYTES = 25 * 1024 * 1024;
     const byId = <T extends HTMLElement>(id: string) =>
         document.getElementById(id) as T;
 

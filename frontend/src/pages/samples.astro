@@ -1,0 +1,187 @@
+---
+import "../styles/carbon.scss";
+import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import { limits } from "../lib/limits";
+
+// The files in the repository's samples/ folder, copied into the build as is
+const urls = import.meta.glob<string>("../../../samples/*.csv", {
+    query: "?url",
+    import: "default",
+    eager: true,
+});
+const url = (file: string) => {
+    const found = urls[`../../../samples/${file}`];
+    if (!found) throw new Error(`samples/${file} is missing`);
+    return found;
+};
+
+// Whether a file with broken rows imports follows the current limit
+const broken = (invalid: number, total: number) =>
+    limits.rejects(invalid, total)
+        ? `${invalid} of ${total} rows are broken, more than the ${limits.invalidShare} allowed, so it is rejected.`
+        : `${invalid} of ${total} rows are broken, within the ${limits.invalidShare} allowed, so it imports with a report of the skipped rows.`;
+
+// Described in samples/README.md
+const samples = [
+    {
+        file: "servers-30d.csv",
+        hosts: 3,
+        days: 30,
+        text: `Clean data, long enough for forecasts (they need at least ${limits.forecastDays} days).`,
+    },
+    {
+        file: "excel-pl-7d.csv",
+        hosts: 1,
+        days: 7,
+        text: "Saved by Excel with Polish settings: semicolons, decimal commas, a BOM and Windows line endings.",
+    },
+    {
+        file: "gaps-and-anomalies-14d.csv",
+        hosts: 2,
+        days: 14,
+        text: "Missing readings and CPU, RAM and network spikes.",
+    },
+    {
+        file: "invalid-3-percent.csv",
+        hosts: 1,
+        days: 7,
+        text: broken(22, 672),
+    },
+    {
+        file: "invalid-10-percent.csv",
+        hosts: 1,
+        days: 7,
+        text: broken(59, 672),
+    },
+].map((sample) => ({ ...sample, url: url(sample.file) }));
+---
+
+<HtmlTemplate
+    title="Sample CSV files · PulseBoard"
+    description="Example server metrics in the CSV format PulseBoard imports."
+>
+    <div class="page">
+        <header>
+            <a class="brand" href="/">
+                PulseBoard
+            </a>
+        </header>
+        <main>
+            <h1>Sample CSV files</h1>
+            <p>
+                Synthetic server metrics in the format PulseBoard imports. Every
+                file has a reading every 15 minutes, in UTC, with these columns:
+            </p>
+            <pre>timestamp,host,cpu_percent,ram_percent,disk_percent,net_in_mbps,net_out_mbps</pre>
+            <ul class="samples">
+                {samples.map((sample) => (
+                    <li>
+                        <a href={sample.url} download={sample.file}>
+                            {sample.file}
+                        </a>
+                        <span class="meta">
+                            {sample.hosts}{" "}
+                            {sample.hosts === 1 ? "host" : "hosts"} ·{" "}
+                            {sample.days} days
+                        </span>
+                        <p>{sample.text}</p>
+                    </li>
+                ))}
+            </ul>
+            <p>
+                Import them on the <a href="/datasets">Datasets</a> page. Each
+                account can keep {limits.datasets} datasets, with up to{" "}
+                {limits.fileSize} and {limits.rows} rows per file.
+            </p>
+        </main>
+        <SiteFooter />
+    </div>
+</HtmlTemplate>
+
+<style>
+    :global(html) {
+        background: var(--cds-background, #fff);
+    }
+    :global(body) {
+        height: auto;
+        color: var(--cds-text-primary, #161616);
+    }
+    .page {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 1.5rem 40px 0;
+    }
+    header {
+        padding-block-end: 1.5rem;
+        border-block-end: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .brand {
+        font-size: 1rem;
+        font-weight: 600;
+        color: inherit;
+        text-decoration: none;
+    }
+    main {
+        max-width: 960px;
+        padding-block-end: 4rem;
+    }
+    main a {
+        color: var(--cds-link-primary, #0f62fe);
+    }
+    h1 {
+        margin: 2.5rem 0 1.5rem;
+        font-size: 2.25rem;
+        font-weight: 400;
+        line-height: 1.25;
+    }
+    p {
+        margin: 0 0 1rem;
+        font-size: 1rem;
+        line-height: 1.65;
+    }
+    pre {
+        margin: 0 0 2rem;
+        padding: 1rem;
+        overflow-x: auto;
+        background: var(--cds-layer-01, #f4f4f4);
+        font:
+            0.875rem/1.5 ui-monospace,
+            monospace;
+    }
+    .samples {
+        margin: 0 0 2rem;
+        padding: 0;
+        list-style: none;
+        border-block-end: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .samples li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 1rem;
+        padding-block: 1rem;
+        border-block-start: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .samples a {
+        font:
+            0.875rem/1.5 ui-monospace,
+            monospace;
+        overflow-wrap: anywhere;
+    }
+    .meta {
+        font-size: 0.875rem;
+        color: var(--cds-text-secondary, #525252);
+    }
+    .samples p {
+        flex-basis: 100%;
+        margin: 0;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    @media (max-width: 600px) {
+        .page {
+            padding-inline: 18px;
+        }
+    }
+</style>

@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
     CsvError,
     MAX_REPORTED_ERRORS,
-    MAX_ROWS,
     parseMetricsCsv,
     rejectionReason,
 } from "../../src/datasets/csv.js";
+import { MAX_ROWS } from "../../src/datasets/limits.js";
 
 const HEADER =
     "timestamp,host,cpu_percent,ram_percent,disk_percent,net_in_mbps,net_out_mbps";

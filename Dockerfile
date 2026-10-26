@@ -15,6 +15,11 @@ COPY frontend/package.json frontend/
 FROM base AS frontend
 RUN pnpm install --frozen-lockfile --filter frontend
 COPY frontend/ frontend/
+# read at build time: upload limits and forecast thresholds for the pages, and
+# the sample CSVs offered on /samples
+COPY backend/src/datasets/limits.ts backend/src/datasets/
+COPY backend/src/forecast/ backend/src/forecast/
+COPY samples/*.csv samples/
 # shown in the corner on non-main deployments, see BuildBadge.astro
 ARG GIT_BRANCH=
 ARG GIT_COMMIT=

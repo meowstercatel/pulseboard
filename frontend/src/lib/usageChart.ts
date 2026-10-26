@@ -30,10 +30,17 @@ function datasetData(chart: HTMLElement): UsageChartData {
     };
 }
 
+export type UsageChartControls = {
+    // Shows the crosshair at the n-th sample that has a value
+    show: (position: number) => void;
+    hide: () => void;
+    count: number;
+};
+
 export function initUsageChart(
     chart: HTMLElement,
     data: UsageChartData = datasetData(chart),
-) {
+): UsageChartControls | undefined {
     const { times, lines, max } = data;
     const plot = chart.querySelector<HTMLElement>(".plot")!;
     const crosshair = chart.querySelector<HTMLElement>(".crosshair")!;
@@ -103,4 +110,47 @@ export function initUsageChart(
         else return;
         e.preventDefault();
     });
+    return { show, hide, count: samples.length };
+}
+
+const STEP_MS = 400;
+
+// Walks the crosshair along a chart until the user reaches for `area`, so the
+// landing demo shows it is interactive. Skipped with reduced motion.
+export function autoplay(
+    chart: HTMLElement,
+    controls: UsageChartControls,
+    area: Element,
+) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const plot = chart.querySelector<HTMLElement>(".plot")!;
+    const tooltip = chart.querySelector<HTMLElement>(".tooltip")!;
+    // The walk isn't worth announcing; the user's own inspection is
+    const role = tooltip.getAttribute("role");
+    tooltip.removeAttribute("role");
+    let position = 0;
+    // Steps only while the chart is on screen
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const pause = () => {
+        clearInterval(timer);
+        timer = undefined;
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+        if (!entry?.isIntersecting) return pause();
+        timer ??= setInterval(() => {
+            controls.show(position);
+            position = (position + 1) % controls.count;
+        }, STEP_MS);
+    });
+    observer.observe(chart);
+    const events = ["pointerenter", "pointerdown", "focusin", "keydown"];
+    const stop = () => {
+        pause();
+        observer.disconnect();
+        for (const event of events) area.removeEventListener(event, stop);
+        if (role !== null) tooltip.setAttribute("role", role);
+        // a focused plot keeps its crosshair; pointermove brings it back on hover
+        if (document.activeElement !== plot) controls.hide();
+    };
+    for (const event of events) area.addEventListener(event, stop);
 }
