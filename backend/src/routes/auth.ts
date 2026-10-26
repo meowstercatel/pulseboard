@@ -1,6 +1,6 @@
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import {
-    prepareVerificationEmail,
+    createVerificationMail,
     sendVerificationEmail,
     trySendVerificationEmail,
     verifyEmailToken,
@@ -171,7 +171,7 @@ async function registrationEmail(
                 username: username ?? null,
                 passwordHash,
             });
-            return await prepareVerificationEmail(c, user.id).catch((err) => {
+            return await createVerificationMail(c, user.id).catch((err) => {
                 console.error(
                     `Couldn't create verification email for user ${user.id}`,
                     err,

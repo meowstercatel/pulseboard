@@ -20,7 +20,6 @@ vi.hoisted(() => {
 });
 
 import { createApp } from "../../src/app.js";
-import { verifyOAuthLinkedUsers } from "../../src/auth/emailVerification.js";
 import { sendMail } from "../../src/mail/mailer.js";
 import { db } from "../../src/prisma/db.js";
 
@@ -381,46 +380,5 @@ describe("sign-in errors", () => {
         nock("https://oauth2.googleapis.com").post("/token").reply(500, {});
         const { location } = await signIn("google");
         expect(location).toBe("/login?oauth_error=failed&provider=google");
-    });
-});
-
-describe("startup verification of old links", () => {
-    it("clears the password, sessions and links made with another address", async () => {
-        const { email, id, cookie } = await register(false);
-        for (const linkEmail of [email, "someone-else@example.com", null]) {
-            await db.orm.public.OAuthAccount.create({
-                provider: "google",
-                providerUserId: `g-${randomUUID()}`,
-                userId: id,
-                email: linkEmail,
-            });
-        }
-
-        await verifyOAuthLinkedUsers();
-
-        const user = await db.orm.public.User.where({ id }).first();
-        expect(user!.emailVerifiedAt).not.toBeNull();
-        expect(user!.passwordHash).toBeNull();
-        expect((await loginWithPassword(email)).status).toBe(401);
-        expect((await request("auth/me", undefined, cookie)).status).toBe(401);
-        expect(await oauthAccounts(id)).toMatchObject([{ email }]);
-    });
-
-    it("doesn't count a Facebook link as proof of the address", async () => {
-        const { email, id, cookie } = await register(false);
-        await db.orm.public.OAuthAccount.create({
-            provider: "facebook",
-            providerUserId: `fb-${randomUUID()}`,
-            userId: id,
-            email,
-        });
-
-        await verifyOAuthLinkedUsers();
-
-        const user = await db.orm.public.User.where({ id }).first();
-        expect(user!.emailVerifiedAt).toBeNull();
-        expect((await loginWithPassword(email)).status).toBe(200);
-        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
-        expect(await oauthAccounts(id)).toHaveLength(1);
     });
 });

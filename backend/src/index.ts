@@ -1,12 +1,10 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
-import { verifyOAuthLinkedUsers } from "./auth/emailVerification.js";
+import { startCleanup } from "./cleanup.js";
 import { db } from "./prisma/db.js";
 
 // Docker sends SIGKILL 10 s after SIGTERM, so give up a little earlier
 const SHUTDOWN_TIMEOUT_MS = 8000;
-
-await verifyOAuthLinkedUsers();
 
 const app = createApp();
 
@@ -20,6 +18,8 @@ const server = serve(
     },
 );
 
+const stopCleanup = startCleanup();
+
 let shuttingDown = false;
 async function shutdown(signal: string) {
     if (shuttingDown) return;
@@ -29,11 +29,13 @@ async function shutdown(signal: string) {
         console.error("Shutdown timed out, exiting");
         process.exit(1);
     }, SHUTDOWN_TIMEOUT_MS).unref();
+    const cleanupStopped = stopCleanup();
     // stop accepting connections and wait for in-flight requests
     await new Promise<void>((resolve) => {
         server.close(() => resolve());
         if ("closeIdleConnections" in server) server.closeIdleConnections();
     });
+    await cleanupStopped;
     await db.close();
     process.exit(0);
 }
