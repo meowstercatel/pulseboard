@@ -17,6 +17,7 @@ import {
     createSession,
     destroySession,
     getSessionUser,
+    requestSessionId,
     requireAuth,
     toAuthUser,
     type AuthEnv,
@@ -209,6 +210,7 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
     if (retryAfter) return tooManyRequests(c, retryAfter);
     // Counted up front so parallel guesses can't all slip past the check
     loginIpEmailLimiter.hit(ipEmailKey);
+    loginEmailLimiter.hit(creds.email);
 
     const user = await db.orm.public.User.where({ email: creds.email }).first();
     const ok = await verifyPassword(
@@ -216,17 +218,23 @@ auth.post("/login", limitByIp(loginIpLimiter), async (c) => {
         user?.passwordHash ?? DUMMY_HASH,
     );
     if (!user || !ok) {
-        loginEmailLimiter.hit(creds.email);
         return c.json({ error: "Wrong email or password" }, 401);
     }
     loginIpEmailLimiter.reset(ipEmailKey);
+    // only failures count against the account
+    loginEmailLimiter.undo(creds.email);
 
     if (user.passwordHash && needsRehash(user.passwordHash)) {
-        // Conditional, so a password changed in the meantime isn't overwritten
-        await db.orm.public.User.where({
-            id: user.id,
-            passwordHash: user.passwordHash,
-        }).update({ passwordHash: await hashPassword(creds.password) });
+        // Conditional, so a password changed in the meantime isn't overwritten.
+        // The upgrade can wait for the next login if it fails.
+        try {
+            await db.orm.public.User.where({
+                id: user.id,
+                passwordHash: user.passwordHash,
+            }).update({ passwordHash: await hashPassword(creds.password) });
+        } catch (err) {
+            console.error(`Couldn't rehash password of user ${user.id}`, err);
+        }
     }
 
     await createSession(c, user.id);
@@ -254,9 +262,14 @@ auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
             400,
         );
     }
-    // The link proves the address, so it signs in to the account it verified
+    // The link proves the address, so it signs in to the account it verified.
+    // Every other session goes: whoever registered the address may not be its
+    // owner, and could still be logged in to the account the owner now uses.
     const current = await getSessionUser(c);
-    if (current?.id !== user.id) {
+    const keep = current?.id === user.id ? requestSessionId(c) : null;
+    const others = db.orm.public.Session.where({ userId: user.id });
+    await (keep ? others.where((s) => s.id.neq(keep)) : others).deleteAll();
+    if (!keep) {
         if (current) await destroySession(c);
         await createSession(c, user.id);
     }

@@ -276,24 +276,23 @@ describe("registration and sessions", () => {
         }
     });
 
-    it("rate limits failed logins per account spread across many IPs", async () => {
+    it("counts failed logins per account across IPs, including parallel ones", async () => {
         const { email } = await register();
-        // the per-account limit counts failures from every IP
-        await Promise.all(
-            Array.from({ length: 100 }, (_, attempt) =>
+        const responses = await Promise.all(
+            Array.from({ length: 110 }, (_, attempt) =>
                 app.request("/api/auth/login", {
                     method: "POST",
                     headers: {
                         "content-type": "application/json",
-                        "x-forwarded-for": `198.51.${Math.floor(attempt / 10)}.${attempt % 10}`,
+                        "x-forwarded-for": `198.18.${Math.floor(attempt / 10)}.${attempt % 10}`,
                     },
                     body: JSON.stringify({ email, password: "wrong" }),
                 }),
             ),
         );
-        ip = "203.0.113.1";
-        const blocked = await request("auth/login", { email, password });
-        expect(blocked.status).toBe(429);
+        const statuses = responses.map((response) => response.status);
+        expect(statuses.filter((status) => status === 401)).toHaveLength(100);
+        expect(statuses.filter((status) => status === 429)).toHaveLength(10);
     }, 60_000);
 
     it("upgrades a hash with older scrypt parameters on the next login", async () => {
@@ -319,6 +318,7 @@ describe("registration and sessions", () => {
         const upgraded = (
             await db.orm.public.User.where({ id: user.id }).first()
         )?.passwordHash;
+        expect(upgraded).not.toBe(legacy);
         expect(upgraded).toMatch(/^scrypt\$ln=17,r=8,p=1\$/);
         expect((await request("auth/login", { email, password })).status).toBe(
             200,
@@ -391,23 +391,40 @@ describe("email verification and licenses", () => {
         ).toBe(204);
     });
     it("accepts a token only once and makes the account verified", async () => {
-        const { cookie, user } = await register();
+        const { cookie } = await register();
         const token = lastToken();
-        expect((await request("auth/verify-email", { token })).status).toBe(
-            200,
-        );
+        const verified = await request("auth/verify-email", { token }, cookie);
+        expect(verified.status).toBe(200);
         expect((await request("auth/verify-email", { token })).status).toBe(
             400,
         );
         const me = await (await request("auth/me", undefined, cookie)).json();
         expect(me.user.emailVerified).toBe(true);
-        expect(
-            await db.orm.public.Session.where({ userId: user.id }).all(),
-        ).toHaveLength(2);
     });
 
-    it("keeps the session when the account's own owner opens the link", async () => {
-        const { cookie, user } = await register();
+    it("signs out whoever registered the address when its owner opens the link", async () => {
+        // the intruder registered someone else's address and logged in
+        const { cookie: intruder, user } = await register();
+        const response = await request("auth/verify-email", {
+            token: lastToken(),
+        });
+        expect(response.status).toBe(200);
+        expect((await request("auth/me", undefined, intruder)).status).toBe(
+            401,
+        );
+        const sessions = await db.orm.public.Session.where({
+            userId: user.id,
+        }).all();
+        expect(sessions.map((session) => session.id)).toEqual([
+            sessionIdFor(sessionCookie(response).slice("session=".length)),
+        ]);
+    });
+
+    it("keeps this session and ends the others when the account's owner opens the link", async () => {
+        const { email, cookie, user } = await register();
+        const other = sessionCookie(
+            await request("auth/login", { email, password }),
+        );
         const response = await request(
             "auth/verify-email",
             { token: lastToken() },
@@ -415,6 +432,8 @@ describe("email verification and licenses", () => {
         );
         expect(response.status).toBe(200);
         expect(response.headers.get("set-cookie")).toBeNull();
+        expect((await request("auth/me", undefined, cookie)).status).toBe(200);
+        expect((await request("auth/me", undefined, other)).status).toBe(401);
         expect(
             await db.orm.public.Session.where({ userId: user.id }).all(),
         ).toHaveLength(1);
@@ -523,7 +542,7 @@ describe("email verification and licenses", () => {
             (await request("billing/checkout", { plan: "lifetime" }, cookie))
                 .status,
         ).toBe(403);
-        await request("auth/verify-email", { token: lastToken() });
+        await request("auth/verify-email", { token: lastToken() }, cookie);
         expect(
             (await request("billing/checkout", { plan: "unknown" }, cookie))
                 .status,
@@ -563,7 +582,7 @@ describe("email verification and licenses", () => {
 
     it("refuses checkout without the withdrawal waiver", async () => {
         const { cookie, user } = await register();
-        await request("auth/verify-email", { token: lastToken() });
+        await request("auth/verify-email", { token: lastToken() }, cookie);
         for (const body of [
             { plan: "lifetime" },
             { plan: "lifetime", withdrawalWaiver: "true" },
@@ -580,7 +599,7 @@ describe("email verification and licenses", () => {
 
     it("rejects another account's checkout and does not grant an unpaid license", async () => {
         const { cookie, user } = await register();
-        await request("auth/verify-email", { token: lastToken() });
+        await request("auth/verify-email", { token: lastToken() }, cookie);
         const checkout = await request(
             "billing/checkout",
             { plan: "lifetime", withdrawalWaiver: true },

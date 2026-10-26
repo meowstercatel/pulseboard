@@ -1,6 +1,7 @@
 import { randomBytes, scryptSync } from "node:crypto";
 import { expect, it } from "vitest";
 import {
+    DUMMY_HASH,
     hashPassword,
     needsRehash,
     verifyPassword,
@@ -66,3 +67,16 @@ it.each([
 ])("rejects stored parameters outside the allowed range: %s", async (stored) =>
     expect(await verifyPassword("password", stored)).toBe(false),
 );
+
+it("takes as long to reject a wrong password for an older hash as for DUMMY_HASH", async () => {
+    const time = async (stored: string) => {
+        const start = performance.now();
+        await verifyPassword("wrong password", stored);
+        return performance.now() - start;
+    };
+    const legacy = legacyHash("old password");
+    await time(DUMMY_HASH);
+    const dummy = await time(DUMMY_HASH);
+    // legacy hashes alone are about 8x cheaper
+    expect(await time(legacy)).toBeGreaterThan(dummy * 0.6);
+});

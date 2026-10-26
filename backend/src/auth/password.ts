@@ -92,7 +92,13 @@ export async function verifyPassword(
         parsed.hash.length,
         parsed.params,
     );
-    return timingSafeEqual(actual, parsed.hash);
+    const ok = timingSafeEqual(actual, parsed.hash);
+    // A wrong password against a cheaper, older hash would fail faster than
+    // against DUMMY_HASH, revealing that the account exists. Make up the time.
+    if (!ok && needsRehash(stored)) {
+        await scryptAsync(password, parsed.salt, KEY_LENGTH, PARAMS);
+    }
+    return ok;
 }
 
 // True when the hash uses older parameters than hashPassword does now
