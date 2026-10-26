@@ -12,6 +12,8 @@ const backedUpSchemas = {
         "d7d041a2cacd34b2a9695ea8115b3b4fe1d1c4c75e90c1d8cd370a6ad66a7062",
     "before session details":
         "491b34cb2e0440598e17329e28ce57d484e36bf2cbbf5cf6e72741874b3bf1e3",
+    "before the free trial":
+        "de3e046d41aceb46c7e258e0bf5b0896bb99f4027b4d79f9a990484cbe8f2e61",
 };
 
 it.each(Object.entries(backedUpSchemas))(

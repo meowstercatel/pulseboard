@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import TrialBadge from "../components/TrialBadge.astro";
 import DashboardControls from "../components/DashboardControls.astro";
 import { metricFields } from "../lib/dashboardControls";
 
@@ -36,6 +37,9 @@ const steps = ["0–20", "20–40", "40–60", "60–80", "80–100"];
                     </cds-header-menu-item>
                 </cds-header-menu>
             </cds-header-nav>
+            <cds-header-global-bar>
+                <TrialBadge />
+            </cds-header-global-bar>
         </cds-header>
         <section class="content">
             <div class="page-header">
@@ -751,10 +755,13 @@ const steps = ["0–20", "20–40", "40–60", "60–80", "80–100"];
     import "@carbon/web-components/es/components/tile/index.js";
     import "@carbon/web-components/es/components/button/index.js";
     import { logout, requireLicense } from "../lib/auth";
+    import { showTrialBadge } from "../lib/plan";
     import { initHistory } from "../lib/historyPage";
     document.getElementById("logout")?.addEventListener("click", logout);
     requireLicense().then((user) => {
-        if (user) void initHistory();
+        if (!user) return;
+        showTrialBadge(user);
+        void initHistory();
     });
     // One tooltip for the heatmap's cells.
     const grid = document.getElementById("heatmap")!;

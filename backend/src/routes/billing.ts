@@ -5,8 +5,16 @@ import { publicUrl } from "../auth/publicUrl.js";
 import { requireAuth, type AuthEnv, type AuthUser } from "../auth/session.js";
 import { db } from "../prisma/db.js";
 
-const PLANS = ["subscription", "lifetime"] as const;
+// "subscription" is the monthly plan; it and "yearly" are both Stripe
+// subscriptions, stored as licensePlan "subscription"
+const PLANS = ["subscription", "yearly", "lifetime"] as const;
 type Plan = (typeof PLANS)[number];
+
+const PRICE_ENV: Record<Plan, string> = {
+    subscription: "STRIPE_PRICE_SUBSCRIPTION",
+    yearly: "STRIPE_PRICE_YEARLY",
+    lifetime: "STRIPE_PRICE_LIFETIME",
+};
 
 function isPlan(value: unknown): value is Plan {
     return PLANS.includes(value as Plan);
@@ -25,9 +33,7 @@ const stripeKey = process.env["STRIPE_SECRET_KEY"];
 const stripe = stripeKey ? new Stripe(stripeKey) : null;
 
 function priceFor(plan: Plan): string | undefined {
-    return plan === "subscription"
-        ? process.env["STRIPE_PRICE_SUBSCRIPTION"]
-        : process.env["STRIPE_PRICE_LIFETIME"];
+    return process.env[PRICE_ENV[plan]] || undefined;
 }
 
 function idOf(ref: string | { id: string } | null): string | null {
@@ -41,7 +47,14 @@ async function getOrCreateCustomer(
     const row = await db.orm.public.User.where({ id: user.id })
         .select("stripeCustomerId")
         .first();
-    if (row?.stripeCustomerId) return row.stripeCustomerId;
+    if (row?.stripeCustomerId) {
+        // Stripe emails receipts to the customer's address, which may be one
+        // the account has since changed away from
+        await stripe.customers.update(row.stripeCustomerId, {
+            email: user.email,
+        });
+        return row.stripeCustomerId;
+    }
 
     // the idempotency key stops a double click from creating two customers
     const customer = await stripe.customers.create(
@@ -92,7 +105,7 @@ async function fulfillCheckout(
     stripe: Stripe,
     session: Stripe.Checkout.Session,
 ) {
-    if (session.payment_status === "unpaid") return; // e.g. BLIK/P24 still processing
+    if (session.payment_status === "unpaid") return; // e.g. a delayed payment method still processing
 
     const subscriptionId = idOf(session.subscription);
     if (session.mode === "subscription" && subscriptionId) {
@@ -179,9 +192,13 @@ billing.post("/checkout", requireAuth, requireVerifiedEmail, async (c) => {
     if (user.licensePlan === "lifetime") {
         return c.json({ error: "You already have a lifetime license" }, 409);
     }
-    if (plan === "subscription" && user.licensePlan === "subscription") {
+    // switching between monthly and yearly happens in the Customer Portal,
+    // so a second subscription is never started
+    if (plan !== "lifetime" && user.licensePlan === "subscription") {
         return c.json(
-            { error: "You already have an active subscription" },
+            {
+                error: "You already have an active subscription. Switch between monthly and yearly with Manage subscription",
+            },
             409,
         );
     }
@@ -192,12 +209,18 @@ billing.post("/checkout", requireAuth, requireVerifiedEmail, async (c) => {
     });
 
     const customer = await getOrCreateCustomer(stripe, user);
+    const mode = plan === "lifetime" ? "payment" : "subscription";
     const session = await stripe.checkout.sessions.create({
-        mode: plan === "subscription" ? "subscription" : "payment",
+        mode,
         customer,
         line_items: [{ price, quantity: 1 }],
         client_reference_id: String(user.id),
         metadata: { userId: String(user.id), plan, withdrawalWaiverAt },
+        // Stripe's receipt for the one-off payment; subscription payments get
+        // theirs from the account's "Successful payments" email setting
+        ...(mode === "payment"
+            ? { payment_intent_data: { receipt_email: user.email } }
+            : {}),
         locale: "en",
         success_url: publicUrl(
             c,
@@ -232,7 +255,9 @@ billing.post("/confirm", requireAuth, async (c) => {
     return c.json({ paymentStatus: session.payment_status });
 });
 
-// Stripe's hosted page where subscribers cancel or change their card
+// Stripe's hosted page where subscribers cancel, change their card or switch
+// between monthly and yearly (allowed in the portal configuration, see
+// scripts/stripe-prices.mjs)
 billing.post("/portal", requireAuth, async (c) => {
     if (!stripe) return c.json({ error: "Payments are not configured" }, 503);
 

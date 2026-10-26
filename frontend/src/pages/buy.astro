@@ -5,7 +5,12 @@ import { plans as pricing, price } from "../lib/pricing";
 
 // Per-plan button and badge; names, prices and features are in lib/pricing
 const display = {
-    subscription: { cta: "Subscribe", kind: "secondary", badge: undefined },
+    subscription: {
+        cta: "Subscribe monthly",
+        kind: "secondary",
+        badge: undefined,
+    },
+    yearly: { cta: "Subscribe yearly", kind: "secondary", badge: undefined },
     lifetime: { cta: "Buy license", kind: "primary", badge: "Best value" },
 };
 const plans = pricing.map((plan) => ({
@@ -26,7 +31,28 @@ const plans = pricing.map((plan) => ({
                 </cds-tag>
             </p>
         </header>
-        <cds-link href="/settings">Account settings</cds-link>
+        <div class="links">
+            <cds-link id="dashboard-link" href="/overview" hidden>
+                Back to dashboard
+            </cds-link>
+            <cds-link href="/settings">Account settings</cds-link>
+        </div>
+        <cds-inline-notification
+            id="trial-active"
+            kind="info"
+            title="Free trial"
+            hide-close-button
+            low-contrast
+            hidden
+        ></cds-inline-notification>
+        <cds-inline-notification
+            id="trial-ended"
+            kind="warning"
+            title="Your free trial has ended"
+            subtitle="Choose a plan to get back to your dashboards. Your datasets are kept."
+            hide-close-button
+            hidden
+        ></cds-inline-notification>
         <h3>Choose a plan</h3>
         <cds-checkbox
             id="waiver"
@@ -71,6 +97,10 @@ const plans = pricing.map((plan) => ({
         <cds-button id="manage" size="md" kind="tertiary" hidden>
             Manage subscription
         </cds-button>
+        <p class="note" id="manage-note" hidden>
+            Switch between monthly and yearly, change your card or cancel in the
+            Stripe Customer Portal.
+        </p>
         <p class="note">
             Payments are processed by Stripe. See our{" "}
             <a href="/privacy">Privacy Policy</a>.
@@ -86,7 +116,7 @@ const plans = pricing.map((plan) => ({
     main {
         box-sizing: border-box;
         width: 100%;
-        max-width: 640px;
+        max-width: 880px;
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
@@ -102,6 +132,11 @@ const plans = pricing.map((plan) => ({
     }
     h1 {
         margin: 0;
+    }
+    .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
     }
     .status {
         display: flex;
@@ -183,6 +218,7 @@ const plans = pricing.map((plan) => ({
     }
     /* the component's own display style would override the attribute */
     cds-button[hidden],
+    cds-link[hidden],
     cds-inline-notification[hidden] {
         display: none;
     }
@@ -194,8 +230,14 @@ const plans = pricing.map((plan) => ({
     import "@carbon/web-components/es/components/tag/index.js";
     import "@carbon/web-components/es/components/link/index.js";
     import "@carbon/web-components/es/components/notification/index.js";
-    import { requireVerifiedUser } from "../lib/auth";
+    import {
+        hasAccess,
+        requireVerifiedUser,
+        trialDaysLeft,
+        trialEnded,
+    } from "../lib/auth";
     import { billingPortal, checkout } from "../lib/billing";
+    import type { PlanId } from "../lib/pricing";
 
     type Button = HTMLElement & { disabled: boolean };
 
@@ -212,19 +254,42 @@ const plans = pricing.map((plan) => ({
         "billing-error",
     ) as HTMLElement & { subtitle: string };
 
+    const notice = (id: string) =>
+        document.getElementById(id) as HTMLElement & { subtitle: string };
+
     requireVerifiedUser().then((user) => {
-        if (!user?.licensePlan) return;
+        if (!user) return;
+        document.getElementById("dashboard-link")!.hidden = !hasAccess(user);
+        if (!user.licensePlan) {
+            const days = trialDaysLeft(user);
+            if (days !== null) {
+                const left = days === 1 ? "1 day left" : `${days} days left`;
+                status.type = "blue";
+                status.textContent = `free trial, ${left}`;
+                const active = notice("trial-active");
+                active.subtitle = `You have full access for ${left}. Choose a plan any time to keep it afterwards.`;
+                active.hidden = false;
+            } else if (trialEnded(user)) {
+                status.textContent = "trial ended";
+                notice("trial-ended").hidden = false;
+            }
+            return;
+        }
         status.type = "green";
         status.textContent =
             user.licensePlan === "lifetime" ? "lifetime" : "subscription";
         for (const button of buttons) {
-            const plan = button.dataset["plan"];
-            // a subscriber can still upgrade to lifetime
-            if (user.licensePlan === "lifetime" || plan === user.licensePlan) {
+            // a subscriber can still upgrade to lifetime, and switches between
+            // monthly and yearly in the portal
+            if (
+                user.licensePlan === "lifetime" ||
+                button.dataset["plan"] !== "lifetime"
+            ) {
                 button.disabled = true;
             }
         }
         manage.hidden = user.licensePlan !== "subscription";
+        document.getElementById("manage-note")!.hidden = manage.hidden;
     });
 
     // Sends the browser to a Stripe-hosted page, or shows the error.
@@ -259,7 +324,7 @@ const plans = pricing.map((plan) => ({
                 waiver.focus();
                 return;
             }
-            const plan = button.dataset["plan"] as "subscription" | "lifetime";
+            const plan = button.dataset["plan"] as PlanId;
             redirect(checkout(plan), [...buttons]);
         });
     }

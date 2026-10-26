@@ -1,0 +1,28 @@
+---
+// Shown in the dashboard header during the free trial; lib/plan's
+// showTrialBadge fills it in once the user is known
+---
+
+<a class="trial-badge" href="/buy" data-trial-badge hidden></a>
+
+<style>
+    .trial-badge {
+        align-self: center;
+        margin-inline-end: 1rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        background: var(--cds-tag-background-blue, #d0e2ff);
+        color: var(--cds-tag-color-blue, #0043ce);
+        font-size: 0.75rem;
+        line-height: 1rem;
+        white-space: nowrap;
+        text-decoration: none;
+    }
+    .trial-badge:hover,
+    .trial-badge:focus-visible {
+        text-decoration: underline;
+    }
+    .trial-badge[hidden] {
+        display: none;
+    }
+</style>

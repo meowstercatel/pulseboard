@@ -69,7 +69,8 @@ test("reset a forgotten password from the emailed link", async ({
         await page
             .getByRole("button", { name: "Reset password", exact: true })
             .click();
-        await expect(page).toHaveURL("/buy");
+        // the emailed link verified the address, which starts the free trial
+        await expect(page).toHaveURL("/overview");
         const me = await page.request.get("/api/auth/me");
         expect((await me.json()).user).toMatchObject({
             email,

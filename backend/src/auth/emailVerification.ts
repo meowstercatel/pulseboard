@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
+import { startTrial } from "../billing/trial.js";
 import { sendMail } from "../mail/mailer.js";
 import { verifyEmailTemplate } from "../mail/verifyEmailTemplate.js";
 import { db } from "../prisma/db.js";
@@ -98,7 +99,7 @@ export async function claimUnverifiedUser(
     await tx.orm.public.OAuthAccount.where({ userId: id })
         .where((a) => a.provider.neq(PROVES_EMAIL))
         .deleteAll();
-    return user;
+    return (await startTrial(tx, id)) ?? user;
 }
 
 // Returns the verified user, or null if the token is unknown, expired, or was
@@ -122,7 +123,7 @@ export async function verifyEmailToken(token: string) {
         await tx.orm.public.EmailVerification.where({
             userId: pending.userId,
         }).deleteAll();
-        return user;
+        return user && ((await startTrial(tx, user.id)) ?? user);
     });
 }
 

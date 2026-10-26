@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { limits } from "../src/lib/limits";
-import { planById, plans } from "../src/lib/pricing";
+import { planById, plans, price } from "../src/lib/pricing";
 
 describe("pricing", () => {
     it("finds plans by id, whatever their order", () => {
         for (const plan of plans) expect(planById(plan.id)).toBe(plan);
+    });
+
+    // the Terms of Service and the Stripe prices (scripts/stripe-prices.mjs)
+    // state the same amounts
+    it("charges $5 a month, $50 a year or $99 once", () => {
+        expect(plans.map((plan) => [plan.id, price(plan)])).toEqual([
+            ["subscription", "$5"],
+            ["yearly", "$50"],
+            ["lifetime", "$99"],
+        ]);
     });
 });
 

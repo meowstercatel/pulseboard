@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import TrialBadge from "../components/TrialBadge.astro";
 import { limits } from "../lib/limits";
 ---
 
@@ -11,6 +12,7 @@ import { limits } from "../lib/limits";
                 PulseBoard
             </a>
             <nav aria-label="Account navigation">
+                <TrialBadge />
                 <cds-link href="/overview">Overview</cds-link>
                 <cds-link href="/history">History</cds-link>
                 <cds-link href="/settings">Settings</cds-link>
@@ -330,6 +332,7 @@ import { limits } from "../lib/limits";
     import "@carbon/web-components/es/components/link/index.js";
     import "@carbon/web-components/es/components/inline-loading/index.js";
     import { logout, requireLicense } from "../lib/auth";
+    import { showTrialBadge } from "../lib/plan";
     import {
         deleteDataset,
         importDataset,
@@ -536,6 +539,8 @@ import { limits } from "../lib/limits";
     importButton.addEventListener("click", submit);
 
     requireLicense().then((user) => {
-        if (user) refresh();
+        if (!user) return;
+        showTrialBadge(user);
+        refresh();
     });
 </script>

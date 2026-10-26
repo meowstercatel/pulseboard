@@ -30,6 +30,14 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         <noscript>Enable JavaScript to manage your account.</noscript>
 
         <div id="settings" hidden>
+            <section aria-labelledby="plan-heading">
+                <h2 id="plan-heading">Plan</h2>
+                <p class="description" id="plan-status"></p>
+                <cds-link href="/buy" id="plan-link">
+                    Choose a plan
+                </cds-link>
+            </section>
+
             <section aria-labelledby="profile-heading">
                 <h2 id="profile-heading">Profile</h2>
                 <p class="description">Your email address is used to log in.</p>
@@ -531,10 +539,12 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     import {
         changePassword,
         deleteAccount,
+        hasAccess,
         logout,
         requireUser,
         updateProfile,
     } from "../lib/auth";
+    import { planSummary } from "../lib/plan";
     import { bindForm } from "../lib/form";
     import { mountSessions } from "../lib/sessions";
     import {
@@ -650,8 +660,11 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
         document.getElementById("signed-in")!.textContent = user.email;
-        // without a license the dashboard would only send them on to /buy
-        if (!user.licensePlan) {
+        const plan = planSummary(user);
+        document.getElementById("plan-status")!.textContent = plan.text;
+        document.getElementById("plan-link")!.textContent = plan.action;
+        // without a license or trial the dashboard would only send them on to /buy
+        if (!hasAccess(user)) {
             const back = document.getElementById("back-link")!;
             back.setAttribute("href", "/buy");
             back.textContent = "← Back to plans";

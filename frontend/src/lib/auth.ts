@@ -3,8 +3,40 @@ export type User = {
     email: string;
     username: string | null;
     licensePlan: string | null;
+    // end of the free trial, also once it has passed; null if it never started
+    trialEndsAt: string | null;
     emailVerified: boolean;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function trialActive(user: User, now = Date.now()): boolean {
+    return (
+        Boolean(user.trialEndsAt) && new Date(user.trialEndsAt!).getTime() > now
+    );
+}
+
+// A paid license or a running free trial. Only decides where to send the user;
+// the backend checks it again on every request.
+export function hasAccess(user: User, now = Date.now()): boolean {
+    return Boolean(user.licensePlan) || trialActive(user, now);
+}
+
+// Whole days left, counting a part day as one: 14 right after verification,
+// 1 on the last day. null without a running trial.
+export function trialDaysLeft(user: User, now = Date.now()): number | null {
+    if (!trialActive(user, now)) return null;
+    return Math.ceil((new Date(user.trialEndsAt!).getTime() - now) / DAY_MS);
+}
+
+// An unpaid account whose trial has run out
+export function trialEnded(user: User, now = Date.now()): boolean {
+    return (
+        !user.licensePlan &&
+        Boolean(user.trialEndsAt) &&
+        !trialActive(user, now)
+    );
+}
 
 // Pages that would send a logged-in user straight back out
 const AUTH_PAGES = new Set(["/login", "/register"]);
@@ -48,7 +80,7 @@ export function accountDestination(user: User, next?: string | null): string {
     // the page itself sends an unlicensed user on to /buy if it needs to
     const requested = safeNext(next);
     if (requested) return requested;
-    return user.licensePlan ? "/overview" : "/buy";
+    return hasAccess(user) ? "/overview" : "/buy";
 }
 
 type AuthResult = { user: User } | { error: string; status?: number };
@@ -228,6 +260,6 @@ export function requireVerifiedUser(): Promise<User | null> {
 export function requireLicense(): Promise<User | null> {
     return guard((user) => {
         if (!user.emailVerified) return "/verify-email";
-        return user.licensePlan ? null : "/buy";
+        return hasAccess(user) ? null : "/buy";
     });
 }

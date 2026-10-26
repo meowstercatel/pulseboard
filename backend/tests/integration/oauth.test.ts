@@ -152,7 +152,7 @@ describe("Google sign-in", () => {
 
         const { location, cookie } = await signIn("google");
 
-        expect(location).toBe("/buy");
+        expect(location).toBe("/overview");
         expect(cookie).toBeTruthy();
         const user = await db.orm.public.User.where({ id }).first();
         expect(user!.emailVerifiedAt).not.toBeNull();
@@ -253,7 +253,7 @@ describe("Google sign-in", () => {
 
         const { location, cookie } = await signIn("google");
 
-        expect(location).toBe("/buy");
+        expect(location).toBe("/overview");
         const user = await db.orm.public.User.where({ id }).first();
         expect(user!.emailVerifiedAt).not.toBeNull();
         expect(user!.passwordHash).toBeNull();
@@ -436,7 +436,7 @@ describe("returning to the requested page", () => {
             const { location } = await signIn("google", next);
             await trackUserByEmail(email);
 
-            expect(location).toBe("/buy");
+            expect(location).toBe("/overview");
         },
     );
 

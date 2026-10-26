@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import TrialBadge from "../components/TrialBadge.astro";
 import DashboardControls from "../components/DashboardControls.astro";
 import { metricFields } from "../lib/dashboardControls";
 import { horizons } from "../lib/forecastPage";
@@ -35,6 +36,9 @@ import { horizons } from "../lib/forecastPage";
                     </cds-header-menu-item>
                 </cds-header-menu>
             </cds-header-nav>
+            <cds-header-global-bar>
+                <TrialBadge />
+            </cds-header-global-bar>
         </cds-header>
         <section class="content">
             <div class="page-header">
@@ -453,9 +457,12 @@ import { horizons } from "../lib/forecastPage";
     import "@carbon/web-components/es/components/tile/index.js";
     import "@carbon/web-components/es/components/button/index.js";
     import { logout, requireLicense } from "../lib/auth";
+    import { showTrialBadge } from "../lib/plan";
     import { initForecast } from "../lib/forecastPage";
     document.getElementById("logout")?.addEventListener("click", logout);
     requireLicense().then((user) => {
-        if (user) void initForecast();
+        if (!user) return;
+        showTrialBadge(user);
+        void initForecast();
     });
 </script>

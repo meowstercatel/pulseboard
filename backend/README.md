@@ -18,6 +18,22 @@ The schema is applied with migrations from `migrations/`, never with `prisma db 
 
 `pnpm prisma migration status --db $DATABASE_URL` shows what is pending on a database. The tests apply the same migrations and then run `prisma db verify`, so a contract change without a migration fails them.
 
+## Payments
+
+Production and staging both use the Stripe sandbox. Checkout charges in US dollars, the prices shown in `frontend/src/lib/pricing.ts` and the Terms of Service:
+
+| Plan     | Price      | Variable                    | Checkout mode |
+| -------- | ---------- | --------------------------- | ------------- |
+| Monthly  | $5 / month | `STRIPE_PRICE_SUBSCRIPTION` | subscription  |
+| Yearly   | $50 / year | `STRIPE_PRICE_YEARLY`       | subscription  |
+| Lifetime | $99 once   | `STRIPE_PRICE_LIFETIME`     | payment       |
+
+`STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-prices.mjs` (from the repository root) creates the products and prices, lets the default Customer Portal configuration switch between monthly and yearly (monthly to yearly is charged right away, yearly to monthly waits for the paid year to end), checks that a USD Checkout still offers cards, and prints the `gh variable set` commands for the `production` and `staging` environments. It is safe to run again. A changed amount becomes a new price that takes over the lookup key; existing subscribers stay on the price they signed up with.
+
+A lifetime purchase cancels the buyer's active subscription, monthly or yearly. Receipts are Stripe's: lifetime payments set `receipt_email`, and subscription payments need **Settings → Business → Customer emails → Successful payments** switched on in the Stripe Dashboard (sandboxes don't send receipts automatically; send one from the payment's page to preview it). Checkout keeps the Stripe customer's email equal to the account's.
+
+New accounts get a 14-day free trial with full access, no card required. It starts when the email address is first verified (`User.trialEndsAt`); accounts that existed before the trial have `trialEligible = false`. A background job emails a reminder three days before the end and on the last day; `User.trialRemindersSent` records which went out, so each is sent once across restarts and instances.
+
 ## Backups & restore
 
 The `backup` service runs `pg_dump -Fc` every day at 03:00 UTC (and once on first start). Dumps live on the host in `/var/backups/pulseboard/<compose project>/` (`BACKUP_DIR` overrides the base), so `pulseboard` and `pulseboard-staging` each have their own folder:

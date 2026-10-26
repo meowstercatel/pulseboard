@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { hasAccess } from "../billing/trial.js";
 import { db } from "../prisma/db.js";
 import { clientIp } from "./rateLimit.js";
 
@@ -17,6 +18,8 @@ export type AuthUser = {
     email: string;
     username: string | null;
     licensePlan: string | null;
+    // end of the free trial, also once it has passed; null if it never started
+    trialEndsAt: string | null;
     emailVerified: boolean;
 };
 
@@ -30,6 +33,7 @@ export function toAuthUser(user: UserRow): AuthUser {
         email: user.email,
         username: user.username,
         licensePlan: user.licensePlan,
+        trialEndsAt: user.trialEndsAt,
         emailVerified: user.emailVerifiedAt !== null,
     };
 }
@@ -162,7 +166,8 @@ export const requireLicense: MiddlewareHandler<AuthEnv> = async (c, next) => {
     if (!c.get("user").emailVerified) {
         return c.json({ error: "Verify your email address first" }, 403);
     }
-    if (!c.get("user").licensePlan) {
+    // checked against the clock on every request, so access ends with the trial
+    if (!hasAccess(c.get("user"))) {
         return c.json({ error: "No active license" }, 402);
     }
     await next();

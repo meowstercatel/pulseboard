@@ -626,7 +626,7 @@ describe("linking a provider", () => {
             { cookie: `${stateCookie}; ${cookie}` },
         );
 
-        expect(response.headers.get("location")).toBe("/buy");
+        expect(response.headers.get("location")).toBe("/overview");
         expect(await links(user.id)).toHaveLength(0);
         const created = await db.orm.public.User.where({ email }).first();
         userIds.add(created!.id);

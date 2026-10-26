@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'de3e046d41aceb46c7e258e0bf5b0896bb99f4027b4d79f9a990484cbe8f2e61'>;
+  StorageHashBase<'d1912bdc422b3741b6f42b4845428ea2d87bb3665e09b5f4b4e5653b04dfe5f1'>;
 export type ExecutionHash =
   ExecutionHashBase<'98f9b7debb9df86e82dc56c1a37824ca3eced6dfa97a7fa4c1f7945ce495db09'>;
 export type ProfileHash =
@@ -298,6 +298,9 @@ export type FieldOutputTypes = {
       readonly stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
       readonly stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
       readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
+      readonly trialEligible: CodecTypes['pg/bool@1']['output'];
+      readonly trialEndsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly trialRemindersSent: CodecTypes['pg/int4@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
       readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -370,6 +373,9 @@ export type FieldInputTypes = {
       readonly stripeCustomerId: CodecTypes['pg/text@1']['input'] | null;
       readonly stripeSubscriptionId: CodecTypes['pg/text@1']['input'] | null;
       readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
+      readonly trialEligible: CodecTypes['pg/bool@1']['input'];
+      readonly trialEndsAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly trialRemindersSent: CodecTypes['pg/int4@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
       readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
@@ -442,6 +448,9 @@ export type StorageColumnTypes = {
       readonly stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
       readonly stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
       readonly subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
+      readonly trialEligible: CodecTypes['pg/bool@1']['output'];
+      readonly trialEndsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly trialRemindersSent: CodecTypes['pg/int4@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
       readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -514,6 +523,9 @@ export type StorageColumnInputTypes = {
       readonly stripeCustomerId: CodecTypes['pg/text@1']['input'] | null;
       readonly stripeSubscriptionId: CodecTypes['pg/text@1']['input'] | null;
       readonly subscriptionStatus: CodecTypes['pg/text@1']['input'] | null;
+      readonly trialEligible: CodecTypes['pg/bool@1']['input'];
+      readonly trialEndsAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly trialRemindersSent: CodecTypes['pg/int4@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
       readonly withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
@@ -599,6 +611,9 @@ export namespace Models {
     stripeCustomerId: CodecTypes['pg/text@1']['output'] | null;
     stripeSubscriptionId: CodecTypes['pg/text@1']['output'] | null;
     subscriptionStatus: CodecTypes['pg/text@1']['output'] | null;
+    trialEligible: CodecTypes['pg/bool@1']['output'];
+    trialEndsAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    trialRemindersSent: CodecTypes['pg/int4@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     username: CodecTypes['pg/text@1']['output'] | null;
     withdrawalWaiverAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -1156,6 +1171,32 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly many: false;
                 };
+                readonly trialEligible: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                  readonly many: false;
+                };
+                readonly trialEndsAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly trialRemindersSent: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                  readonly many: false;
+                };
                 readonly updatedAt: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-string@1';
@@ -1650,6 +1691,21 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly trialEligible: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly trialEndsAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly trialRemindersSent: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1740,6 +1796,9 @@ type ContractBase = Omit<
                 readonly stripeCustomerId: { readonly column: 'stripeCustomerId' };
                 readonly stripeSubscriptionId: { readonly column: 'stripeSubscriptionId' };
                 readonly subscriptionStatus: { readonly column: 'subscriptionStatus' };
+                readonly trialEligible: { readonly column: 'trialEligible' };
+                readonly trialEndsAt: { readonly column: 'trialEndsAt' };
+                readonly trialRemindersSent: { readonly column: 'trialRemindersSent' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
                 readonly username: { readonly column: 'username' };
                 readonly withdrawalWaiverAt: { readonly column: 'withdrawalWaiverAt' };

@@ -24,6 +24,7 @@ export function testEnvironment() {
         FACEBOOK_APP_SECRET: "",
         STRIPE_SECRET_KEY: "sk_test_pulseboard_fixture",
         STRIPE_PRICE_SUBSCRIPTION: "price_test_subscription",
+        STRIPE_PRICE_YEARLY: "price_test_yearly",
         STRIPE_PRICE_LIFETIME: "price_test_lifetime",
         STRIPE_WEBHOOK_SECRET: "whsec_test_fixture",
     };
