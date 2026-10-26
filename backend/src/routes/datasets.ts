@@ -10,8 +10,6 @@ import {
 import { LIMITS, MAX_DATASETS, MAX_FILE_BYTES } from "../datasets/limits.js";
 import { db } from "../prisma/db.js";
 
-export { LIMITS, MAX_DATASETS, MAX_FILE_BYTES };
-
 const MAX_NAME_LENGTH = 100;
 // First key of the advisory lock that serializes one user's imports; the
 // second key is the user id

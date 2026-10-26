@@ -5,8 +5,6 @@
 
 import { MAX_INVALID_SHARE, MAX_ROWS } from "./limits.js";
 
-export { MAX_INVALID_SHARE, MAX_ROWS };
-
 // The report lists at most this many problems; the counts stay exact.
 export const MAX_REPORTED_ERRORS = 100;
 const MAX_HOST_LENGTH = 100;

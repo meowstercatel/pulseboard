@@ -43,3 +43,9 @@ export const plans: Plan[] = [
 ];
 
 export const price = (plan: Plan) => `${plan.amount} ${currency}`;
+
+export const planById = (id: PlanId): Plan => {
+    const plan = plans.find((p) => p.id === id);
+    if (!plan) throw new Error(`No plan ${id}`);
+    return plan;
+};

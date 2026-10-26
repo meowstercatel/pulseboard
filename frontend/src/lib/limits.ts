@@ -4,11 +4,18 @@
 import { LIMITS } from "../../../backend/src/datasets/limits";
 import { MIN_DAYS, THRESHOLDS } from "../../../backend/src/forecast/index";
 
+// At most one decimal, so 0.07 * 100 shows as 7 rather than 7.000000000000001
+const number = (value: number) =>
+    value.toLocaleString("en", { maximumFractionDigits: 1 });
+
 export const limits = {
     datasets: LIMITS.maxDatasets,
-    fileSize: `${LIMITS.maxFileBytes / 1024 / 1024} MB`,
-    rows: LIMITS.maxRows.toLocaleString("en"),
-    invalidShare: `${LIMITS.maxInvalidShare * 100}%`,
+    fileSize: `${number(LIMITS.maxFileBytes / 1024 / 1024)} MB`,
+    rows: number(LIMITS.maxRows),
+    invalidShare: `${number(LIMITS.maxInvalidShare * 100)}%`,
+    // the backend's rule: rejected when the invalid share is above the limit
+    rejects: (invalidRows: number, totalRows: number) =>
+        invalidRows / totalRows > LIMITS.maxInvalidShare,
     forecastDays: MIN_DAYS,
     // "80, 90 and 100%"
     thresholds: `${THRESHOLDS.slice(0, -1).join(", ")} and ${THRESHOLDS.at(-1)}%`,

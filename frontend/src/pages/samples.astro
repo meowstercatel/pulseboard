@@ -16,6 +16,12 @@ const url = (file: string) => {
     return found;
 };
 
+// Whether a file with broken rows imports follows the current limit
+const broken = (invalid: number, total: number) =>
+    limits.rejects(invalid, total)
+        ? `${invalid} of ${total} rows are broken, more than the ${limits.invalidShare} allowed, so it is rejected.`
+        : `${invalid} of ${total} rows are broken, within the ${limits.invalidShare} allowed, so it imports with a report of the skipped rows.`;
+
 // Described in samples/README.md
 const samples = [
     {
@@ -40,13 +46,13 @@ const samples = [
         file: "invalid-3-percent.csv",
         hosts: 1,
         days: 7,
-        text: `22 of 672 rows are broken. Imports, with a report of the skipped rows.`,
+        text: broken(22, 672),
     },
     {
         file: "invalid-10-percent.csv",
         hosts: 1,
         days: 7,
-        text: `59 of 672 rows are broken, more than the ${limits.invalidShare} allowed, so it is rejected.`,
+        text: broken(59, 672),
     },
 ].map((sample) => ({ ...sample, url: url(sample.file) }));
 ---

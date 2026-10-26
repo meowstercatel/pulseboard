@@ -126,24 +126,29 @@ export function autoplay(
     const plot = chart.querySelector<HTMLElement>(".plot")!;
     const tooltip = chart.querySelector<HTMLElement>(".tooltip")!;
     // The walk isn't worth announcing; the user's own inspection is
+    const role = tooltip.getAttribute("role");
     tooltip.removeAttribute("role");
     let position = 0;
-    let visible = false;
+    // Steps only while the chart is on screen
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const pause = () => {
+        clearInterval(timer);
+        timer = undefined;
+    };
     const observer = new IntersectionObserver(([entry]) => {
-        visible = !!entry?.isIntersecting;
+        if (!entry?.isIntersecting) return pause();
+        timer ??= setInterval(() => {
+            controls.show(position);
+            position = (position + 1) % controls.count;
+        }, STEP_MS);
     });
     observer.observe(chart);
-    const timer = setInterval(() => {
-        if (!visible) return;
-        controls.show(position);
-        position = (position + 1) % controls.count;
-    }, STEP_MS);
     const events = ["pointerenter", "pointerdown", "focusin", "keydown"];
     const stop = () => {
-        clearInterval(timer);
+        pause();
         observer.disconnect();
         for (const event of events) area.removeEventListener(event, stop);
-        tooltip.setAttribute("role", "status");
+        if (role !== null) tooltip.setAttribute("role", role);
         // a focused plot keeps its crosshair; pointermove brings it back on hover
         if (document.activeElement !== plot) controls.hide();
     };

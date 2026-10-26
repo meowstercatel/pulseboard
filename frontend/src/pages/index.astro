@@ -4,7 +4,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 import DashboardPreview from "../components/DashboardPreview.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import { limits } from "../lib/limits";
-import { plans, price } from "../lib/pricing";
+import { planById, plans, price } from "../lib/pricing";
 
 const features = [
     {
@@ -91,10 +91,8 @@ const collected = [
     },
 ];
 
-const [subscription, lifetime] = plans as [
-    (typeof plans)[number],
-    (typeof plans)[number],
-];
+const subscription = planById("subscription");
+const lifetime = planById("lifetime");
 const faq = [
     {
         question: "Do I need to install anything on my servers?",

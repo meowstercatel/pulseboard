@@ -4,7 +4,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { sessionIdFor } from "../../src/auth/session.js";
 import { db } from "../../src/prisma/db.js";
-import { MAX_DATASETS, MAX_FILE_BYTES } from "../../src/routes/datasets.js";
+import { MAX_DATASETS, MAX_FILE_BYTES } from "../../src/datasets/limits.js";
 
 const app = createApp();
 const userIds = new Set<number>();
