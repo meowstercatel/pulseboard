@@ -10,6 +10,9 @@ import {
     requireLicense,
     safeNext,
     verifiedStep,
+    verifyEmail,
+    disownAccount,
+    disownedMessage,
 } from "../src/lib/auth";
 
 it.each([
@@ -209,5 +212,122 @@ describe("after the verification link", () => {
         );
         expect(message).not.toContain("Set a password");
         expect(href).toBe("/overview");
+    });
+});
+
+describe("a link opened outside the account's session", () => {
+    function serverAnswers(status: number, body: unknown) {
+        const fetch = vi
+            .fn()
+            .mockResolvedValue(Response.json(body, { status }));
+        vi.stubGlobal("fetch", fetch);
+        return fetch;
+    }
+    const sentBody = (fetch: ReturnType<typeof vi.fn>) =>
+        JSON.parse(fetch.mock.calls[0]![1].body);
+
+    it("asks for the password when the server wants it", async () => {
+        const fetch = serverAnswers(403, {
+            error: "Enter the account's password to finish verifying",
+            confirm: "password",
+            email: "a@example.com",
+        });
+        expect(await verifyEmail("t0k3n")).toEqual({
+            confirm: "password",
+            email: "a@example.com",
+        });
+        // only the token: no password field at all
+        expect(sentBody(fetch)).toEqual({ token: "t0k3n" });
+    });
+
+    it("sends the password and returns the verification", async () => {
+        const user = { id: 1, emailVerified: true } as User;
+        const fetch = serverAnswers(200, {
+            user,
+            removedLogins: [],
+            needsPassword: false,
+        });
+        expect(await verifyEmail("t0k3n", "hunter22!")).toEqual({
+            user,
+            removedLogins: [],
+            needsPassword: false,
+        });
+        expect(sentBody(fetch)).toEqual({
+            token: "t0k3n",
+            password: "hunter22!",
+        });
+    });
+
+    it.each([
+        [401, { error: "Wrong password" }, "Wrong password"],
+        [
+            429,
+            { error: "Too many attempts, try again in 15 minutes" },
+            "Too many attempts, try again in 15 minutes",
+        ],
+        [
+            400,
+            { error: "This verification link is invalid or has expired" },
+            "This verification link is invalid or has expired",
+        ],
+        // a 403 that isn't asking for the password is just an error
+        [403, { error: "Forbidden" }, "Forbidden"],
+    ])("reports a %i as an error", async (status, body, error) => {
+        serverAnswers(status, body);
+        expect(await verifyEmail("t0k3n", "x")).toEqual({ error, status });
+    });
+
+    it("says when the server can't be reached", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockRejectedValue(new TypeError("offline")),
+        );
+        expect(await verifyEmail("t0k3n")).toEqual({
+            error: "Can't reach the server",
+        });
+        expect(await disownAccount("t0k3n")).toEqual({
+            error: "Can't reach the server",
+        });
+    });
+
+    it("disowns the account with the token only", async () => {
+        const fetch = serverAnswers(200, {
+            email: "a@example.com",
+            emailSent: true,
+        });
+        expect(await disownAccount("t0k3n")).toEqual({
+            email: "a@example.com",
+            emailSent: true,
+        });
+        expect(fetch.mock.calls[0]![0]).toBe("/api/auth/verify-email/not-mine");
+        expect(sentBody(fetch)).toEqual({ token: "t0k3n" });
+    });
+
+    it("reports a used link when disowning", async () => {
+        serverAnswers(400, {
+            error: "This verification link is invalid or has expired",
+        });
+        expect(await disownAccount("t0k3n")).toEqual({
+            error: "This verification link is invalid or has expired",
+            status: 400,
+        });
+    });
+
+    it("tells the owner where the password link went, or that it didn't", () => {
+        const sent = disownedMessage({
+            email: "a@example.com",
+            emailSent: true,
+        });
+        expect(sent).toContain("a@example.com is verified");
+        expect(sent).toContain("signed out");
+        expect(sent).toContain(
+            "We sent a link to a@example.com to choose your own password.",
+        );
+        const failed = disownedMessage({
+            email: "a@example.com",
+            emailSent: false,
+        });
+        expect(failed).toContain("couldn't send the email");
+        expect(failed).not.toContain("We sent a link");
     });
 });

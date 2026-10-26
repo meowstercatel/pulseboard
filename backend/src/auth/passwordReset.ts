@@ -2,8 +2,11 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Context } from "hono";
 import { startTrial } from "../billing/trial.js";
 import { sendMail } from "../mail/mailer.js";
+import { claimAccountTemplate } from "../mail/claimAccountTemplate.js";
 import {
+    claimUnverifiedUser,
     dropUnprovenLogins,
+    lockVerification,
     trySendVerificationEmail,
 } from "./emailVerification.js";
 import { passwordResetTemplate } from "../mail/passwordResetTemplate.js";
@@ -220,4 +223,51 @@ export async function resetPassword(token: string, newPassword: string) {
             removedLogins,
         };
     });
+}
+
+// "I didn't create this account", from the page a verification link opens.
+// The link proves the clicker owns the address, so the account becomes
+// theirs, without anything whoever registered it set up: the address is
+// verified, the password stops working, every session ends and the logins
+// that don't prove the address go (see claimUnverifiedUser). A reset link to
+// the address lets the owner choose their own password. Returns null if the
+// token is unknown, expired, or was sent to an address the account no longer
+// uses; `emailSent` is false if the link couldn't be sent, and "Forgot
+// password?" sends a new one.
+export async function disownAccount(c: Context, token: string) {
+    const claimed = await db.transaction(async (tx) => {
+        const pending = await lockVerification(tx, token);
+        if (!pending) return null;
+        const user = await claimUnverifiedUser(tx, pending);
+        // the link is used up, like any verification
+        await tx.orm.public.EmailVerification.where({
+            userId: pending.id,
+        }).deleteAll();
+        if (!user) return null;
+        // set-password links go with every other way in
+        const reset = await storeToken(tx, user, { replace: true });
+        return { user, reset };
+    });
+    if (!claimed) return null;
+    const { user, reset } = claimed;
+    let emailSent = true;
+    try {
+        await sendMail({
+            to: user.email,
+            ...claimAccountTemplate(
+                publicUrl(
+                    c,
+                    `/reset-password?purpose=set&token=${reset}${emailHint(user.email)}`,
+                ),
+                user.email,
+            ),
+        });
+    } catch (err) {
+        console.error(
+            `Couldn't send the password link to disowned user ${user.id}`,
+            err,
+        );
+        emailSent = false;
+    }
+    return { user, emailSent };
 }

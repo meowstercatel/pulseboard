@@ -49,6 +49,14 @@ test("register, verify email from Mailpit, start the free trial, then buy a plan
         )?.[0];
         expect(link).toBeTruthy();
         await page.goto(link!);
+        // registering doesn't sign in, so the link asks for the password; a
+        // password manager knows which account from the hidden username
+        await expect(page.locator("#confirm-email")).toHaveText(email);
+        await expect(page.locator("#confirm-username")).toHaveValue(email);
+        await page.locator("#confirm-password").fill(password);
+        await page
+            .getByRole("button", { name: "Verify and sign in", exact: true })
+            .click();
         await expect(page.locator("#done")).toBeVisible();
         await page.locator("#continue").click();
         // verifying started the 14-day trial, so the dashboard opens right away

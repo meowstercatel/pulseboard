@@ -132,3 +132,17 @@ disconnects another user's logins. `frontend/tests/connectedAccounts.test.ts`
 covers the settings section in Happy DOM, and `tests/e2e/connected-accounts.spec.ts`
 signs in with Google, sets a password from the Mailpit link, then disconnects and
 reconnects Google.
+
+## Verification links and password pre-hijack
+
+Anyone can register someone else's address with a password. Opened outside the
+account's own session, the verification link of an account with a password asks
+for that password before it verifies or signs in; the attempts share the login
+rate limits. "I didn't create this account" verifies the address instead, ends
+every session, removes the password and logins that don't prove the address,
+and emails a set-password link. `backend/tests/integration/passwordPreHijack.test.ts`
+covers both paths, the trial starting once, links already used up by a reset,
+the rate limits and a login racing the takeover. `frontend/tests/auth.test.ts`
+covers the verify page's requests and messages, and
+`tests/e2e/password-prehijack.spec.ts` plays both paths in the browser, the
+second with an intruder's browser signed in to the account.

@@ -139,8 +139,72 @@ export type Verification = {
     needsPassword: boolean;
 };
 
-export function verifyEmail(token: string) {
-    return post<Verification>("auth/verify-email", { token });
+// The link was opened outside the account's own session, and the account has
+// a password: the server verifies nothing until it's entered
+export type PasswordNeeded = { confirm: "password"; email: string };
+
+// `password` answers a PasswordNeeded; a wrong one is an error with status 401
+export async function verifyEmail(
+    token: string,
+    password?: string,
+): Promise<AuthResult<Verification> | PasswordNeeded> {
+    try {
+        const res = await fetch("/api/auth/verify-email", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(
+                password === undefined ? { token } : { token, password },
+            ),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.user) return data as Verification;
+        if (
+            res.status === 403 &&
+            data?.confirm === "password" &&
+            typeof data.email === "string"
+        ) {
+            return { confirm: "password", email: data.email };
+        }
+        return {
+            error: data?.error ?? `Something went wrong (${res.status})`,
+            status: res.status,
+        };
+    } catch {
+        return { error: "Can't reach the server" };
+    }
+}
+
+export type Disowned = { email: string; emailSent: boolean };
+
+// "I didn't create this account" on the page the verification link opens
+export async function disownAccount(
+    token: string,
+): Promise<Disowned | { error: string; status?: number }> {
+    try {
+        const res = await fetch("/api/auth/verify-email/not-mine", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ token }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && typeof data?.email === "string") {
+            return { email: data.email, emailSent: data.emailSent === true };
+        }
+        return {
+            error: data?.error ?? `Something went wrong (${res.status})`,
+            status: res.status,
+        };
+    } catch {
+        return { error: "Can't reach the server" };
+    }
+}
+
+// What the verify page says once the account is no longer someone else's
+export function disownedMessage({ email, emailSent }: Disowned): string {
+    const done = `${email} is verified. Everyone who was signed in to the account has been signed out, and the password it was set up with no longer works.`;
+    return emailSent
+        ? `${done} We sent a link to ${email} to choose your own password.`
+        : `${done} We couldn't send the email with a link to choose your password. Request one below.`;
 }
 
 // What the verify page says after the link worked, and where it goes next

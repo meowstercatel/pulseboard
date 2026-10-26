@@ -143,6 +143,7 @@ describe("trial start", () => {
         const before = Date.now();
         const response = await request("auth/verify-email", {
             token: lastToken(),
+            password,
         });
         expect(response.status).toBe(200);
         const body = await response.json();
@@ -161,6 +162,7 @@ describe("trial start", () => {
         const user = await register();
         const verified = await request("auth/verify-email", {
             token: lastToken(),
+            password,
         });
         const cookie = verified.headers.get("set-cookie")!.split(";")[0];
         const { trialEndsAt } = await userRow(user.id);
@@ -177,7 +179,12 @@ describe("trial start", () => {
         expect(changed.status).toBe(200);
         expect((await userRow(user.id)).emailVerifiedAt).toBeNull();
         expect(
-            (await request("auth/verify-email", { token: lastToken() })).status,
+            (
+                await request("auth/verify-email", {
+                    token: lastToken(),
+                    password,
+                })
+            ).status,
         ).toBe(200);
         const after = await userRow(user.id);
         expect(after.emailVerifiedAt).not.toBeNull();
@@ -192,6 +199,7 @@ describe("trial start", () => {
         });
         const response = await request("auth/verify-email", {
             token: lastToken(),
+            password,
         });
         expect(response.status).toBe(200);
         expect((await response.json()).user.trialEndsAt).toBeNull();
@@ -508,7 +516,12 @@ describe("plans at checkout", () => {
         expect(stripeApi.customerUpdates).toHaveLength(0);
 
         expect(
-            (await request("auth/verify-email", { token: lastToken() })).status,
+            (
+                await request("auth/verify-email", {
+                    token: lastToken(),
+                    password,
+                })
+            ).status,
         ).toBe(200);
         expect(stripeApi.customerUpdates).toHaveLength(1);
         expect(stripeApi.customerUpdates[0]!.id).toBe(customer);
