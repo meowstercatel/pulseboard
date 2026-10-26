@@ -119,7 +119,8 @@ export function verifiedStep({
 }: Verification) {
     let message = "Your email address is verified.";
     if (removedLogins.length) {
-        const names = [...new Set(removedLogins)];
+        // the server lists each provider once
+        const names = removedLogins;
         message +=
             names.length === 1
                 ? ` The ${names[0]} login connected before you verified it was removed, because it may not have been yours. If it was, connect it again in Settings.`

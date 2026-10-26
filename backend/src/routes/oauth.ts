@@ -19,6 +19,7 @@ import { RateLimiter, limitByIp } from "../auth/rateLimit.js";
 import { publicUrl } from "../auth/publicUrl.js";
 import { limitAccountChanges, reauthenticate } from "../auth/reauth.js";
 import {
+    clearSessionCookie,
     createSession,
     getSessionUser,
     requestSessionId,
@@ -177,12 +178,16 @@ async function linkAccount(
             .update({ email: current.email });
         if (!user) throw new LinkError("unverified");
         // The session may have ended since the request was checked (the
-        // owner verified the address, or signed out other devices); the user
-        // row lock above means it can't end during the rest of this
+        // owner verified the address, or signed out other devices). Locking
+        // its row means a sign-out either came first and stops this, or
+        // waits until the link is made.
+        const now = new Date().toISOString();
         const session = await tx.orm.public.Session.where({
             id: sessionId,
             userId,
-        }).first();
+        })
+            .where((s) => s.expiresAt.gt(now))
+            .update({ lastSeenAt: now });
         if (!session) throw new LinkError("expired");
 
         const existing = await tx.orm.public.OAuthAccount.where({
@@ -423,16 +428,25 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
     // dropped when the address's owner verified it). Locking it while the
     // session is made means a removal either comes first and stops this, or
     // comes after and signs this session out with the rest.
-    const signedIn = await db.transaction(async (tx) => {
-        const login = await tx.orm.public.OAuthAccount.where({
-            provider: name,
-            providerUserId,
-            userId: user.id,
-        }).update({ userId: user.id });
-        if (login) await createSession(c, user.id, tx);
-        return !!login;
-    });
-    if (!signedIn) return fail(c, "failed", name, next);
+    let signedIn;
+    try {
+        signedIn = await db.transaction(async (tx) => {
+            const login = await tx.orm.public.OAuthAccount.where({
+                provider: name,
+                providerUserId,
+                userId: user.id,
+            }).update({ userId: user.id });
+            if (login) await createSession(c, user.id, tx);
+            return !!login;
+        });
+    } catch (err) {
+        console.error(`${label} sign-in failed`, err);
+        signedIn = false;
+    }
+    if (!signedIn) {
+        clearSessionCookie(c);
+        return fail(c, "failed", name, next);
+    }
     // like the password login: unverified users go via /buy to /verify-email
     if (next && user.emailVerifiedAt) return c.redirect(next);
     return c.redirect(user.licensePlan ? "/overview" : "/buy");

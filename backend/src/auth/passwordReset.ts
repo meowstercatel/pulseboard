@@ -53,8 +53,8 @@ async function storeToken(
 // A verified account without a password gets the set-password link instead,
 // so an owner left with no login (see verifyEmailToken) can always get back
 // in. An unverified one gets a new verification link: proving its address is
-// that link's job, which also removes logins someone else set up, and whoever
-// signed up with the address can't keep its owner out by resending theirs.
+// that link's job, which also removes logins someone else set up. Earlier
+// links keep working, so asking for one can't cancel the owner's.
 async function createAndSendReset(c: Context, email: string) {
     const reset = await db.transaction(async (tx) => {
         // no-op update to lock the user row until commit
@@ -80,7 +80,9 @@ async function createAndSendReset(c: Context, email: string) {
     });
     if (!reset) return;
     // after the transaction, which still holds the user row it locks
-    if (reset.verify) return trySendVerificationEmail(c, reset.userId);
+    if (reset.verify) {
+        return trySendVerificationEmail(c, reset.userId, { replace: false });
+    }
     const { userId, ...mail } = reset;
     sendMail(mail).catch((err) => {
         console.error(
@@ -151,8 +153,9 @@ export async function sendPasswordSetup(
     return "sent";
 }
 
-// Returns the user, and whether the account had no password before (a link
-// from sendPasswordSetup), or null if the link is invalid or expired
+// Returns the user, whether the account had no password before (a link from
+// sendPasswordSetup) and the providers of the logins removed, or null if the
+// link is invalid or expired
 export async function resetPassword(token: string, newPassword: string) {
     const tokenHash = hashToken(token);
     const passwordHash = await hashPassword(newPassword);
@@ -190,13 +193,17 @@ export async function resetPassword(token: string, newPassword: string) {
         // Like the verification link, this proves the address of an account
         // someone else may have set up with it (and since replaced the
         // password of), so the logins it can't vouch for go too
-        if (!current.emailVerifiedAt) {
-            await dropUnprovenLogins(tx, user.id, user.email);
-        }
+        const removedLogins = current.emailVerifiedAt
+            ? []
+            : (await dropUnprovenLogins(tx, user.id, user.email)).removed;
         await tx.orm.public.PasswordReset.where({
             userId: user.id,
         }).deleteAll();
         await tx.orm.public.Session.where({ userId: user.id }).deleteAll();
-        return { user, passwordWasSet: current.passwordHash === null };
+        return {
+            user,
+            passwordWasSet: current.passwordHash === null,
+            removedLogins,
+        };
     });
 }

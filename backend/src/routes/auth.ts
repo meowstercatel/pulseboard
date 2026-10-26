@@ -575,6 +575,14 @@ auth.post("/password-reset/confirm", limitByIp(resetIpLimiter), async (c) => {
     if (reset.passwordWasSet) {
         notifyAccountChange(c, user, { kind: "password_set" });
     }
+    // An owner who changed their address and reset before verifying it can
+    // lose logins they connected themselves, so they hear about each one
+    for (const provider of new Set(reset.removedLogins)) {
+        notifyAccountChange(c, user, {
+            kind: "unlinked",
+            provider: PROVIDER_NAMES[provider] ?? provider,
+        });
+    }
     loginEmailLimiter.reset(user.email);
     loginIpEmailLimiter.reset(`${clientIp(c)} ${user.email}`);
     await createSession(c, user.id);

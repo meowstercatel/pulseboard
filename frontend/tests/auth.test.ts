@@ -198,10 +198,10 @@ describe("after the verification link", () => {
         });
     });
 
-    it("names each removed provider once and keeps going when a login is left", () => {
+    it("names several removed providers and keeps going when a login is left", () => {
         const { message, href } = verifiedStep({
             user: { ...user, licensePlan: "lifetime" },
-            removedLogins: ["Facebook", "Google", "Facebook"],
+            removedLogins: ["Facebook", "Google"],
             needsPassword: false,
         });
         expect(message).toContain(

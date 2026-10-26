@@ -149,12 +149,17 @@ export function revokeOtherSessions(
     ).deleteAndCount();
 }
 
+// For a session that was never stored, like one whose transaction failed
+export function clearSessionCookie(c: Context) {
+    deleteCookie(c, COOKIE_NAME, { path: "/" });
+}
+
 export async function destroySession(c: Context) {
     const token = getCookie(c, COOKIE_NAME);
     if (token) {
         await db.orm.public.Session.where({ id: sessionIdFor(token) }).delete();
     }
-    deleteCookie(c, COOKIE_NAME, { path: "/" });
+    clearSessionCookie(c);
 }
 
 export const requireAuth: MiddlewareHandler<AuthEnv> = async (c, next) => {

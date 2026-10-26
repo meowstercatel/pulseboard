@@ -721,14 +721,15 @@ describe("Facebook pre-hijack through the verification link", () => {
     it("sends the owner a new verification link from the forgotten-password form", async () => {
         const { email, id, intruder } = await facebookSignUp();
         mail.mockClear();
+        // the intruder has resent theirs, cancelling earlier ones
+        await request("auth/verify-email/resend", {}, intruder);
 
         expect((await request("auth/password-reset", { email })).status).toBe(
             204,
         );
 
-        // the intruder can't keep the owner out by resending their own link
         await vi.waitFor(() =>
-            expect(mail).toHaveBeenCalledExactlyOnceWith(
+            expect(mail).toHaveBeenLastCalledWith(
                 expect.objectContaining({
                     to: email,
                     subject: "Verify your PulseBoard email address",
@@ -738,9 +739,10 @@ describe("Facebook pre-hijack through the verification link", () => {
         expect(
             await db.orm.public.PasswordReset.where({ userId: id }).all(),
         ).toEqual([]);
-        await request("auth/verify-email", {
+        const fresh = await request("auth/verify-email", {
             token: lastLink("/verify-email"),
         });
+        expect(fresh.status).toBe(200);
         expect(await oauthAccounts(id)).toEqual([]);
         expect((await request("auth/me", undefined, intruder)).status).toBe(
             401,
@@ -813,5 +815,76 @@ describe("Facebook pre-hijack through the verification link", () => {
         });
 
         expect(await oauthAccounts(id)).toHaveLength(1);
+    });
+    it("doesn't let anyone who knows the address cancel the owner's pending link", async () => {
+        const { email, id } = await facebookSignUp();
+        const owners = lastLink("/verify-email");
+
+        for (let i = 0; i < 3; i++) {
+            await request("auth/password-reset", { email });
+        }
+        await vi.waitFor(() => expect(mail).toHaveBeenCalledTimes(4));
+
+        const response = await request("auth/verify-email", { token: owners });
+        expect(response.status).toBe(200);
+        expect(await oauthAccounts(id)).toEqual([]);
+        // and verifying used up every other link
+        expect(
+            await db.orm.public.EmailVerification.where({ userId: id }).all(),
+        ).toEqual([]);
+    });
+
+    it("tells the owner about logins a reset removed", async () => {
+        const { email, id, cookie } = await register(true);
+        await db.orm.public.OAuthAccount.create({
+            provider: "google",
+            providerUserId: `g-${randomUUID()}`,
+            userId: id,
+            email,
+        });
+        const moved = `oauth-${randomUUID()}@example.com`;
+        await request(
+            "auth/profile",
+            { email: moved, username: "", currentPassword: password },
+            cookie,
+        );
+        mail.mockClear();
+        await request("auth/password-reset", { email: moved });
+        await vi.waitFor(() => expect(mail).toHaveBeenCalledOnce());
+
+        await request("auth/password-reset/confirm", {
+            token: lastLink("/reset-password"),
+            newPassword,
+        });
+
+        expect(await oauthAccounts(id)).toEqual([]);
+        await vi.waitFor(() =>
+            expect(mail).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    to: moved,
+                    subject:
+                        "Google was disconnected from your PulseBoard account",
+                }),
+            ),
+        );
+    });
+
+    it("reports a failed session write as a sign-in error, without a session cookie", async () => {
+        const { email, facebookId } = await facebookSignUp();
+        const transaction = vi
+            .spyOn(db, "transaction")
+            .mockRejectedValueOnce(new Error("deadlock detected"));
+        const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+            mockFacebook({ id: facebookId, email });
+            const { location, cookie } = await signIn("facebook");
+            expect(location).toBe(
+                "/login?oauth_error=failed&provider=facebook",
+            );
+            expect(cookie).toBe("session=");
+        } finally {
+            transaction.mockRestore();
+            quiet.mockRestore();
+        }
     });
 });
