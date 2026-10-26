@@ -10,6 +10,7 @@ import { billing } from "./routes/billing.js";
 import { dashboard } from "./routes/dashboard.js";
 import { datasets } from "./routes/datasets.js";
 import { oauth } from "./routes/oauth.js";
+import { sessions } from "./routes/sessions.js";
 import { staticFiles } from "./static.js";
 
 // Importing the app does not open a port or run startup database updates.
@@ -46,6 +47,7 @@ export function createApp() {
     );
 
     app.route("/api/auth/oauth", oauth);
+    app.route("/api/auth/sessions", sessions);
     app.route("/api/auth", auth);
     app.route("/api/billing", billing);
     app.route("/api/datasets", datasets);

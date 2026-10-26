@@ -1,0 +1,128 @@
+[
+  {
+    "id": "column.public.Session.ip",
+    "label": "Add column \"ip\" to \"Session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "ip",
+        "table": "Session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"ip\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Session",
+          "ip"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"ip\"",
+        "sql": "ALTER TABLE \"public\".\"Session\" ADD COLUMN \"ip\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"ip\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Session",
+          "ip"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.Session.lastSeenAt",
+    "label": "Add column \"lastSeenAt\" to \"Session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "lastSeenAt",
+        "table": "Session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"lastSeenAt\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Session",
+          "lastSeenAt"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"lastSeenAt\"",
+        "sql": "ALTER TABLE \"public\".\"Session\" ADD COLUMN \"lastSeenAt\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"lastSeenAt\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Session",
+          "lastSeenAt"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.Session.userAgent",
+    "label": "Add column \"userAgent\" to \"Session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "userAgent",
+        "table": "Session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"userAgent\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Session",
+          "userAgent"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"userAgent\"",
+        "sql": "ALTER TABLE \"public\".\"Session\" ADD COLUMN \"userAgent\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"userAgent\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Session",
+          "userAgent"
+        ]
+      }
+    ]
+  }
+]

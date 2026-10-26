@@ -104,3 +104,15 @@ For manual verification with the built app and a disposable licensed account:
 
 Browser control uses documented `sc browser` commands. The existing Playwright
 suite remains available for CI; manual `sc` verification does not run that suite.
+
+## Sessions
+
+`backend/tests/integration/sessions.test.ts` seeds session rows directly to
+cover sliding expiry (a session used with under 15 of its 30 days left is
+extended and its cookie re-sent), the at-most-every-5-minutes `lastSeenAt`
+write, the recorded user agent and client IP, listing, revoking one session,
+"log out everywhere else", CSRF and cleanup of expired rows.
+`authorization.test.ts` checks that no session route lists or revokes another
+user's sessions. `frontend/tests/sessions.test.ts` covers the settings list in
+Happy DOM and `tests/e2e/sessions.spec.ts` signs a second browser context out
+from the settings page, one device and then all others.

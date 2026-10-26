@@ -204,7 +204,10 @@ describe("dataset id routes", () => {
         const routes = new Set(
             app.routes
                 .filter(
-                    (r) => /\/:id(\/|$)/.test(r.path) && !r.path.endsWith("*"),
+                    (r) =>
+                        /\/:id(\/|$)/.test(r.path) &&
+                        !r.path.endsWith("*") &&
+                        !r.path.startsWith("/api/auth/sessions/"),
                 )
                 .map((r) => `${r.method} ${r.path}`),
         );
@@ -267,6 +270,51 @@ describe("dataset id routes", () => {
             });
         },
     );
+});
+
+describe("sessions", () => {
+    it("lists every session id route", () => {
+        const routes = app.routes
+            .filter(
+                (r) =>
+                    r.path.startsWith("/api/auth/sessions/") &&
+                    !r.path.endsWith("*"),
+            )
+            .map((r) => `${r.method} ${r.path}`);
+        expect(routes.sort()).toEqual([
+            "DELETE /api/auth/sessions/:id",
+            "POST /api/auth/sessions/revoke-others",
+        ]);
+    });
+
+    it("never lists, revokes or signs out another user's sessions", async () => {
+        const a = await account();
+        const b = await account();
+        const [aSession] = (await snapshot(a.id)).sessions;
+        const before = await snapshot(a.id);
+
+        const list = await request("auth/sessions", undefined, b.cookie);
+        const { sessions } = await list.json();
+        expect(sessions.map((s: { id: string }) => s.id)).not.toContain(
+            aSession,
+        );
+        const revoke = await app.request(`/api/auth/sessions/${aSession}`, {
+            method: "DELETE",
+            headers: { cookie: b.cookie, origin },
+        });
+        expect(revoke.status).toBe(404);
+        const others = await request(
+            "auth/sessions/revoke-others",
+            {},
+            b.cookie,
+        );
+        expect(await others.json()).toEqual({ revoked: 0 });
+
+        expect(await snapshot(a.id)).toEqual(before);
+        expect((await request("auth/me", undefined, a.cookie)).status).toBe(
+            200,
+        );
+    });
 });
 
 describe("dataset list and upload", () => {
