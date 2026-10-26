@@ -182,6 +182,26 @@ describe("mountSessions", () => {
         expect(revokeOthers().disabled).toBe(true);
     });
 
+    it("renders only the latest of overlapping loads", async () => {
+        let answerFirst!: (response: Response) => void;
+        vi.stubGlobal(
+            "fetch",
+            vi
+                .fn()
+                .mockReturnValueOnce(
+                    new Promise<Response>((r) => (answerFirst = r)),
+                )
+                .mockResolvedValueOnce(Response.json({ sessions: [current] })),
+        );
+        const sessions = mountSessions(section);
+        const first = sessions.load();
+        await sessions.load();
+        answerFirst(Response.json({ sessions: [current, other] }));
+        await first;
+        expect(items()).toHaveLength(1);
+        expect(revokeOthers().disabled).toBe(true);
+    });
+
     it("shows API errors", async () => {
         const fetch = vi
             .fn()

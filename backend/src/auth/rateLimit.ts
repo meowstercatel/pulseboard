@@ -66,30 +66,35 @@ export function isProxyAddress(address: string): boolean {
     return isIPv6(plain) && proxyNetworks.check(plain, "ipv6");
 }
 
-// undefined for requests made in-process with app.request(), as in tests
-function socketAddress(c: Context): string | undefined {
-    try {
-        return getConnInfo(c).remote.address;
-    } catch {
-        return undefined;
-    }
+type Peer =
+    // a real connection; the address is undefined once its socket is closed
+    | { address: string | undefined }
+    // app.request() in tests, with no connection at all
+    | null;
+
+function peerOf(c: Context): Peer {
+    if (!(c.env as { incoming?: unknown } | undefined)?.incoming) return null;
+    return { address: getConnInfo(c).remote.address };
 }
 
 // Behind a reverse proxy the socket address is the proxy's, so with
 // TRUST_PROXY=true we take the address the proxy appended to X-Forwarded-For.
-// The header only counts when the connection comes from a private or loopback
-// address, where the proxy sits; a client reaching the published port directly
-// can't spoof it. Leave TRUST_PROXY unset when there is no proxy.
+// The header only counts on connections from a loopback or private address,
+// where the proxy sits. That alone doesn't stop spoofing: Docker's userland
+// proxy relays some direct connections (e.g. over IPv6) from the private
+// network gateway, so docker-compose.yml also publishes the port on
+// 127.0.0.1 only. Leave TRUST_PROXY unset when there is no proxy.
 export function clientIp(c: Context): string {
-    const peer = socketAddress(c);
+    const peer = peerOf(c);
     if (
         process.env["TRUST_PROXY"] === "true" &&
-        (peer === undefined || isProxyAddress(peer))
+        (peer === null ||
+            (peer.address !== undefined && isProxyAddress(peer.address)))
     ) {
         const forwarded = c.req.header("x-forwarded-for")?.split(",").at(-1);
         if (forwarded?.trim()) return unmapped(forwarded.trim());
     }
-    return peer ? unmapped(peer) : "unknown";
+    return peer?.address ? unmapped(peer.address) : "unknown";
 }
 
 // "::ffff:192.0.2.1", how a dual-stack socket reports IPv4, as "192.0.2.1"

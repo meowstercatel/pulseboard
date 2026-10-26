@@ -170,8 +170,13 @@ export function mountSessions(section: HTMLElement) {
         revokeOthers.disabled = busy || !sessions.some((s) => !s.current);
     };
 
+    // Only the latest request may render, so an older list that arrives
+    // late can't bring back devices that were just signed out
+    let latest = 0;
     const load = async () => {
+        const request = ++latest;
         const result = await listSessions();
+        if (request !== latest) return;
         if ("error" in result) {
             showError(result.error);
             return;

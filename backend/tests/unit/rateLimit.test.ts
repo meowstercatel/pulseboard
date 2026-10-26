@@ -115,6 +115,16 @@ describe("clientIp", () => {
         );
     });
 
+    it("ignores X-Forwarded-For when a closed socket has no address", async () => {
+        vi.stubEnv("TRUST_PROXY", "true");
+        const response = await app.request(
+            "/",
+            { headers: { "x-forwarded-for": "198.51.100.7" } },
+            { incoming: { socket: {} } },
+        );
+        expect(await response.text()).toBe("unknown");
+    });
+
     it("recognizes only loopback and private networks as proxies", () => {
         expect(isProxyAddress("172.16.0.1")).toBe(true);
         expect(isProxyAddress("172.31.255.255")).toBe(true);
