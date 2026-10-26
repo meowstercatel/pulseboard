@@ -3,16 +3,15 @@ import { bodyLimit } from "hono/body-limit";
 import { requireAuth, requireLicense, type AuthEnv } from "../auth/session.js";
 import {
     CsvError,
-    MAX_INVALID_SHARE,
-    MAX_ROWS,
     parseMetricsCsv,
     rejectionReason,
     type MetricRow,
 } from "../datasets/csv.js";
+import { LIMITS, MAX_DATASETS, MAX_FILE_BYTES } from "../datasets/limits.js";
 import { db } from "../prisma/db.js";
 
-export const MAX_FILE_BYTES = 25 * 1024 * 1024;
-export const MAX_DATASETS = 5;
+export { LIMITS, MAX_DATASETS, MAX_FILE_BYTES };
+
 const MAX_NAME_LENGTH = 100;
 // First key of the advisory lock that serializes one user's imports; the
 // second key is the user id
@@ -21,13 +20,6 @@ const IMPORT_LOCK = 1;
 const MAX_ID = 2_147_483_647;
 // 8 parameters per row keeps each INSERT below Postgres' 65535-parameter limit
 const INSERT_BATCH = 2000;
-
-export const LIMITS = {
-    maxFileBytes: MAX_FILE_BYTES,
-    maxRows: MAX_ROWS,
-    maxDatasets: MAX_DATASETS,
-    maxInvalidShare: MAX_INVALID_SHARE,
-};
 
 const SUMMARY_FIELDS = [
     "id",

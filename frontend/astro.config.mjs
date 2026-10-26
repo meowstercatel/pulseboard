@@ -18,7 +18,7 @@ const precompress = () => ({
             const root = fileURLToPath(dir);
             const files = await readdir(root, { recursive: true });
             for (const file of files) {
-                if (!/\.(html|css|js|svg|ico|json|xml|txt)$/.test(file))
+                if (!/\.(html|css|js|svg|ico|json|xml|txt|csv)$/.test(file))
                     continue;
                 const path = `${root}/${file}`;
                 const data = await readFile(path);

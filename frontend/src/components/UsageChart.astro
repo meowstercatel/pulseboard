@@ -222,14 +222,19 @@ const last = series[series.length - 1];
 <script>
     import { whenVisible } from "../lib/whenVisible";
 
-    // The tooltip code loads once a chart is about to scroll into view
-    document
-        .querySelectorAll<HTMLElement>(".usage-chart")
-        .forEach((chart) =>
-            whenVisible(chart, () =>
-                import("../lib/usageChart").then((m) =>
-                    m.initUsageChart(chart),
-                ),
-            ),
-        );
+    // The tooltip code loads once a chart is about to scroll into view. Until
+    // the visitor touches the demo, the crosshair moves along on its own.
+    document.querySelectorAll<HTMLElement>(".usage-chart").forEach((chart) =>
+        whenVisible(chart, () =>
+            import("../lib/usageChart").then((m) => {
+                const controls = m.initUsageChart(chart);
+                if (controls)
+                    m.autoplay(
+                        chart,
+                        controls,
+                        chart.closest(".dashboard") ?? chart,
+                    );
+            }),
+        ),
+    );
 </script>

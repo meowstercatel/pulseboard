@@ -2,6 +2,9 @@
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 import DashboardPreview from "../components/DashboardPreview.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import { limits } from "../lib/limits";
+import { plans, price } from "../lib/pricing";
 
 const features = [
     {
@@ -29,6 +32,91 @@ const features = [
         tag: "SERVICES / PROCESSES",
     },
 ];
+
+const columns = [
+    {
+        name: "timestamp",
+        text: "When the reading was taken, e.g. 2026-09-01T12:00:00Z. Without a time zone it is read as UTC.",
+    },
+    { name: "host", text: "The server’s name." },
+    {
+        name: "cpu_percent, ram_percent, disk_percent",
+        text: "Usage from 0 to 100.",
+    },
+    {
+        name: "net_in_mbps, net_out_mbps",
+        text: "Incoming and outgoing traffic in megabits per second.",
+    },
+];
+
+const alternatives = [
+    {
+        name: "Netdata",
+        text: "Installs an agent on every server and streams per-second metrics, with alerts built in.",
+        pick: "Pick it for real-time monitoring.",
+    },
+    {
+        name: "Beszel",
+        text: "A lightweight hub plus an agent on each system, tracking resources and Docker containers, with alerts.",
+        pick: "Pick it for simple self-hosted monitoring.",
+    },
+    {
+        name: "Grafana",
+        text: "Dashboards on top of data sources such as Prometheus or a database, which you run and fill yourself.",
+        pick: "Pick it if you already have a metrics pipeline.",
+    },
+    {
+        name: "Uptime Kuma",
+        text: "Checks whether websites and services respond over HTTP, TCP or ping, with status pages and notifications.",
+        pick: "Pick it for uptime, not resource usage.",
+    },
+];
+
+const collected = [
+    {
+        title: "Your account",
+        text: "Your email address, a username if you set one, and a hash of your password. With Google or Facebook sign-in, your ID and name there, and no password.",
+    },
+    {
+        title: "Your CSV files",
+        text: "The server metrics you upload, kept until you delete them. They are only visible from your account.",
+    },
+    {
+        title: "Payments",
+        text: "Stripe handles checkout. We keep your Stripe customer and subscription IDs and your plan, never your card number.",
+    },
+    {
+        title: "Cookies",
+        text: "Two strictly necessary ones: your session, and a short-lived one during Google or Facebook sign-in. No analytics, advertising or tracking.",
+    },
+];
+
+const [subscription, lifetime] = plans as [
+    (typeof plans)[number],
+    (typeof plans)[number],
+];
+const faq = [
+    {
+        question: "Do I need to install anything on my servers?",
+        answer: "No. PulseBoard doesn’t connect to or monitor your servers. It shows the readings in the CSV files you upload, so there is no live data and there are no alerts.",
+    },
+    {
+        question: "How accurate are the forecasts?",
+        answer: `They are estimates, not a guarantee. A host needs at least ${limits.forecastDays} days of readings, and you are responsible for the decisions you make based on them.`,
+    },
+    {
+        question: "What’s the difference between the plans?",
+        answer: `Both include all features. The subscription costs ${price(subscription)} a month and renews until you cancel it in the Stripe Customer Portal; you keep access until the end of the paid month. The lifetime license is a one-time ${price(lifetime)} for as long as we run PulseBoard, and buying it cancels an active subscription.`,
+    },
+    {
+        question: "Can I get a refund?",
+        answer: "Before checkout you agree that access starts immediately, so you lose the 14-day right of withdrawal once it does. We don’t refund partial subscription months, except where the law requires it.",
+    },
+    {
+        question: "How do I delete my data?",
+        answer: "Delete a single dataset on the Datasets page, or your whole account in account settings. Deleting the account also cancels any subscription. Deleted data is gone from our backups within about 5 weeks.",
+    },
+];
 ---
 
 <HtmlTemplate
@@ -46,6 +134,9 @@ const features = [
             <nav aria-label="Main navigation">
                 <a class="nav-feature" href="#features">
                     Features
+                </a>
+                <a class="nav-feature" href="#pricing">
+                    Pricing
                 </a>
                 <div class="nav-account" data-auth="pending">
                     <div class="nav-guest">
@@ -98,6 +189,17 @@ const features = [
                             clear dashboard. See what’s busy, what’s filling up,
                             and what needs a closer look.
                         </p>
+                        <div class="hero-actions">
+                            <cds-button href="/register" data-get-started>
+                                Get started{" "}
+                                <span slot="icon" aria-hidden="true">
+                                    →
+                                </span>
+                            </cds-button>
+                            <a class="text-link" href="/buy">
+                                See pricing <span aria-hidden="true">→</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <section id="demo" class="demo" aria-label="Dashboard preview">
@@ -164,6 +266,161 @@ const features = [
                     same overview.
                 </p>
             </section>
+            <section class="data wrap" id="data" aria-labelledby="data-title">
+                <div class="section-heading">
+                    <h2 id="data-title">
+                        How data
+                        <br />
+                        gets in.
+                    </h2>
+                    <p>
+                        Export your readings to a CSV file and import it on the
+                        Datasets page. Nothing runs on your servers.
+                    </p>
+                </div>
+                <div class="data-grid">
+                    <div>
+                        <h3>Columns</h3>
+                        <p class="muted">
+                            The first line names these columns, in any order.
+                            Commas or semicolons and decimal commas work, so
+                            files saved from Excel import as they are.
+                        </p>
+                        <dl class="columns">
+                            {columns.map((column) => (
+                                <div>
+                                    <dt>{column.name}</dt>
+                                    <dd>{column.text}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </div>
+                    <div>
+                        <h3>Limits</h3>
+                        <ul class="limits">
+                            <li>
+                                <strong>{limits.datasets}</strong> datasets per
+                                account
+                            </li>
+                            <li>
+                                <strong>{limits.fileSize}</strong> per file
+                            </li>
+                            <li>
+                                <strong>{limits.rows}</strong> rows per file
+                            </li>
+                        </ul>
+                        <p class="muted">
+                            Rows with mistakes are skipped and listed. If more
+                            than {limits.invalidShare} of rows have mistakes,
+                            nothing is imported.
+                        </p>
+                        <a class="text-link" href="/samples">
+                            Download sample files{" "}
+                            <span aria-hidden="true">→</span>
+                        </a>
+                    </div>
+                </div>
+            </section>
+            <section class="why wrap" id="why" aria-labelledby="why-title">
+                <div class="section-heading">
+                    <h2 id="why-title">
+                        Why
+                        <br />
+                        PulseBoard.
+                    </h2>
+                    <p>
+                        There’s no agent to install: you upload CSV exports.
+                        PulseBoard adds history, statistics and forecasts,
+                        including when disk and RAM will reach{" "}
+                        {limits.thresholds}. If you need live monitoring or
+                        alerts, one of these fits better.
+                    </p>
+                </div>
+                <div class="feature-grid">
+                    {alternatives.map((tool) => (
+                        <article>
+                            <h3>{tool.name}</h3>
+                            <p>{tool.text}</p>
+                            <span class="feature-tag">{tool.pick}</span>
+                        </article>
+                    ))}
+                </div>
+            </section>
+            <section
+                class="pricing wrap"
+                id="pricing"
+                aria-labelledby="pricing-title"
+            >
+                <div class="section-heading">
+                    <h2 id="pricing-title">Pricing.</h2>
+                    <p>
+                        Creating an account is free. Using the dashboards
+                        requires a paid license. Payments are processed by
+                        Stripe.
+                    </p>
+                </div>
+                <div class="plans">
+                    {plans.map((plan) => (
+                        <article>
+                            <h3>{plan.name}</h3>
+                            <p class="price">
+                                {price(plan)}{" "}
+                                <span class="period">{plan.period}</span>
+                            </p>
+                            <p>{plan.note}</p>
+                            <ul>
+                                {plan.features.map((feature) => (
+                                    <li>{feature}</li>
+                                ))}
+                            </ul>
+                        </article>
+                    ))}
+                </div>
+                <cds-button href="/register" data-get-started>
+                    Get started{" "}
+                    <span slot="icon" aria-hidden="true">
+                        →
+                    </span>
+                </cds-button>
+            </section>
+            <section class="collected wrap" aria-labelledby="collected-title">
+                <div class="section-heading">
+                    <h2 id="collected-title">
+                        What data
+                        <br />
+                        we collect.
+                    </h2>
+                    <a class="text-link" href="/privacy">
+                        Read the Privacy Policy{" "}
+                        <span aria-hidden="true">→</span>
+                    </a>
+                </div>
+                <div class="feature-grid">
+                    {collected.map((item) => (
+                        <article>
+                            <h3>{item.title}</h3>
+                            <p>{item.text}</p>
+                        </article>
+                    ))}
+                </div>
+            </section>
+            <section class="faq wrap" aria-labelledby="faq-title">
+                <div class="section-heading">
+                    <h2 id="faq-title">Questions.</h2>
+                    <a class="text-link" href="/terms">
+                        Read the Terms of Service{" "}
+                        <span aria-hidden="true">→</span>
+                    </a>
+                </div>
+                <div class="faq-list">
+                    {faq.map((item) => (
+                        <details>
+                            <summary>{item.question}</summary>
+                            <p>{item.answer}</p>
+                        </details>
+                    ))}
+                </div>
+            </section>
             <section class="closing wrap" aria-labelledby="closing-title">
                 <div>
                     <h2 id="closing-title">
@@ -199,16 +456,9 @@ const features = [
                 </svg>
             </section>
         </main>
-        <footer class="footer wrap">
-            <a class="brand" href="/">
-                PulseBoard
-            </a>
-            <span>A little clarity for your corner of the internet.</span>
-            <nav class="legal" aria-label="Legal">
-                <a href="/privacy">Privacy</a>
-                <a href="/terms">Terms</a>
-            </nav>
-        </footer>
+        <div class="wrap">
+            <SiteFooter />
+        </div>
     </div>
 </HtmlTemplate>
 
@@ -484,27 +734,177 @@ const features = [
         color: var(--cds-border-interactive, #0f62fe);
         opacity: 0.2;
     }
-    .footer {
+    .hero-actions {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        justify-content: space-between;
-        gap: 24px;
-        padding-block: 40px;
+        gap: 16px 32px;
+        margin-top: 32px;
     }
-    .footer .brand {
-        font-size: 16px;
+    .text-link {
+        color: var(--cds-link-primary, #0f62fe);
+        font-size: 14px;
     }
-    .footer > span {
+    .text-link:hover {
+        color: var(--cds-link-primary-hover, #0043ce);
+        text-decoration: underline;
+    }
+    .text-link > span {
+        margin-left: 8px;
+    }
+    .data,
+    .why,
+    .pricing,
+    .collected,
+    .faq {
+        padding-bottom: 90px;
+    }
+    .data-grid {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .data-grid > div {
+        padding: 28px 22px 28px 0;
+    }
+    .data-grid > div + div {
+        border-left: 1px solid var(--cds-border-subtle, #e0e0e0);
+        padding-left: 22px;
+    }
+    .data-grid h3,
+    .why article h3,
+    .collected article h3,
+    .plans h3 {
+        font-size: 17px;
+        font-weight: 400;
+        letter-spacing: -0.4px;
+        margin: 0 0 14px;
+    }
+    .muted {
         color: var(--cds-text-secondary, #525252);
-        font-size: 11px;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 20px;
     }
-    .footer > a:last-child {
-        font-size: 11px;
+    .columns {
+        margin: 0;
     }
-    .footer .legal {
-        display: flex;
+    .columns > div {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
         gap: 16px;
-        font-size: 11px;
+        padding: 12px 0;
+        border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    .columns dt {
+        font:
+            12px/1.6 ui-monospace,
+            monospace;
+        overflow-wrap: anywhere;
+    }
+    .columns dd {
+        margin: 0;
+        color: var(--cds-text-secondary, #525252);
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .limits {
+        margin: 0 0 20px;
+        padding: 0;
+        list-style: none;
+    }
+    .limits li {
+        padding: 12px 0;
+        border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+        color: var(--cds-text-secondary, #525252);
+        font-size: 14px;
+    }
+    .limits strong {
+        color: var(--cds-text-primary, #161616);
+        font-size: 24px;
+        font-weight: 300;
+        margin-right: 8px;
+    }
+    .plans {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+    .plans article,
+    .plans article + article {
+        padding: 28px 24px;
+        border: 1px solid var(--cds-border-subtle, #e0e0e0);
+        background: var(--cds-layer-01, #f4f4f4);
+    }
+    .plans article p {
+        margin-bottom: 20px;
+    }
+    .plans .price {
+        font-size: 32px;
+        font-weight: 300;
+        line-height: 1.2;
+        color: var(--cds-text-primary, #161616);
+        margin-bottom: 8px;
+    }
+    .plans .period {
+        font-size: 14px;
+        color: var(--cds-text-secondary, #525252);
+    }
+    .plans ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .plans li {
+        padding: 8px 0;
+        border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+        font-size: 14px;
+    }
+    .why article p,
+    .collected article p {
+        margin-bottom: 20px;
+    }
+    .faq-list {
+        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    details {
+        border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+    summary {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 0;
+        font-size: 17px;
+        letter-spacing: -0.4px;
+        cursor: pointer;
+        list-style: none;
+    }
+    summary::-webkit-details-marker {
+        display: none;
+    }
+    summary::after {
+        content: "+";
+        color: var(--cds-link-primary, #0f62fe);
+    }
+    details[open] summary::after {
+        content: "−";
+    }
+    summary:hover {
+        color: var(--cds-link-primary, #0f62fe);
+    }
+    summary:focus-visible {
+        outline: 2px solid var(--cds-link-primary, #0f62fe);
+        outline-offset: 2px;
+    }
+    details p {
+        max-width: 720px;
+        padding-bottom: 20px;
+        color: var(--cds-text-secondary, #525252);
+        font-size: 14px;
+        line-height: 1.7;
     }
     .skip-link {
         position: fixed;
@@ -632,13 +1032,38 @@ const features = [
         .closing > div + div {
             margin: 0;
         }
-        .footer {
-            flex-wrap: wrap;
-            padding-block: 30px;
+        .data,
+        .why,
+        .pricing,
+        .collected,
+        .faq {
+            padding-bottom: 45px;
         }
-        .footer > span {
-            order: 3;
-            width: 100%;
+        .data-grid,
+        .plans {
+            grid-template-columns: 1fr;
+        }
+        .data-grid > div + div {
+            border-left: none;
+            border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+            padding-left: 0;
+        }
+        .columns > div {
+            grid-template-columns: 1fr;
+            gap: 4px;
+        }
+        .why .feature-grid,
+        .collected .feature-grid {
+            grid-template-columns: 1fr;
+        }
+        .why article,
+        .collected article {
+            border-left: none;
+            padding-left: 0;
+        }
+        .why article + article,
+        .collected article + article {
+            border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
         }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -666,9 +1091,11 @@ const features = [
         if (user) {
             const name = document.getElementById("nav-user-name")!;
             name.textContent = name.title = user.username || user.email;
-            document
-                .getElementById("nav-dashboard")!
-                .setAttribute("href", accountDestination(user));
+            const destination = accountDestination(user);
+            for (const link of document.querySelectorAll(
+                "#nav-dashboard, [data-get-started]",
+            ))
+                link.setAttribute("href", destination);
         }
         account.dataset["auth"] = user ? "user" : "guest";
     });

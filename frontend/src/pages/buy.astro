@@ -1,39 +1,18 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import { plans as pricing, price } from "../lib/pricing";
 
-// Placeholder prices until real pricing is decided.
-const plans = [
-    {
-        id: "subscription",
-        name: "Subscription",
-        price: "19 PLN",
-        period: "/ month",
-        note: "Renews monthly. Cancel anytime.",
-        features: [
-            "All PulseBoard features",
-            "Ongoing updates",
-            "Email support",
-        ],
-        cta: "Subscribe",
-        kind: "secondary",
-    },
-    {
-        id: "lifetime",
-        name: "Lifetime license",
-        price: "199 PLN",
-        period: "one-time payment",
-        note: "Pay once for lifetime access.",
-        features: [
-            "All PulseBoard features",
-            "Lifetime updates",
-            "Priority support",
-        ],
-        cta: "Buy license",
-        kind: "primary",
-        badge: "Best value",
-    },
-];
+// Per-plan button and badge; names, prices and features are in lib/pricing
+const display = {
+    subscription: { cta: "Subscribe", kind: "secondary", badge: undefined },
+    lifetime: { cta: "Buy license", kind: "primary", badge: "Best value" },
+};
+const plans = pricing.map((plan) => ({
+    ...plan,
+    ...display[plan.id],
+    price: price(plan),
+}));
 ---
 
 <HtmlTemplate title="Choose a plan · PulseBoard" requiresAuth>

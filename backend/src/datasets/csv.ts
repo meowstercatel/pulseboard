@@ -3,9 +3,10 @@
 // "," or ";" separators, decimal commas, a UTF-8 BOM, CRLF line endings and
 // quoted fields.
 
-export const MAX_ROWS = 500_000;
-// Above this share of invalid rows the file is rejected as a whole.
-export const MAX_INVALID_SHARE = 0.05;
+import { MAX_INVALID_SHARE, MAX_ROWS } from "./limits.js";
+
+export { MAX_INVALID_SHARE, MAX_ROWS };
+
 // The report lists at most this many problems; the counts stay exact.
 export const MAX_REPORTED_ERRORS = 100;
 const MAX_HOST_LENGTH = 100;

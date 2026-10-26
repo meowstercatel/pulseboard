@@ -1,0 +1,105 @@
+---
+// Shared by the landing page, the legal pages and /samples
+import { contactEmail } from "../lib/legal";
+---
+
+<footer class="site-footer">
+    <div class="about">
+        <a class="brand" href="/">
+            PulseBoard
+        </a>
+        <span>A little clarity for your corner of the internet.</span>
+    </div>
+    <nav aria-label="Footer">
+        <ul>
+            <li>
+                <a href="/register">Register</a>
+            </li>
+            <li>
+                <a href="/login">Log in</a>
+            </li>
+            <li>
+                <a href="/buy">Pricing</a>
+            </li>
+            <li>
+                <a href="/privacy">Privacy</a>
+            </li>
+            <li>
+                <a href="/terms">Terms</a>
+            </li>
+            <li lang="pl">
+                Po polsku:{" "}
+                <a href="/pl/privacy" hreflang="pl">
+                    Polityka prywatności
+                </a>
+                <span class="separator" aria-hidden="true">
+                    ·
+                </span>
+                <a href="/pl/terms" hreflang="pl">
+                    Regulamin
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <a class="contact" href={`mailto:${contactEmail}`}>
+        {contactEmail}
+    </a>
+</footer>
+
+<style>
+    .site-footer {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px 32px;
+        padding-block: 40px;
+        border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--cds-text-secondary, #525252);
+    }
+    a {
+        color: var(--cds-text-primary, #161616);
+        text-decoration: none;
+    }
+    a:hover {
+        color: var(--cds-link-primary, #0f62fe);
+    }
+    a:focus-visible {
+        outline: 2px solid var(--cds-link-primary, #0f62fe);
+        outline-offset: 4px;
+    }
+    .about {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px 24px;
+    }
+    .brand {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.8px;
+    }
+    ul {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .separator {
+        margin-inline: 6px;
+    }
+    .contact {
+        overflow-wrap: anywhere;
+    }
+    @media (max-width: 600px) {
+        .site-footer {
+            flex-direction: column;
+            align-items: start;
+            padding-block: 30px;
+        }
+    }
+</style>
