@@ -70,12 +70,19 @@ function setSessionCookie(c: Context, token: string, expiresAt: Date) {
     });
 }
 
-export async function createSession(c: Context, userId: number) {
+type Queries = Pick<typeof db, "orm">;
+
+// Pass a transaction to open the session only if a check in it holds
+export async function createSession(
+    c: Context,
+    userId: number,
+    queries: Queries = db,
+) {
     const token = randomBytes(32).toString("base64url");
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
 
-    await db.orm.public.Session.create({
+    await queries.orm.public.Session.create({
         id: sessionIdFor(token),
         userId,
         expiresAt: expiresAt.toISOString(),
@@ -128,18 +135,18 @@ export async function getSessionUser(c: Context): Promise<AuthUser | null> {
     return toAuthUser(session.user);
 }
 
-type Queries = Pick<typeof db, "orm">;
-
-// Signs out every session of the user except `keep` (the current device).
-// Pass a transaction to revoke atomically with another account change.
+// Signs out every session of the user except `keep` (the current device),
+// or every one if `keep` is null. Pass a transaction to revoke atomically
+// with another account change.
 export function revokeOtherSessions(
     userId: number,
-    keep: string,
+    keep: string | null,
     queries: Queries = db,
 ): Promise<number> {
-    return queries.orm.public.Session.where({ userId })
-        .where((s) => s.id.neq(keep))
-        .deleteAndCount();
+    const sessions = queries.orm.public.Session.where({ userId });
+    return (
+        keep === null ? sessions : sessions.where((s) => s.id.neq(keep))
+    ).deleteAndCount();
 }
 
 export async function destroySession(c: Context) {

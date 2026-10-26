@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context } from "hono";
 import { sendMail } from "../mail/mailer.js";
+import {
+    dropUnprovenLogins,
+    trySendVerificationEmail,
+} from "./emailVerification.js";
 import { passwordResetTemplate } from "../mail/passwordResetTemplate.js";
 import { setPasswordTemplate } from "../mail/setPasswordTemplate.js";
 import { db } from "../prisma/db.js";
@@ -46,28 +50,70 @@ async function storeToken(
     return token;
 }
 
+// A verified account without a password gets the set-password link instead,
+// so an owner left with no login (see verifyEmailToken) can always get back
+// in. An unverified one gets a new verification link: proving its address is
+// that link's job, which also removes logins someone else set up, and whoever
+// signed up with the address can't keep its owner out by resending theirs.
 async function createAndSendReset(c: Context, email: string) {
-    const linkPrefix = publicUrl(c, "/reset-password?token=");
     const reset = await db.transaction(async (tx) => {
         // no-op update to lock the user row until commit
-        const user = await tx.orm.public.User.where({ email })
-            .where((u) => u.passwordHash.isNotNull())
-            .update({ email });
+        const user = await tx.orm.public.User.where({ email }).update({
+            email,
+        });
         if (!user) return null;
-        return { user, token: await storeToken(tx, user, { replace: true }) };
+        if (!user.passwordHash) {
+            if (!user.emailVerifiedAt) {
+                return { verify: true as const, userId: user.id };
+            }
+            return setupMail(c, tx, user);
+        }
+        const token = await storeToken(tx, user, { replace: true });
+        return {
+            to: user.email,
+            ...passwordResetTemplate(
+                publicUrl(c, `/reset-password?token=${token}`),
+                user.email,
+            ),
+            userId: user.id,
+        };
     });
     if (!reset) return;
-    const { user, token } = reset;
-
-    sendMail({
-        to: user.email,
-        ...passwordResetTemplate(linkPrefix + token, user.email),
-    }).catch((err) => {
+    // after the transaction, which still holds the user row it locks
+    if (reset.verify) return trySendVerificationEmail(c, reset.userId);
+    const { userId, ...mail } = reset;
+    sendMail(mail).catch((err) => {
         console.error(
-            `Couldn't send password reset email to user ${user.id}`,
+            `Couldn't send password reset email to user ${userId}`,
             err,
         );
     });
+}
+
+// Earlier links keep working: if this email can't be sent, the last one that
+// arrived still can be used
+async function setupMail(
+    c: Context,
+    tx: Tx,
+    user: { id: number; email: string },
+) {
+    const logins = await tx.orm.public.OAuthAccount.where({ userId: user.id })
+        .select("provider", "email")
+        .all();
+    const token = await storeToken(tx, user, { replace: false });
+    return {
+        to: user.email,
+        ...setPasswordTemplate(
+            publicUrl(c, `/reset-password?purpose=set&token=${token}`),
+            user.email,
+            logins.map(
+                ({ provider, email }) =>
+                    (PROVIDER_NAMES[provider] ?? provider) +
+                    (email ? ` (${email})` : ""),
+            ),
+        ),
+        userId: user.id,
+    };
 }
 
 // Emails a link that adds a password to an account that only signs in with
@@ -85,7 +131,6 @@ export async function sendPasswordSetup(
     c: Context,
     userId: number,
 ): Promise<PasswordSetup> {
-    const linkPrefix = publicUrl(c, "/reset-password?purpose=set&token=");
     const setup = await db.transaction(async (tx) => {
         const current = await tx.orm.public.User.where({ id: userId }).first();
         if (!current) return "gone" as const;
@@ -98,27 +143,11 @@ export async function sendPasswordSetup(
         if (!user) return "gone" as const;
         if (user.passwordHash) return "has_password" as const;
         if (!user.emailVerifiedAt) return "unverified" as const;
-        const logins = await tx.orm.public.OAuthAccount.where({ userId })
-            .select("provider", "email")
-            .all();
-        // Earlier links keep working: if this email can't be sent, the
-        // last one that arrived still can be used
-        const token = await storeToken(tx, user, { replace: false });
-        return { user, logins, token };
+        return setupMail(c, tx, user);
     });
     if (typeof setup === "string") return setup;
-    await sendMail({
-        to: setup.user.email,
-        ...setPasswordTemplate(
-            linkPrefix + setup.token,
-            setup.user.email,
-            setup.logins.map(
-                ({ provider, email }) =>
-                    (PROVIDER_NAMES[provider] ?? provider) +
-                    (email ? ` (${email})` : ""),
-            ),
-        ),
-    });
+    const { userId: _, ...mail } = setup;
+    await sendMail(mail);
     return "sent";
 }
 
@@ -158,6 +187,12 @@ export async function resetPassword(token: string, newPassword: string) {
                 current.emailVerifiedAt ?? new Date().toISOString(),
         });
         if (!user) return null;
+        // Like the verification link, this proves the address of an account
+        // someone else may have set up with it (and since replaced the
+        // password of), so the logins it can't vouch for go too
+        if (!current.emailVerifiedAt) {
+            await dropUnprovenLogins(tx, user.id, user.email);
+        }
         await tx.orm.public.PasswordReset.where({
             userId: user.id,
         }).deleteAll();

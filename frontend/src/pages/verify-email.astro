@@ -75,6 +75,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         currentUser,
         logout,
         resendVerificationEmail,
+        verifiedStep,
         verifyEmail,
         type User,
     } from "../lib/auth";
@@ -88,11 +89,14 @@ import AuthLayout from "../layouts/AuthLayout.astro";
         }
     };
 
-    function done(user: User | null, message: string) {
+    function done(user: User | null, message: string, href?: string) {
         document.getElementById("verified-message")!.textContent = message;
         document
             .getElementById("continue")!
-            .setAttribute("href", user ? accountDestination(user) : "/login");
+            .setAttribute(
+                "href",
+                href ?? (user ? accountDestination(user) : "/login"),
+            );
         show("done");
     }
 
@@ -122,9 +126,9 @@ import AuthLayout from "../layouts/AuthLayout.astro";
             show("failed");
             return;
         }
-        // the link may have been opened in a browser that isn't logged in
-        const user = await currentUser();
-        done(user, "Your email address is verified.");
+        // the link signs this browser in to the account it verified
+        const { message, href } = verifiedStep(result);
+        done(result.user, message, href);
     }
 
     async function waiting() {

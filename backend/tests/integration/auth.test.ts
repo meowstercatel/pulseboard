@@ -712,7 +712,7 @@ describe("password reset", () => {
         return lastToken();
     }
 
-    it("answers the same for unknown, social-only and password accounts", async () => {
+    it("answers the same for unknown, unverified social-only and password accounts", async () => {
         const { email } = await register();
         const social = await db.orm.public.User.create({
             email: `social-${randomUUID()}@example.com`,
@@ -730,7 +730,16 @@ describe("password reset", () => {
             });
             expect(response.status).toBe(204);
         }
-        expect(mail).not.toHaveBeenCalled();
+        // the social-only account gets a verification link, not a reset link
+        await vi.waitFor(() =>
+            expect(mail).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({
+                    to: social.email,
+                    subject: "Verify your PulseBoard email address",
+                }),
+            ),
+        );
+        mail.mockClear();
         const response = await request("auth/password-reset", {
             email: ` ${email.toUpperCase()} `,
         });

@@ -477,3 +477,341 @@ describe("returning to the requested page", () => {
         );
     });
 });
+
+describe("Facebook pre-hijack through the verification link", () => {
+    const newPassword = "The address owner's own password!";
+
+    function lastLink(path: string) {
+        const text = mail.mock.calls.at(-1)?.[0].text;
+        const token = text?.match(
+            new RegExp(`${path}\\?(?:purpose=set&)?token=([\\w-]+)`),
+        )?.[1];
+        expect(token).toBeTruthy();
+        return token!;
+    }
+
+    // An intruder signs up with Facebook using the owner's address: the
+    // account is unverified, has no password, and its verification link goes
+    // to the owner's inbox
+    async function facebookSignUp() {
+        const email = `oauth-${randomUUID()}@example.com`;
+        const facebookId = `fb-${randomUUID()}`;
+        mockFacebook({ id: facebookId, email });
+        const { cookie } = await signIn("facebook");
+        const user = (await trackUserByEmail(email))!;
+        expect(user).toMatchObject({
+            passwordHash: null,
+            emailVerifiedAt: null,
+        });
+        return { email, facebookId, id: user.id, intruder: cookie! };
+    }
+
+    it("removes the Facebook login and every session when the owner verifies from their own browser", async () => {
+        const { email, facebookId, id, intruder } = await facebookSignUp();
+        const token = lastLink("/verify-email");
+
+        const response = await request("auth/verify-email", { token });
+
+        expect(response.status).toBe(200);
+        // the owner is signed in, the intruder isn't, and can't get back in
+        const owner = sessionCookie(response)!;
+        expect((await request("auth/me", undefined, owner)).status).toBe(200);
+        expect((await request("auth/me", undefined, intruder)).status).toBe(
+            401,
+        );
+        expect(await oauthAccounts(id)).toEqual([]);
+        expect(
+            await db.orm.public.Session.where({ userId: id }).all(),
+        ).toHaveLength(1);
+        mockFacebook({ id: facebookId, email });
+        const again = await signIn("facebook");
+        expect(again.location).toBe(
+            "/login?oauth_error=email_taken&provider=facebook",
+        );
+        expect(again.cookie).toBeUndefined();
+        expect(await response.json()).toMatchObject({
+            user: { id, emailVerified: true },
+            removedLogins: ["Facebook"],
+            needsPassword: true,
+        });
+    });
+
+    it("leaves the owner a way to log in after signing out: a password set from the login page", async () => {
+        const { email, id } = await facebookSignUp();
+        const verified = await request("auth/verify-email", {
+            token: lastLink("/verify-email"),
+        });
+        await request("auth/logout", {}, sessionCookie(verified));
+
+        mail.mockClear();
+        expect((await request("auth/password-reset", { email })).status).toBe(
+            204,
+        );
+        expect(mail).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                to: email,
+                subject: "Set a password for PulseBoard",
+            }),
+        );
+        const confirm = await request("auth/password-reset/confirm", {
+            token: lastLink("/reset-password"),
+            newPassword,
+        });
+        expect(confirm.status).toBe(200);
+        expect((await confirm.json()).user).toMatchObject({ id });
+        expect(
+            (await request("auth/login", { email, password: newPassword }))
+                .status,
+        ).toBe(200);
+    });
+
+    it("does the same with a link the intruder resent", async () => {
+        const { id, intruder } = await facebookSignUp();
+        expect(
+            (await request("auth/verify-email/resend", {}, intruder)).status,
+        ).toBe(204);
+
+        const response = await request("auth/verify-email", {
+            token: lastLink("/verify-email"),
+        });
+
+        expect(response.status).toBe(200);
+        expect(await oauthAccounts(id)).toEqual([]);
+        expect((await request("auth/me", undefined, intruder)).status).toBe(
+            401,
+        );
+    });
+
+    it("keeps the Facebook login when the account's own session opens the link", async () => {
+        const { id, intruder: own } = await facebookSignUp();
+
+        const response = await request(
+            "auth/verify-email",
+            { token: lastLink("/verify-email") },
+            own,
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({
+            removedLogins: [],
+            needsPassword: false,
+        });
+        expect(response.headers.get("set-cookie")).toBeNull();
+        expect(await oauthAccounts(id)).toMatchObject([
+            { provider: "facebook" },
+        ]);
+        expect((await request("auth/me", undefined, own)).status).toBe(200);
+    });
+
+    it("doesn't count another account's session as the account's own", async () => {
+        const other = await register(true);
+        const { id } = await facebookSignUp();
+
+        const response = await request(
+            "auth/verify-email",
+            { token: lastLink("/verify-email") },
+            other.cookie,
+        );
+
+        expect(response.status).toBe(200);
+        expect(await oauthAccounts(id)).toEqual([]);
+        expect((await request("auth/me", undefined, other.cookie)).status).toBe(
+            401,
+        );
+    });
+
+    it("keeps only Google logins that proved this address", async () => {
+        const { email, id } = await facebookSignUp();
+        const proven = `g-${randomUUID()}`;
+        await db.orm.public.OAuthAccount.create({
+            provider: "google",
+            providerUserId: proven,
+            userId: id,
+            email,
+        });
+        for (const stored of [null, `other-${randomUUID()}@example.com`]) {
+            await db.orm.public.OAuthAccount.create({
+                provider: "google",
+                providerUserId: `g-${randomUUID()}`,
+                userId: id,
+                email: stored,
+            });
+        }
+
+        const response = await request("auth/verify-email", {
+            token: lastLink("/verify-email"),
+        });
+
+        const body = await response.json();
+        expect(body.removedLogins.sort()).toEqual(["Facebook", "Google"]);
+        // the remaining Google login still signs in
+        expect(body.needsPassword).toBe(false);
+        expect(await oauthAccounts(id)).toMatchObject([
+            { provider: "google", providerUserId: proven, email },
+        ]);
+    });
+
+    it("leaves a password account's logins alone, as before", async () => {
+        const { email, id, cookie } = await register(false);
+        await db.orm.public.OAuthAccount.create({
+            provider: "facebook",
+            providerUserId: `fb-${randomUUID()}`,
+            userId: id,
+            email,
+        });
+
+        const response = await request("auth/verify-email", {
+            token: lastLink("/verify-email"),
+        });
+
+        expect(await response.json()).toMatchObject({
+            removedLogins: [],
+            needsPassword: false,
+        });
+        expect(await oauthAccounts(id)).toHaveLength(1);
+        expect((await request("auth/me", undefined, cookie)).status).toBe(401);
+        expect((await loginWithPassword(email)).status).toBe(200);
+    });
+
+    it("doesn't let a password sign-up over the Facebook account change it", async () => {
+        const { email, id } = await facebookSignUp();
+        const token = lastLink("/verify-email");
+        mail.mockClear();
+
+        expect(
+            (await request("auth/register", { email, password })).status,
+        ).toBe(202);
+
+        expect(mail).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+                to: email,
+                subject: expect.not.stringContaining("Verify"),
+            }),
+        );
+        expect(await db.orm.public.User.where({ id }).first()).toMatchObject({
+            passwordHash: null,
+            emailVerifiedAt: null,
+        });
+        expect((await loginWithPassword(email)).status).toBe(401);
+        // and the owner's link still claims it
+        await request("auth/verify-email", { token });
+        expect(await oauthAccounts(id)).toEqual([]);
+    });
+
+    it("doesn't let another account move onto the Facebook account's address", async () => {
+        const { email, id } = await facebookSignUp();
+        const other = await register(true);
+
+        const response = await request(
+            "auth/profile",
+            { email, username: "", currentPassword: password },
+            other.cookie,
+        );
+
+        expect(response.status).toBe(409);
+        expect(await db.orm.public.User.where({ id }).first()).toMatchObject({
+            email,
+            emailVerifiedAt: null,
+        });
+        expect(
+            await db.orm.public.User.where({ id: other.id }).first(),
+        ).toMatchObject({ email: other.email });
+    });
+
+    it("sends the owner a new verification link from the forgotten-password form", async () => {
+        const { email, id, intruder } = await facebookSignUp();
+        mail.mockClear();
+
+        expect((await request("auth/password-reset", { email })).status).toBe(
+            204,
+        );
+
+        // the intruder can't keep the owner out by resending their own link
+        await vi.waitFor(() =>
+            expect(mail).toHaveBeenCalledExactlyOnceWith(
+                expect.objectContaining({
+                    to: email,
+                    subject: "Verify your PulseBoard email address",
+                }),
+            ),
+        );
+        expect(
+            await db.orm.public.PasswordReset.where({ userId: id }).all(),
+        ).toEqual([]);
+        await request("auth/verify-email", {
+            token: lastLink("/verify-email"),
+        });
+        expect(await oauthAccounts(id)).toEqual([]);
+        expect((await request("auth/me", undefined, intruder)).status).toBe(
+            401,
+        );
+    });
+
+    // An intruder can also get here with a password: verify their own
+    // account, set a password, connect Facebook, then change the address to
+    // the owner's. A reset by the owner replaces the password; the Facebook
+    // login has to go with it.
+    it("drops the intruder's Facebook login when the owner resets the password of an unverified account", async () => {
+        const intruder = await register(true);
+        const facebookId = `fb-${randomUUID()}`;
+        await db.orm.public.OAuthAccount.create({
+            provider: "facebook",
+            providerUserId: facebookId,
+            userId: intruder.id,
+            email: intruder.email,
+        });
+        const email = `oauth-${randomUUID()}@example.com`;
+        expect(
+            (
+                await request(
+                    "auth/profile",
+                    { email, username: "", currentPassword: password },
+                    intruder.cookie,
+                )
+            ).status,
+        ).toBe(200);
+
+        mail.mockClear();
+        await request("auth/password-reset", { email });
+        await vi.waitFor(() => expect(mail).toHaveBeenCalledOnce());
+        const reset = await request("auth/password-reset/confirm", {
+            token: lastLink("/reset-password"),
+            newPassword,
+        });
+
+        expect(reset.status).toBe(200);
+        expect(await oauthAccounts(intruder.id)).toEqual([]);
+        expect(
+            (await request("auth/me", undefined, intruder.cookie)).status,
+        ).toBe(401);
+        // their Facebook now only gets them a new account at their own address
+        mockFacebook({ id: facebookId, email: intruder.email });
+        const again = await signIn("facebook");
+        await trackUserByEmail(intruder.email);
+        const me = await request("auth/me", undefined, again.cookie);
+        const { user } = await me.json();
+        expect(user.email).toBe(intruder.email);
+        expect(user.id).not.toBe(intruder.id);
+        expect((await loginWithPassword(email)).status).toBe(401);
+    });
+
+    it("keeps a verified account's logins when its password is reset", async () => {
+        const { email, id } = await register(true);
+        await db.orm.public.OAuthAccount.create({
+            provider: "facebook",
+            providerUserId: `fb-${randomUUID()}`,
+            userId: id,
+            email,
+        });
+        mail.mockClear();
+        await request("auth/password-reset", { email });
+        await vi.waitFor(() => expect(mail).toHaveBeenCalledOnce());
+
+        await request("auth/password-reset/confirm", {
+            token: lastLink("/reset-password"),
+            newPassword,
+        });
+
+        expect(await oauthAccounts(id)).toHaveLength(1);
+    });
+});

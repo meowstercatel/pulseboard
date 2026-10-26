@@ -3,8 +3,9 @@ import type { Context, MiddlewareHandler } from "hono";
 import { sendMail } from "../mail/mailer.js";
 import { verifyEmailTemplate } from "../mail/verifyEmailTemplate.js";
 import { db } from "../prisma/db.js";
+import { providers } from "./oauth.js";
 import { publicUrl } from "./publicUrl.js";
-import type { AuthEnv } from "./session.js";
+import { revokeOtherSessions, type AuthEnv } from "./session.js";
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -73,6 +74,26 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // Only Google's verified email proves the address (see linksByEmail)
 const PROVES_EMAIL = "google";
 
+// Removes the logins the owner of `email` can't be sure are theirs: every
+// provider but Google, and Google links stored without a verified address or
+// with another one (see linkAccount). Returns the removed providers.
+export async function dropUnprovenLogins(
+    tx: Tx,
+    userId: number,
+    email: string,
+) {
+    const unproven = await tx.orm.public.OAuthAccount.where({ userId })
+        .select("id", "provider", "email")
+        .all();
+    const removed = unproven.filter(
+        (a) => a.provider !== PROVES_EMAIL || a.email !== email,
+    );
+    for (const { id } of removed) {
+        await tx.orm.public.OAuthAccount.where({ id, userId }).delete();
+    }
+    return removed.map((a) => a.provider);
+}
+
 // Verifies an account whose address a provider just proved. Anything set up
 // before that may be an attacker's, so the password, sessions, links made
 // with another address and Facebook links go. Returns null if it was verified
@@ -89,21 +110,20 @@ export async function claimUnverifiedUser(
         });
     if (!user) return null;
     await tx.orm.public.Session.where({ userId: id }).deleteAll();
-    await tx.orm.public.OAuthAccount.where({ userId: id })
-        .where((a) => a.email.neq(email))
-        .deleteAll();
-    await tx.orm.public.OAuthAccount.where({ userId: id })
-        .where((a) => a.email.isNull())
-        .deleteAll();
-    await tx.orm.public.OAuthAccount.where({ userId: id })
-        .where((a) => a.provider.neq(PROVES_EMAIL))
-        .deleteAll();
+    await dropUnprovenLogins(tx, id, email);
     return user;
 }
 
-// Returns the verified user, or null if the token is unknown, expired, or was
-// sent to an address the account no longer uses.
-export async function verifyEmailToken(token: string) {
+// Verifies the address the token was sent to. Every session of the account
+// ends except `session`, if it's one of the account's own. Returns null if the
+// token is unknown, expired, or was sent to an address the account no longer
+// uses.
+//
+// A password-less account opened from anywhere else may have been set up by
+// someone else with the owner's address (a Facebook sign-up doesn't prove
+// it), so its logins that don't prove the address go too: the clicker owns
+// the address and gets the account, without anyone else's way in.
+export async function verifyEmailToken(token: string, session: string | null) {
     const tokenHash = hashToken(token);
     return db.transaction(async (tx) => {
         const pending = await tx.orm.public.EmailVerification.where({
@@ -115,6 +135,8 @@ export async function verifyEmailToken(token: string) {
             return null;
         }
 
+        // Locks the user row, like a link or an unlink does, so neither can
+        // run between this and the removals below
         const user = await tx.orm.public.User.where({
             id: pending.userId,
             email: pending.email,
@@ -122,7 +144,46 @@ export async function verifyEmailToken(token: string) {
         await tx.orm.public.EmailVerification.where({
             userId: pending.userId,
         }).deleteAll();
-        return user;
+        if (!user) return null;
+
+        const own = session
+            ? await tx.orm.public.Session.where({
+                  id: session,
+                  userId: user.id,
+              })
+                  .where((s) => s.expiresAt.gt(new Date().toISOString()))
+                  .first()
+            : null;
+        let removedLogins: string[] = [];
+        if (!own && !user.passwordHash) {
+            removedLogins = await dropUnprovenLogins(tx, user.id, user.email);
+            // a set-password link can't exist before verification, but one
+            // must never outlive this either
+            await tx.orm.public.PasswordReset.where({
+                userId: user.id,
+            }).deleteAll();
+        }
+        // After the logins: a sign-in with a removed login that got in first
+        // has committed its session by now, so it goes too
+        await revokeOtherSessions(user.id, own ? own.id : null, tx);
+
+        const remaining = await tx.orm.public.OAuthAccount.where({
+            userId: user.id,
+        })
+            .select("provider")
+            .all();
+        return {
+            user,
+            // `session` is the account's own and stays signed in
+            kept: !!own,
+            // providers whose logins were removed
+            removedLogins,
+            // nothing left to log in with later: no password, and no login
+            // with a provider that is still enabled
+            needsPassword:
+                !user.passwordHash &&
+                !remaining.some((a) => providers[a.provider]),
+        };
     });
 }
 
