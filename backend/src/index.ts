@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
+import { startTrialReminders } from "./billing/trialReminders.js";
 import { startCleanup } from "./cleanup.js";
 import { db } from "./prisma/db.js";
 
@@ -19,6 +20,7 @@ const server = serve(
 );
 
 const stopCleanup = startCleanup();
+const stopTrialReminders = startTrialReminders();
 
 let shuttingDown = false;
 async function shutdown(signal: string) {
@@ -30,12 +32,14 @@ async function shutdown(signal: string) {
         process.exit(1);
     }, SHUTDOWN_TIMEOUT_MS).unref();
     const cleanupStopped = stopCleanup();
+    const remindersStopped = stopTrialReminders();
     // stop accepting connections and wait for in-flight requests
     await new Promise<void>((resolve) => {
         server.close(() => resolve());
         if ("closeIdleConnections" in server) server.closeIdleConnections();
     });
     await cleanupStopped;
+    await remindersStopped;
     await db.close();
     process.exit(0);
 }

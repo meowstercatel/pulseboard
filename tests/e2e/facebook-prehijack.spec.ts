@@ -147,7 +147,8 @@ test("the address owner's verification link removes someone else's Facebook logi
     await page
         .getByRole("button", { name: "Set password", exact: true })
         .click();
-    await expect(page).toHaveURL("/buy");
+    // verifying the address started the free trial
+    await expect(page).toHaveURL("/overview");
 
     const login = await page.request.post("/api/auth/login", {
         data: { email: account.email, password },

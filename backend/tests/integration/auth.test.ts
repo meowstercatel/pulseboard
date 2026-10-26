@@ -122,6 +122,8 @@ describe("registration and sessions", () => {
             email,
             username: "Alice",
             licensePlan: null,
+            // verifying starts the free trial
+            trialEndsAt: expect.any(String),
             emailVerified: true,
         });
         expect(response.headers.get("set-cookie")).toContain("HttpOnly");

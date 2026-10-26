@@ -1,3 +1,4 @@
+import { startPeriodic } from "./periodic.js";
 import { db } from "./prisma/db.js";
 
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
@@ -17,27 +18,19 @@ export async function deleteExpiredRows() {
     return { sessions, verifications, resets };
 }
 
-// Runs now and then hourly. The returned stop function waits for a run in
-// progress, so the database can be closed right after it.
+// Runs now and then hourly
 export function startCleanup(): () => Promise<void> {
-    let running: Promise<void> | undefined;
-    const run = () => {
-        if (running) return;
-        running = deleteExpiredRows()
-            .then(({ sessions, verifications, resets }) => {
-                if (sessions || verifications || resets) {
-                    console.log(
-                        `Deleted expired rows: ${sessions} session(s), ${verifications} verification link(s), ${resets} reset link(s)`,
-                    );
-                }
-            })
-            .catch((err) => console.error("Expired row cleanup failed", err))
-            .finally(() => (running = undefined));
-    };
-    run();
-    const timer = setInterval(run, CLEANUP_INTERVAL_MS).unref();
-    return async () => {
-        clearInterval(timer);
-        await running;
-    };
+    return startPeriodic(
+        "Expired row cleanup",
+        CLEANUP_INTERVAL_MS,
+        async () => {
+            const { sessions, verifications, resets } =
+                await deleteExpiredRows();
+            if (sessions || verifications || resets) {
+                console.log(
+                    `Deleted expired rows: ${sessions} session(s), ${verifications} verification link(s), ${resets} reset link(s)`,
+                );
+            }
+        },
+    );
 }

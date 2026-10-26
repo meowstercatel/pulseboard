@@ -66,9 +66,10 @@ test("a visitor can start, see prices, limits and the FAQ", async ({
     for (const link of await getStarted(page).all()) {
         await expect(link).toHaveAttribute("href", "/register");
     }
+    // /buy needs an account, so guests get the pricing section instead
     await expect(
         hero(page).getByRole("link", { name: "See pricing" }),
-    ).toHaveAttribute("href", "/buy");
+    ).toHaveAttribute("href", "/#pricing");
     // the demo invitation is still there, further down
     await expect(page.locator(".closing cds-button")).toHaveAttribute(
         "href",
@@ -76,11 +77,15 @@ test("a visitor can start, see prices, limits and the FAQ", async ({
     );
 
     const pricing = page.locator("#pricing");
-    for (const plan of plans) {
-        await expect(pricing.getByText(price(plan))).toBeVisible();
+    const cards = pricing.locator("article");
+    await expect(cards).toHaveCount(plans.length);
+    for (const [i, plan] of plans.entries()) {
         await expect(
-            pricing.getByRole("heading", { name: plan.name }),
+            cards.nth(i).getByRole("heading", { name: plan.name }),
         ).toBeVisible();
+        await expect(cards.nth(i).locator(".price")).toContainText(
+            `${price(plan)} ${plan.period}`,
+        );
     }
 
     const data = page.locator("#data");
@@ -123,6 +128,15 @@ test("the plans on /buy match the landing page", async ({ page }) => {
         for (const link of await getStarted(page).all()) {
             await expect(link).toHaveAttribute("href", "/overview");
         }
+        // signed in, the pricing links go straight to the plans
+        await expect(
+            hero(page).getByRole("link", { name: "See pricing" }),
+        ).toHaveAttribute("href", "/buy");
+        await expect(
+            page
+                .locator("footer.site-footer")
+                .getByRole("link", { name: "Pricing", exact: true }),
+        ).toHaveAttribute("href", "/buy");
 
         await page.goto("/buy");
         const prices = page.locator(".license .price");
@@ -147,7 +161,7 @@ test("the footer is shared by the landing and legal pages", async ({
         const links = {
             Register: "/register",
             "Log in": "/login",
-            Pricing: "/buy",
+            Pricing: "/#pricing",
             Privacy: "/privacy",
             Terms: "/terms",
             "Polityka prywatności": "/pl/privacy",
@@ -163,6 +177,59 @@ test("the footer is shared by the landing and legal pages", async ({
         // a proof of concept: no seller details
         await expect(footer).not.toContainText(/NIP|REGON|KRS|sp\. z o\.o\./i);
     }
+});
+
+test("guests following a pricing link see prices, not the login page", async ({
+    page,
+}) => {
+    await page.goto("/");
+    await hero(page).getByRole("link", { name: "See pricing" }).click();
+    await expect(page).toHaveURL("/#pricing");
+    await expect(page.locator("#pricing")).toBeInViewport();
+
+    for (const path of ["/terms", "/samples"]) {
+        await page.goto(path);
+        await page
+            .locator("footer.site-footer")
+            .getByRole("link", { name: "Pricing", exact: true })
+            .click();
+        await expect(page).toHaveURL("/#pricing");
+        await expect(page.locator("#pricing")).toBeInViewport();
+    }
+});
+
+test("the landing page checks the session once", async ({ page }) => {
+    let checks = 0;
+    page.on("request", (request) => {
+        if (new URL(request.url()).pathname === "/api/auth/me") checks++;
+    });
+    await page.goto("/");
+    await expect(page.locator(".nav-account")).toHaveAttribute(
+        "data-auth",
+        "guest",
+    );
+    await page.waitForLoadState("networkidle");
+    // the header and the footer's pricing links share one request
+    expect(checks).toBe(1);
+});
+
+test("the terms state the same prices in both languages", async ({ page }) => {
+    await page.goto("/terms");
+    const terms = page.locator("article");
+    for (const plan of plans) await expect(terms).toContainText(price(plan));
+    await expect(terms).toContainText(
+        "US dollars (USD), including any taxes due",
+    );
+    await expect(terms).toContainText("14-day free trial");
+    await expect(terms).not.toContainText("PLN");
+
+    await page.goto("/pl/terms");
+    const pl = page.locator("article");
+    for (const plan of plans) {
+        await expect(pl).toContainText(`${plan.amount} USD`);
+    }
+    await expect(pl).toContainText("14-dniowy bezpłatny okres próbny");
+    await expect(pl).not.toContainText("PLN");
 });
 
 test("/samples offers the repository's sample files", async ({ page }) => {

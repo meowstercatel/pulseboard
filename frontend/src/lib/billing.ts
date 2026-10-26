@@ -1,3 +1,5 @@
+import type { PlanId } from "./pricing";
+
 async function post<T>(
     path: string,
     body: unknown,
@@ -18,7 +20,7 @@ async function post<T>(
 
 // Opens Stripe Checkout for the plan; the license is granted after payment.
 // Only call this once the buyer has ticked the withdrawal waiver.
-export function checkout(plan: "subscription" | "lifetime") {
+export function checkout(plan: PlanId) {
     return post<{ url: string }>("checkout", { plan, withdrawalWaiver: true });
 }
 
@@ -27,7 +29,8 @@ export function confirmCheckout(sessionId: string) {
     return post<{ paymentStatus: string }>("confirm", { sessionId });
 }
 
-// Stripe's customer portal: cancel the subscription or change the card.
+// Stripe's customer portal: cancel the subscription, change the card or
+// switch between monthly and yearly.
 export function billingPortal() {
     return post<{ url: string }>("portal", {});
 }

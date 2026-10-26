@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
+import { startTrial } from "../billing/trial.js";
 import { sendMail } from "../mail/mailer.js";
 import { verifyEmailTemplate } from "../mail/verifyEmailTemplate.js";
 import { db } from "../prisma/db.js";
@@ -134,7 +135,7 @@ export async function claimUnverifiedUser(
     if (!user) return null;
     await tx.orm.public.Session.where({ userId: id }).deleteAll();
     await dropUnprovenLogins(tx, id, email);
-    return user;
+    return (await startTrial(tx, id)) ?? user;
 }
 
 // Verifies the address the token was sent to. Every session of the account
@@ -202,7 +203,8 @@ export async function verifyEmailToken(token: string, session: string | null) {
                       .all()
               ).map((a) => a.provider);
         return {
-            user,
+            // verifying starts the free trial
+            user: (await startTrial(tx, user.id)) ?? user,
             // `session` is the account's own and stays signed in
             kept: !!own,
             // providers whose logins were removed

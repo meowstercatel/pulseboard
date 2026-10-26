@@ -122,7 +122,8 @@ test("unverified login stays restricted; replaced and used links recover clearly
         await page
             .getByRole("button", { name: "Continue", exact: true })
             .click();
-        await expect(page).toHaveURL("/buy");
+        // verifying started the free trial
+        await expect(page).toHaveURL("/overview");
 
         await page.request.post("/api/auth/logout", {
             headers: { origin: baseURL! },

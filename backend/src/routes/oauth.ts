@@ -26,6 +26,7 @@ import {
     requireAuth,
     type AuthEnv,
 } from "../auth/session.js";
+import { hasAccess, startTrial } from "../billing/trial.js";
 import { db } from "../prisma/db.js";
 import { isUniqueViolation } from "../prisma/errors.js";
 
@@ -122,6 +123,7 @@ async function resolveUser(
                 // (or a Google sign-in with it) does
                 emailVerifiedAt: linksByEmail ? new Date().toISOString() : null,
             });
+            user = (await startTrial(tx, user.id)) ?? user;
         }
         await tx.orm.public.OAuthAccount.create({
             provider,
@@ -449,5 +451,5 @@ oauth.get("/:provider/callback", limitByIp(callbackIpLimiter), async (c) => {
     }
     // like the password login: unverified users go via /buy to /verify-email
     if (next && user.emailVerifiedAt) return c.redirect(next);
-    return c.redirect(user.licensePlan ? "/overview" : "/buy");
+    return c.redirect(hasAccess(user) ? "/overview" : "/buy");
 });

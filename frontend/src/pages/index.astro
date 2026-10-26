@@ -4,7 +4,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 import DashboardPreview from "../components/DashboardPreview.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import { limits } from "../lib/limits";
-import { planById, plans, price } from "../lib/pricing";
+import { planById, plans, price, trialDays } from "../lib/pricing";
 import { softwareApplication } from "../lib/seo";
 
 const description = `Upload CSV exports of CPU, memory, disk and network readings. Get dashboards, history and forecasts of when disk and RAM reach ${limits.thresholds}.`;
@@ -94,7 +94,8 @@ const collected = [
     },
 ];
 
-const subscription = planById("subscription");
+const monthly = planById("subscription");
+const yearly = planById("yearly");
 const lifetime = planById("lifetime");
 const faq = [
     {
@@ -107,7 +108,7 @@ const faq = [
     },
     {
         question: "What’s the difference between the plans?",
-        answer: `Both include all features. The subscription costs ${price(subscription)} a month and renews until you cancel it in the Stripe Customer Portal; you keep access until the end of the paid month. The lifetime license is a one-time ${price(lifetime)} for as long as we run PulseBoard, and buying it cancels an active subscription.`,
+        answer: `All plans include all features, and every new account starts with a ${trialDays}-day free trial, no card needed. The subscription costs ${price(monthly)} a month or ${price(yearly)} a year and renews until you cancel it in the Stripe Customer Portal, where you can also switch between monthly and yearly; you keep access until the end of the paid period. The lifetime license is a one-time ${price(lifetime)} for as long as we run PulseBoard, and buying it cancels an active subscription.`,
     },
     {
         question: "Can I get a refund?",
@@ -198,7 +199,11 @@ const faq = [
                                     →
                                 </span>
                             </cds-button>
-                            <a class="text-link" href="/buy">
+                            <a
+                                class="text-link"
+                                href="/#pricing"
+                                data-pricing-link
+                            >
                                 See pricing <span aria-hidden="true">→</span>
                             </a>
                         </div>
@@ -355,9 +360,9 @@ const faq = [
                 <div class="section-heading">
                     <h2 id="pricing-title">Pricing.</h2>
                     <p>
-                        Creating an account is free. Using the dashboards
-                        requires a paid license. Payments are processed by
-                        Stripe.
+                        Every new account gets a {trialDays}-day free trial with
+                        full access, no card needed. After that, the dashboards
+                        need a paid license. Payments are processed by Stripe.
                     </p>
                 </div>
                 <div class="plans">
@@ -829,7 +834,7 @@ const faq = [
     }
     .plans {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, 1fr);
         gap: 16px;
         margin-bottom: 32px;
     }
@@ -1079,7 +1084,7 @@ const faq = [
 </script>
 
 <script>
-    import { accountDestination, currentUser, logout } from "../lib/auth";
+    import { accountDestination, logout, pageUser } from "../lib/auth";
 
     const account = document.querySelector<HTMLElement>(".nav-account")!;
 
@@ -1088,7 +1093,7 @@ const faq = [
         setTimeout(() => resolve(null), 5000),
     );
 
-    Promise.race([currentUser(), timeout]).then((user) => {
+    Promise.race([pageUser(), timeout]).then((user) => {
         if (user) {
             const name = document.getElementById("nav-user-name")!;
             name.textContent = name.title = user.username || user.email;

@@ -67,10 +67,15 @@ describe("softwareApplication", () => {
         expect(currency).toMatch(/^[A-Z]{3}$/);
     });
 
-    it("bills only the subscription monthly", () => {
+    it("bills the subscriptions by their period and lifetime once", () => {
+        const periods = {
+            subscription: "P1M",
+            yearly: "P1Y",
+            lifetime: undefined,
+        };
         plans.forEach((plan, i) => {
             expect(data.offers[i]?.priceSpecification?.billingDuration).toBe(
-                plan.id === "subscription" ? "P1M" : undefined,
+                periods[plan.id],
             );
         });
     });

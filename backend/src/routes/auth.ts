@@ -41,7 +41,7 @@ import {
 import { accountExistsTemplate } from "../mail/accountExistsTemplate.js";
 import { sendMail } from "../mail/mailer.js";
 import { db } from "../prisma/db.js";
-import { cancelSubscriptionOf } from "./billing.js";
+import { cancelSubscriptionOf, syncCustomerEmail } from "./billing.js";
 import { isUniqueViolation } from "../prisma/errors.js";
 
 // Excludes characters nodemailer reads as address-list syntax, so
@@ -250,6 +250,8 @@ auth.post("/verify-email", limitByIp(verifyIpLimiter), async (c) => {
             400,
         );
     }
+    // a no-op until the account has a Stripe customer
+    await syncCustomerEmail(verified.user);
     // The link proves the address, so it signs in to the account it verified.
     // Every other session is gone: whoever registered the address may not be
     // its owner, and could still be logged in to the account the owner now

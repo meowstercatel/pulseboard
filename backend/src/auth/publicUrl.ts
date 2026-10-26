@@ -30,3 +30,12 @@ export function publicUrl(c: Context, path: string): string {
     const base = configuredPublicUrl() ?? new URL(c.req.url).origin;
     return `${base.replace(/\/$/, "")}${path}`;
 }
+
+// For mail sent outside a request, e.g. trial reminders. Local dev without
+// PUBLIC_URL falls back to the server's own port.
+export function appUrl(path: string): string {
+    const base =
+        configuredPublicUrl() ??
+        `http://localhost:${process.env["PORT"] ?? 3000}`;
+    return `${base.replace(/\/$/, "")}${path}`;
+}

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Context } from "hono";
+import { startTrial } from "../billing/trial.js";
 import { sendMail } from "../mail/mailer.js";
 import {
     dropUnprovenLogins,
@@ -201,7 +202,7 @@ export async function resetPassword(token: string, newPassword: string) {
         }).deleteAll();
         await tx.orm.public.Session.where({ userId: user.id }).deleteAll();
         return {
-            user,
+            user: (await startTrial(tx, user.id)) ?? user,
             passwordWasSet: current.passwordHash === null,
             removedLogins,
         };

@@ -1,4 +1,10 @@
-import { currency, plans } from "./pricing";
+import { currency, plans, type PlanId } from "./pricing";
+
+// ISO 8601 billing period of each recurring plan; lifetime is paid once
+const billingDuration: Partial<Record<PlanId, string>> = {
+    subscription: "P1M",
+    yearly: "P1Y",
+};
 
 // The pages search engines may index, and the language versions of each. The
 // sitemap lists exactly these; every other page is noindex (see HtmlTemplate).
@@ -70,12 +76,12 @@ export function softwareApplication(site: URL | string, description: string) {
             price: plan.amount.toFixed(2),
             priceCurrency: currency,
             url: new URL("/#pricing", site).href,
-            ...(plan.id === "subscription" && {
+            ...(billingDuration[plan.id] && {
                 priceSpecification: {
                     "@type": "UnitPriceSpecification",
                     price: plan.amount.toFixed(2),
                     priceCurrency: currency,
-                    billingDuration: "P1M",
+                    billingDuration: billingDuration[plan.id],
                 },
             }),
         })),

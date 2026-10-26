@@ -71,7 +71,7 @@ import HtmlTemplate from "../../layouts/HtmlTemplate.astro";
         }
 
         // The webhook may land a moment after the redirect, so poll briefly.
-        // Bank transfers (Przelewy24) can take longer than this.
+        // Delayed payment methods can take longer than this.
         for (let i = 0; i < 15; i++) {
             const fresh = await currentUser();
             if (fresh?.licensePlan) {

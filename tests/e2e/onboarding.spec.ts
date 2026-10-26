@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 const mailpit = process.env.TEST_MAILPIT_URL || "http://127.0.0.1:58025";
 
-test("register, verify email from Mailpit, choose a plan and open the dashboard", async ({
+test("register, verify email from Mailpit, start the free trial, then buy a plan", async ({
     page,
     request,
 }) => {
@@ -57,7 +57,17 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
         await page.goto(link!);
         await expect(page.locator("#done")).toBeVisible();
         await page.locator("#continue").click();
+        // verifying started the 14-day trial, so the dashboard opens right away
+        await expect(page).toHaveURL("/overview");
+        await expect(page.locator("[data-trial-badge]")).toHaveText(
+            "Free trial: 14 days left",
+        );
+        await page.locator("[data-trial-badge]").click();
         await expect(page).toHaveURL("/buy");
+        await expect(page.locator("#license-status")).toHaveText(
+            "free trial, 14 days left",
+        );
+        await expect(page.locator("#trial-ended")).toBeHidden();
         // Carbon hides the native input; click the drawn box like a user would
         await page.locator("#waiver label").click({ position: { x: 8, y: 8 } });
         await expect(
@@ -76,6 +86,8 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
         await page.reload();
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await expect(page).toHaveURL("/overview");
+        // a paid account has no trial badge
+        await expect(page.locator("[data-trial-badge]")).toBeHidden();
     } finally {
         // Delete only this test's account and message, including after a failed assertion.
         await page.request.post("/api/auth/delete-account", {
