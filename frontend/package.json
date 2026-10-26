@@ -12,6 +12,7 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
     "@carbon/styles": "^1.116.0",
     "@carbon/web-components": "^2.64.0",
     "@ibm/plex": "6.4.1",

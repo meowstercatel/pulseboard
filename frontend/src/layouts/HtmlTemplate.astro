@@ -2,6 +2,7 @@
 import BuildBadge from "../components/BuildBadge.astro";
 // Same file carbon.scss uses for body text, so the preload is reused
 import plexSans from "@ibm/plex/IBM-Plex-Sans/fonts/split/woff2/IBMPlexSans-Regular-Latin1.woff2?url";
+import { publicPage } from "../lib/seo";
 
 interface Props {
     title: string;
@@ -10,8 +11,24 @@ interface Props {
     // hidden until lib/auth's guard lets the user see it, so it doesn't flash
     // before a redirect to /login
     requiresAuth?: boolean;
+    // schema.org JSON-LD, only on public pages
+    structuredData?: object;
 }
-const { title, description, lang = "en", requiresAuth = false } = Astro.props;
+const {
+    title,
+    description,
+    lang = "en",
+    requiresAuth = false,
+    structuredData,
+} = Astro.props;
+
+// Only the pages in lib/seo are indexed; anything else is noindex
+const page = publicPage(Astro.url.pathname);
+if (page && !description)
+    throw new Error(`${page.path} is public and needs a description`);
+const url = (path: string) => new URL(path, Astro.site).href;
+const ogLocale = { en: "en_US", pl: "pl_PL" };
+const ogImage = url("/og.png");
 ---
 
 <html lang={lang} data-auth-pending={requiresAuth || undefined}>
@@ -19,7 +36,10 @@ const { title, description, lang = "en", requiresAuth = false } = Astro.props;
         <meta charset="utf-8" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="icon" href="/favicon.ico" />
-        <meta name="viewport" content="width=device-width" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link
             rel="preload"
             href={plexSans}
@@ -30,6 +50,62 @@ const { title, description, lang = "en", requiresAuth = false } = Astro.props;
         <meta name="generator" content={Astro.generator} />
         <title>{title}</title>
         {description && <meta name="description" content={description} />}
+        {page ? (
+            <>
+                <link rel="canonical" href={url(page.path)} />
+                {page.alternates &&
+                    Object.entries(page.alternates).map(([hreflang, path]) => (
+                        <link
+                            rel="alternate"
+                            hreflang={hreflang}
+                            href={url(path)}
+                        />
+                    ))}
+                {page.alternates && (
+                    <link
+                        rel="alternate"
+                        hreflang="x-default"
+                        href={url(page.alternates.en)}
+                    />
+                )}
+                <meta property="og:type" content="website" />
+                <meta property="og:site_name" content="PulseBoard" />
+                <meta property="og:title" content={title} />
+                <meta property="og:description" content={description} />
+                <meta property="og:url" content={url(page.path)} />
+                <meta property="og:locale" content={ogLocale[page.lang]} />
+                {page.alternates && (
+                    <meta
+                        property="og:locale:alternate"
+                        content={ogLocale[page.lang === "en" ? "pl" : "en"]}
+                    />
+                )}
+                <meta property="og:image" content={ogImage} />
+                <meta property="og:image:type" content="image/png" />
+                <meta property="og:image:width" content="1200" />
+                <meta property="og:image:height" content="630" />
+                <meta
+                    property="og:image:alt"
+                    content="PulseBoard: server metrics from CSV, as dashboards and forecasts"
+                />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content={title} />
+                <meta name="twitter:description" content={description} />
+                <meta name="twitter:image" content={ogImage} />
+                {structuredData && (
+                    <script
+                        is:inline
+                        type="application/ld+json"
+                        set:html={JSON.stringify(structuredData).replace(
+                            /</g,
+                            "\\u003c",
+                        )}
+                    />
+                )}
+            </>
+        ) : (
+            <meta name="robots" content="noindex" />
+        )}
         <style>
             body,
             html {
