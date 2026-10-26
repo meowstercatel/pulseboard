@@ -108,8 +108,11 @@ function mockFacebook(profile: { id: string; email: string }) {
 }
 
 // Runs the browser's round trip: start, provider redirect, callback
-async function signIn(provider: "google" | "facebook") {
-    const start = await request(`auth/oauth/${provider}`);
+async function signIn(provider: "google" | "facebook", next?: string) {
+    const start = await request(
+        `auth/oauth/${provider}` +
+            (next === undefined ? "" : `?${new URLSearchParams({ next })}`),
+    );
     expect(start.status).toBe(302);
     const state = new URL(start.headers.get("location")!).searchParams.get(
         "state",
@@ -396,5 +399,58 @@ describe("startup verification of old links", () => {
         expect((await loginWithPassword(email)).status).toBe(200);
         expect((await request("auth/me", undefined, cookie)).status).toBe(200);
         expect(await oauthAccounts(id)).toHaveLength(1);
+    });
+});
+
+describe("returning to the requested page", () => {
+    it("sends a verified user to the page they asked for", async () => {
+        const email = `oauth-${randomUUID()}@example.com`;
+        mockGoogle({ sub: `g-${randomUUID()}`, email });
+
+        const { location } = await signIn("google", "/history?dataset=2");
+        await trackUserByEmail(email);
+
+        expect(location).toBe("/history?dataset=2");
+    });
+
+    it.each(["//evil.example", "/\\evil.example", "https://evil.example"])(
+        "ignores the off-site page %s",
+        async (next) => {
+            const email = `oauth-${randomUUID()}@example.com`;
+            mockGoogle({ sub: `g-${randomUUID()}`, email });
+
+            const { location } = await signIn("google", next);
+            await trackUserByEmail(email);
+
+            expect(location).toBe("/buy");
+        },
+    );
+
+    it("sends an unverified Facebook sign-up to verify first", async () => {
+        const email = `oauth-${randomUUID()}@example.com`;
+        mockFacebook({ id: `f-${randomUUID()}`, email });
+
+        const { location } = await signIn("facebook", "/history");
+        await trackUserByEmail(email);
+
+        expect(location).toBe("/buy");
+    });
+
+    it("keeps the page when the sign-in fails", async () => {
+        const start = await request(
+            `auth/oauth/google?${new URLSearchParams({ next: "/history" })}`,
+        );
+        const stateCookie = start.headers.get("set-cookie")!.split(";")[0];
+        const response = await request(
+            "auth/oauth/google/callback?error=access_denied",
+            undefined,
+            stateCookie,
+        );
+        const location = new URL(response.headers.get("location")!, "http://x");
+        expect(location.pathname).toBe("/login");
+        expect(location.searchParams.get("next")).toBe("/history");
+        expect(location.searchParams.get("oauth_error")).toBe(
+            "Google sign-in was cancelled",
+        );
     });
 });

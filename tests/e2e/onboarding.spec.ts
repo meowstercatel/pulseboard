@@ -23,7 +23,7 @@ test("register, verify email from Mailpit, choose a plan and open the dashboard"
             .locator('cds-text-input[name="confirm"] input')
             .fill(password);
         await page
-            .getByRole("button", { name: "Register", exact: true })
+            .getByRole("button", { name: "Create account", exact: true })
             .click();
         await expect(page).toHaveURL("/verify-email");
         await expect(page.locator("#pending")).toContainText(email);

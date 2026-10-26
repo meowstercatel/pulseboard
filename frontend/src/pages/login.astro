@@ -3,7 +3,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
 import OAuthButtons from "../components/OAuthButtons.astro";
 ---
 
-<AuthLayout>
+<AuthLayout title="Log in">
     <form id="login-form">
         <cds-text-input
             label="Email"
@@ -31,7 +31,10 @@ import OAuthButtons from "../components/OAuthButtons.astro";
     </form>
     <OAuthButtons />
     <p>
-        No account yet? <cds-link href="/register">Register</cds-link>
+        No account yet?{" "}
+        <cds-link id="register-link" href="/register">
+            Create account
+        </cds-link>
     </p>
 </AuthLayout>
 
@@ -42,22 +45,35 @@ import OAuthButtons from "../components/OAuthButtons.astro";
 </style>
 
 <script>
-    import { accountDestination, currentUser, login } from "../lib/auth";
+    import {
+        accountDestination,
+        currentUser,
+        login,
+        safeNext,
+    } from "../lib/auth";
     import { bindForm } from "../lib/form";
 
+    const params = new URLSearchParams(location.search);
+    // the page to return to, set by a protected page that sent us here
+    const next = safeNext(params.get("next"));
+    const keepNext = next ? `?${new URLSearchParams({ next })}` : "";
+    document
+        .getElementById("register-link")!
+        .setAttribute("href", `/register${keepNext}`);
+
     currentUser().then((user) => {
-        if (user) location.replace(accountDestination(user));
+        if (user) location.replace(accountDestination(user, next));
     });
 
     // set by the server when a Google/Facebook sign-in fails
-    const oauthError = new URLSearchParams(location.search).get("oauth_error");
+    const oauthError = params.get("oauth_error");
     if (oauthError) {
         const error = document.querySelector(
             "#login-form cds-inline-notification",
         ) as HTMLElement & { subtitle: string };
         error.subtitle = oauthError;
         error.hidden = false;
-        history.replaceState(null, "", "/login");
+        history.replaceState(null, "", `/login${keepNext}`);
     }
 
     bindForm(
@@ -65,7 +81,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         async (field) => {
             const result = await login(field("email"), field("password"));
             if ("error" in result) return result.error;
-            location.href = accountDestination(result.user);
+            location.href = accountDestination(result.user, next);
             return null;
         },
     );

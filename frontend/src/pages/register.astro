@@ -3,7 +3,7 @@ import AuthLayout from "../layouts/AuthLayout.astro";
 import OAuthButtons from "../components/OAuthButtons.astro";
 ---
 
-<AuthLayout>
+<AuthLayout title="Create account">
     <form id="register-form">
         <cds-text-input
             label="Email"
@@ -37,7 +37,7 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             hide-close-button
             hidden
         ></cds-inline-notification>
-        <cds-button>Register</cds-button>
+        <cds-button>Create account</cds-button>
     </form>
     <OAuthButtons />
     <p>
@@ -46,16 +46,33 @@ import OAuthButtons from "../components/OAuthButtons.astro";
         <cds-link href="/privacy">Privacy Policy</cds-link>
     </p>
     <p>
-        Already have an account? <cds-link href="/login">Log in</cds-link>
+        Already have an account?{" "}
+        <cds-link id="login-link" href="/login">
+            Log in
+        </cds-link>
     </p>
 </AuthLayout>
 
 <script>
-    import { accountDestination, currentUser, register } from "../lib/auth";
+    import {
+        accountDestination,
+        currentUser,
+        register,
+        safeNext,
+    } from "../lib/auth";
     import { bindForm } from "../lib/form";
 
+    // passed on from the login page; dropped once the new account has to
+    // verify its email
+    const next = safeNext(new URLSearchParams(location.search).get("next"));
+    if (next) {
+        document
+            .getElementById("login-link")!
+            .setAttribute("href", `/login?${new URLSearchParams({ next })}`);
+    }
+
     currentUser().then((user) => {
-        if (user) location.replace(accountDestination(user));
+        if (user) location.replace(accountDestination(user, next));
     });
 
     bindForm(

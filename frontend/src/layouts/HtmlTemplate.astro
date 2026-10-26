@@ -4,14 +4,17 @@ import BuildBadge from "../components/BuildBadge.astro";
 import plexSans from "@ibm/plex/IBM-Plex-Sans/fonts/split/woff2/IBMPlexSans-Regular-Latin1.woff2?url";
 
 interface Props {
-    title?: string;
+    title: string;
     description?: string;
     lang?: string;
+    // hidden until lib/auth's guard lets the user see it, so it doesn't flash
+    // before a redirect to /login
+    requiresAuth?: boolean;
 }
-const { title = "PulseBoard", description, lang = "en" } = Astro.props;
+const { title, description, lang = "en", requiresAuth = false } = Astro.props;
 ---
 
-<html lang={lang}>
+<html lang={lang} data-auth-pending={requiresAuth || undefined}>
     <head>
         <meta charset="utf-8" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -31,10 +34,22 @@ const { title = "PulseBoard", description, lang = "en" } = Astro.props;
             body,
             html {
                 margin: 0;
-                width: 100dvw;
+                width: 100%;
                 height: 100dvh;
             }
+            html[data-auth-pending] body {
+                visibility: hidden;
+            }
         </style>
+        {requiresAuth && (
+            <noscript>
+                <style is:inline>
+                    html[data-auth-pending] body {
+                        visibility: visible;
+                    }
+                </style>
+            </noscript>
+        )}
     </head>
     <body>
         <slot />

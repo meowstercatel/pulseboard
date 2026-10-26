@@ -36,7 +36,7 @@ const plans = [
 ];
 ---
 
-<HtmlTemplate>
+<HtmlTemplate title="Choose a plan · PulseBoard" requiresAuth>
     <main>
         <header>
             <h1>PulseBoard</h1>
@@ -82,6 +82,13 @@ const plans = [
                 </section>
             ))}
         </div>
+        <cds-inline-notification
+            id="billing-error"
+            kind="error"
+            title="Couldn't continue to Stripe"
+            hide-close-button
+            hidden
+        ></cds-inline-notification>
         <cds-button id="manage" size="md" kind="tertiary" hidden>
             Manage subscription
         </cds-button>
@@ -192,8 +199,12 @@ const plans = [
         filter: grayscale(1);
         opacity: 0.5;
     }
+    cds-inline-notification {
+        max-width: 100%;
+    }
     /* the component's own display style would override the attribute */
-    cds-button[hidden] {
+    cds-button[hidden],
+    cds-inline-notification[hidden] {
         display: none;
     }
 </style>
@@ -203,6 +214,7 @@ const plans = [
     import "@carbon/web-components/es/components/checkbox/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
     import "@carbon/web-components/es/components/link/index.js";
+    import "@carbon/web-components/es/components/notification/index.js";
     import { requireVerifiedUser } from "../lib/auth";
     import { billingPortal, checkout } from "../lib/billing";
 
@@ -217,6 +229,9 @@ const plans = [
         invalid: boolean;
     };
     const buttons = document.querySelectorAll<Button>("cds-button[data-plan]");
+    const billingError = document.getElementById(
+        "billing-error",
+    ) as HTMLElement & { subtitle: string };
 
     requireVerifiedUser().then((user) => {
         if (!user?.licensePlan) return;
@@ -240,10 +255,12 @@ const plans = [
     ) {
         const before = disable.map((b) => b.disabled);
         disable.forEach((b) => (b.disabled = true));
+        billingError.hidden = true;
         const res = await result;
         if ("error" in res) {
             disable.forEach((b, i) => (b.disabled = before[i]!));
-            alert(res.error);
+            billingError.subtitle = res.error;
+            billingError.hidden = false;
             return;
         }
         location.href = res.url;

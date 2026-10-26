@@ -3,24 +3,22 @@ import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 ---
 
-<HtmlTemplate title="Account settings · PulseBoard">
+<HtmlTemplate title="Account settings · PulseBoard" requiresAuth>
     <main>
         <header>
-            <a class="brand" href="/overview">
+            <a class="brand" id="brand" href="/overview">
                 PulseBoard
             </a>
-            <nav aria-label="Account navigation">
-                <cds-link id="back-link" href="/overview">
-                    Overview
-                </cds-link>
-                <cds-link id="history-link" href="/history">
-                    History
-                </cds-link>
+            <div class="account">
+                <span class="signed-in" id="signed-in"></span>
                 <cds-button id="logout" kind="ghost" size="sm">
                     Log out
                 </cds-button>
-            </nav>
+            </div>
         </header>
+        <cds-link class="back" id="back-link" href="/overview">
+            ← Back to dashboard
+        </cds-link>
 
         <div class="intro">
             <h1>Account settings</h1>
@@ -197,7 +195,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         padding: 1.5rem 1rem 3rem;
     }
     header,
-    nav {
+    .account {
         display: flex;
         align-items: center;
         gap: 1rem;
@@ -214,12 +212,25 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         font-weight: 600;
         text-decoration: none;
     }
+    .signed-in {
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        overflow-wrap: anywhere;
+    }
+    .signed-in:empty {
+        display: none;
+    }
+    .back {
+        display: inline-block;
+        margin-top: 1.5rem;
+        font-size: 0.875rem;
+    }
     a:focus-visible {
         outline: 2px solid var(--cds-focus, #0f62fe);
         outline-offset: 4px;
     }
     .intro {
-        margin: 2rem 0;
+        margin: 1rem 0 2rem;
     }
     h1 {
         font-size: 2rem;
@@ -409,11 +420,13 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         savedEmail = user.email;
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
+        document.getElementById("signed-in")!.textContent = user.email;
+        // without a license the dashboard would only send them on to /buy
         if (!user.licensePlan) {
             const back = document.getElementById("back-link")!;
             back.setAttribute("href", "/buy");
-            back.textContent = "License";
-            document.getElementById("history-link")!.hidden = true;
+            back.textContent = "← Back to plans";
+            document.getElementById("brand")!.setAttribute("href", "/buy");
         }
         document.getElementById("loading")!.hidden = true;
         document.getElementById("settings")!.hidden = false;
@@ -439,6 +452,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         );
         if ("error" in result) return result.error;
         savedEmail = result.user.email;
+        document.getElementById("signed-in")!.textContent = result.user.email;
         input(profileForm, "username").value = result.user.username ?? "";
         input(profileForm, "email").value = result.user.email;
         input(profileForm, "currentPassword").value = "";

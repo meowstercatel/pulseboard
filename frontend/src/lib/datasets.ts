@@ -1,3 +1,5 @@
+import { loginUrl } from "./auth";
+
 export type Dataset = {
     id: number;
     name: string;
@@ -28,7 +30,7 @@ export type ImportResult =
 
 // Access problems send the user to the page that fixes them, like the page guards do
 function redirectFor(status: number) {
-    if (status === 401) location.replace("/login");
+    if (status === 401) location.replace(loginUrl());
     if (status === 403) location.replace("/verify-email");
     if (status === 402) location.replace("/buy");
 }
