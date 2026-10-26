@@ -13,11 +13,8 @@ function hashToken(token: string): string {
 }
 
 // Replaces any earlier link for this user, so only the newest one works.
-// Returns false (and sends nothing) if the email is already verified.
-export async function sendVerificationEmail(
-    c: Context,
-    userId: number,
-): Promise<boolean> {
+// Returns null if the email is already verified.
+async function createVerificationMail(c: Context, userId: number) {
     const token = randomBytes(32).toString("base64url");
     const user = await db.transaction(async (tx) => {
         // A no-op update locks the user row until commit, so an email change
@@ -36,26 +33,38 @@ export async function sendVerificationEmail(
         });
         return user;
     });
-    if (!user) return false;
+    if (!user) return null;
 
     const link = publicUrl(c, `/verify-email?token=${token}`);
-    await sendMail({
-        to: user.email,
-        ...verifyEmailTemplate(link, user.email),
-    });
+    return { to: user.email, ...verifyEmailTemplate(link, user.email) };
+}
+
+// Returns false (and sends nothing) if the email is already verified.
+export async function sendVerificationEmail(
+    c: Context,
+    userId: number,
+): Promise<boolean> {
+    const mail = await createVerificationMail(c, userId);
+    if (!mail) return false;
+    await sendMail(mail);
     return true;
 }
 
 // Sending can fail (SMTP down, bad address); the account change still stands
-// and the user can ask for a new link, so only log it.
+// and the user can ask for a new link, so only log it. The link is stored
+// before this returns, but the mail is sent in the background so a slow SMTP
+// server doesn't hold up the response.
 export async function trySendVerificationEmail(c: Context, userId: number) {
-    try {
-        await sendVerificationEmail(c, userId);
-    } catch (err) {
+    const logFailure = (err: unknown) =>
         console.error(
             `Couldn't send verification email to user ${userId}`,
             err,
         );
+    try {
+        const mail = await createVerificationMail(c, userId);
+        if (mail) sendMail(mail).catch(logFailure);
+    } catch (err) {
+        logFailure(err);
     }
 }
 
@@ -90,31 +99,6 @@ export async function claimUnverifiedUser(
         .where((a) => a.provider.neq(PROVES_EMAIL))
         .deleteAll();
     return user;
-}
-
-// Accounts linked to Google before verification existed: Google already
-// verified the address the link was made with, so if the account still uses
-// that address it counts as verified. Facebook links don't count: Facebook
-// sign-ups stay unverified until the emailed link is used.
-export async function verifyOAuthLinkedUsers() {
-    const users = db.orm.public.User.where((u) => u.emailVerifiedAt.isNull())
-        .where((u) => u.oauthAccounts.some())
-        .include("oauthAccounts")
-        .all();
-    let count = 0;
-    for await (const user of users) {
-        if (
-            !user.oauthAccounts.some(
-                (a) => a.provider === PROVES_EMAIL && a.email === user.email,
-            )
-        )
-            continue;
-        const updated = await db.transaction((tx) =>
-            claimUnverifiedUser(tx, user),
-        );
-        if (updated) count++;
-    }
-    if (count) console.log(`Marked ${count} Google user(s) as verified`);
 }
 
 // Returns the verified user, or null if the token is unknown, expired, or was
