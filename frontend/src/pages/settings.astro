@@ -1,6 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
+import Field from "../components/Field.astro";
 ---
 
 <HtmlTemplate title="Account settings · PulseBoard" requiresAuth>
@@ -41,27 +42,30 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
             <section aria-labelledby="profile-heading">
                 <h2 id="profile-heading">Profile</h2>
                 <p class="description">Your email address is used to log in.</p>
-                <form id="profile-form">
-                    <cds-text-input
+                <form id="profile-form" method="post" novalidate>
+                    <!-- a display name: the email is what you log in with -->
+                    <Field
+                        id="profile-username"
                         label="Username (optional)"
                         name="username"
-                        autocomplete="username"
-                    ></cds-text-input>
-                    <cds-text-input
+                        autocomplete="nickname"
+                    />
+                    <Field
+                        id="profile-email"
                         label="Email"
                         name="email"
                         type="email"
-                        autocomplete="email"
+                        autocomplete="username"
                         required
-                    ></cds-text-input>
-                    <cds-text-input
+                    />
+                    <Field
+                        id="profile-current-password"
                         label="Current password"
                         name="currentPassword"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="current-password"
-                        helper-text="Required only when changing your email address."
-                    ></cds-text-input>
+                        helper="Required only when changing your email address."
+                    />
                     <cds-inline-notification
                         kind="error"
                         title="Couldn't save profile"
@@ -74,7 +78,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                         role="status"
                         aria-live="polite"
                     ></p>
-                    <cds-button type="button">Save profile</cds-button>
+                    <button class="button" type="submit">
+                        Save profile
+                    </button>
                 </form>
             </section>
 
@@ -100,32 +106,42 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                         Email me a link to set a password
                     </cds-button>
                 </div>
-                <form id="password-form">
-                    <cds-text-input
+                <form id="password-form" method="post" novalidate>
+                    <!-- tells password managers which login to update -->
+                    <input
+                        id="password-username"
+                        name="email"
+                        type="email"
+                        autocomplete="username"
+                        data-account-email
+                        hidden
+                    />
+                    <Field
+                        id="password-current"
                         label="Current password"
                         name="currentPassword"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="current-password"
                         required
-                    ></cds-text-input>
-                    <cds-text-input
+                    />
+                    <Field
+                        id="password-new"
                         label="New password"
                         name="newPassword"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="new-password"
-                        helper-text="8–256 characters."
+                        helper="8–256 characters."
                         required
-                    ></cds-text-input>
-                    <cds-text-input
+                        strength
+                    />
+                    <Field
+                        id="password-confirm"
                         label="Confirm new password"
                         name="confirm"
                         type="password"
-                        show-password-visibility-toggle
                         autocomplete="new-password"
                         required
-                    ></cds-text-input>
+                    />
                     <cds-inline-notification
                         kind="error"
                         title="Couldn't change password"
@@ -141,7 +157,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     <p class="hint">
                         Changing your password signs you out on other devices.
                     </p>
-                    <cds-button type="button">Change password</cds-button>
+                    <button class="button" type="submit">
+                        Change password
+                    </button>
                 </form>
             </section>
             <section id="sessions" aria-labelledby="sessions-heading">
@@ -186,15 +204,15 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                     hidden
                 ></cds-inline-notification>
                 <p class="success" role="status" aria-live="polite"></p>
-                <cds-text-input
+                <Field
+                    id="connected-current-password"
                     label="Current password"
                     name="currentPassword"
                     type="password"
-                    show-password-visibility-toggle
                     autocomplete="current-password"
-                    helper-text="Required to connect or disconnect an account."
+                    helper="Required to connect or disconnect an account."
                     hidden
-                ></cds-text-input>
+                />
                 <div class="connect" hidden>
                     <div class="connect-buttons"></div>
                 </div>
@@ -230,22 +248,31 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                         permanently deleted. You will lose license access and be
                         signed out on every device. This cannot be undone.
                     </p>
-                    <form id="delete-form">
-                        <cds-text-input
+                    <form id="delete-form" method="post" novalidate>
+                        <Field
+                            id="delete-confirmation-text"
                             label='Type "delete my account" to confirm'
                             name="confirmation"
                             autocomplete="off"
-                            spellcheck="false"
+                            spellcheck={false}
                             required
-                        ></cds-text-input>
-                        <cds-text-input
+                        />
+                        <input
+                            id="delete-username"
+                            name="email"
+                            type="email"
+                            autocomplete="username"
+                            data-account-email
+                            hidden
+                        />
+                        <Field
+                            id="delete-current-password"
                             label="Current password"
                             name="currentPassword"
                             type="password"
-                            show-password-visibility-toggle
                             autocomplete="current-password"
-                            helper-text="If you only sign in with Google or Facebook, leave this empty and sign in again first."
-                        ></cds-text-input>
+                            helper="If you only sign in with Google or Facebook, leave this empty and sign in again first."
+                        />
                         <cds-inline-notification
                             kind="error"
                             title="Couldn't delete account"
@@ -256,9 +283,13 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
                             <button id="cancel-delete" type="button">
                                 Cancel
                             </button>
-                            <cds-button type="button" kind="danger" disabled>
+                            <button
+                                class="button button-danger"
+                                type="submit"
+                                disabled
+                            >
                                 Permanently delete account
-                            </cds-button>
+                            </button>
                         </div>
                     </form>
                 </dialog>
@@ -336,6 +367,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     section {
         padding: 1.5rem;
         background: var(--cds-layer-01, #f4f4f4);
+        /* inputs on the grey layer are white, as in Carbon */
+        --pulse-field: var(--cds-field-02, #fff);
     }
     .description {
         margin-bottom: 1.5rem;
@@ -345,7 +378,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         flex-direction: column;
         gap: 1rem;
     }
-    cds-button {
+    cds-button,
+    .button {
         align-self: flex-start;
     }
     cds-inline-notification {
@@ -452,7 +486,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         flex-wrap: wrap;
         gap: 0.5rem;
     }
-    #connected-accounts > cds-text-input {
+    #connected-accounts > .field {
         margin-bottom: 1rem;
     }
     #connected-accounts .success,
@@ -480,6 +514,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         overflow-y: auto;
         background: var(--cds-layer-01, #f4f4f4);
         color: var(--cds-text-primary, #161616);
+        --pulse-field: var(--cds-field-02, #fff);
     }
     dialog::backdrop {
         background: rgba(22, 22, 22, 0.6);
@@ -532,7 +567,6 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 
 <script>
     import "@carbon/web-components/es/components/button/index.js";
-    import "@carbon/web-components/es/components/text-input/index.js";
     import "@carbon/web-components/es/components/notification/index.js";
     import "@carbon/web-components/es/components/link/index.js";
     import "@carbon/web-components/es/components/tag/index.js";
@@ -546,6 +580,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     } from "../lib/auth";
     import { planSummary } from "../lib/plan";
     import { bindForm } from "../lib/form";
+    import { clearField } from "../lib/passwordField";
     import { mountSessions } from "../lib/sessions";
     import {
         linkResult,
@@ -553,7 +588,6 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         requestPasswordSetup,
     } from "../lib/connectedAccounts";
 
-    type Input = HTMLElement & { value: string };
     const profileForm = document.getElementById(
         "profile-form",
     ) as HTMLFormElement;
@@ -563,7 +597,15 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     const profileSuccess = document.getElementById("profile-success")!;
     const passwordSuccess = document.getElementById("password-success")!;
     const input = (form: HTMLFormElement, name: string) =>
-        form.querySelector<Input>(`[name="${name}"]`)!;
+        form.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+    // the hidden username fields of the password and delete forms
+    const showAccountEmail = (email: string) => {
+        document
+            .querySelectorAll<HTMLInputElement>("[data-account-email]")
+            .forEach((field) => {
+                field.value = email;
+            });
+    };
     let savedEmail = "";
     const deleteForm = document.getElementById(
         "delete-form",
@@ -581,9 +623,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     let deleting = false;
     openDelete.addEventListener("click", () => {
         deleteDialog.showModal();
-        input(deleteForm, "confirmation")
-            .shadowRoot?.querySelector("input")
-            ?.focus();
+        input(deleteForm, "confirmation").focus();
     });
     const dismissDeletion = () => {
         if (!deleting) deleteDialog.close();
@@ -594,8 +634,8 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         if (deleting) event.preventDefault();
     });
     deleteDialog.addEventListener("close", () => {
-        input(deleteForm, "confirmation").value = "";
-        input(deleteForm, "currentPassword").value = "";
+        clearField(input(deleteForm, "confirmation"));
+        clearField(input(deleteForm, "currentPassword"));
         updateDeleteButton();
         deleteForm.querySelector<HTMLElement>(
             "cds-inline-notification",
@@ -657,6 +697,7 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
     requireUser().then((user) => {
         if (!user) return;
         savedEmail = user.email;
+        showAccountEmail(user.email);
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
         document.getElementById("signed-in")!.textContent = user.email;
@@ -696,10 +737,11 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         );
         if ("error" in result) return result.error;
         savedEmail = result.user.email;
+        showAccountEmail(result.user.email);
         document.getElementById("signed-in")!.textContent = result.user.email;
         input(profileForm, "username").value = result.user.username ?? "";
         input(profileForm, "email").value = result.user.email;
-        input(profileForm, "currentPassword").value = "";
+        clearField(input(profileForm, "currentPassword"));
         // a new email signs out other devices
         sessions.load();
         profileSuccess.textContent = result.user.emailVerified
@@ -719,11 +761,9 @@ import HtmlTemplate from "../layouts/HtmlTemplate.astro";
         const result = await changePassword(field("currentPassword"), password);
         if ("error" in result) return result.error;
         passwordForm
-            .querySelectorAll<Input>("cds-text-input")
-            .forEach((field) => {
-                field.value = "";
-            });
-        input(profileForm, "currentPassword").value = "";
+            .querySelectorAll<HTMLInputElement>(".field input")
+            .forEach(clearField);
+        clearField(input(profileForm, "currentPassword"));
         passwordSuccess.textContent =
             "Password changed. Other devices have been signed out.";
         sessions.load();

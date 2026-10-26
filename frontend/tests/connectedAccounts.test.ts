@@ -97,7 +97,9 @@ describe("mountConnectedAccounts", () => {
                 <cds-inline-notification hidden></cds-inline-notification>
                 <p class="success" role="status"></p>
                 <div class="connect" hidden>
-                    <cds-text-input name="currentPassword" hidden></cds-text-input>
+                    <div class="field" hidden>
+                        <input name="currentPassword" type="password" />
+                    </div>
                     <div class="connect-buttons"></div>
                 </div>
             </section>`;
@@ -114,9 +116,9 @@ describe("mountConnectedAccounts", () => {
         ),
     ];
     const password = () =>
-        section.querySelector('[name="currentPassword"]') as HTMLElement & {
-            value: string;
-        };
+        section.querySelector<HTMLInputElement>('[name="currentPassword"]')!;
+    // the labelled wrapper is what shows and hides
+    const passwordField = () => password().closest<HTMLElement>(".field")!;
     const error = () =>
         section.querySelector("cds-inline-notification") as HTMLElement & {
             subtitle: string;
@@ -146,7 +148,7 @@ describe("mountConnectedAccounts", () => {
             false,
         );
         // social-only: no password to ask for
-        expect(password().hidden).toBe(true);
+        expect(passwordField().hidden).toBe(true);
         expect(onLoad).toHaveBeenCalledWith(
             expect.objectContaining({ hasPassword: false }),
         );
@@ -178,7 +180,7 @@ describe("mountConnectedAccounts", () => {
         const assign = vi.fn();
         vi.stubGlobal("location", { ...window.location, assign });
         await mountConnectedAccounts(section).load();
-        expect(password().hidden).toBe(false);
+        expect(passwordField().hidden).toBe(false);
 
         connectButtons()[0]!.click();
         await flush();
@@ -273,7 +275,7 @@ describe("mountConnectedAccounts", () => {
         expect(section.querySelector<HTMLElement>(".connect")!.hidden).toBe(
             true,
         );
-        expect(password().hidden).toBe(false);
+        expect(passwordField().hidden).toBe(false);
 
         const disconnect = () =>
             (items()[0]!.querySelector("cds-button") as HTMLElement).click();

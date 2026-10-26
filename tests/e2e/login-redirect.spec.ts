@@ -52,8 +52,8 @@ const subtitle = (notification: Locator) =>
     );
 
 async function logIn(page: Page, email: string) {
-    await page.locator('cds-text-input[name="email"] input').fill(email);
-    await page.locator('cds-text-input[name="password"] input').fill(password);
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: "Log in", exact: true }).click();
 }
 

@@ -12,16 +12,10 @@ test("register, verify email from Mailpit, start the free trial, then buy a plan
     let messageId: string | undefined;
     try {
         await page.goto("/register");
-        await page.locator('cds-text-input[name="email"] input').fill(email);
-        await page
-            .locator('cds-text-input[name="username"] input')
-            .fill("E2E user");
-        await page
-            .locator('cds-text-input[name="password"] input')
-            .fill(password);
-        await page
-            .locator('cds-text-input[name="confirm"] input')
-            .fill(password);
+        await page.locator('input[name="email"]').fill(email);
+        await page.locator('input[name="username"]').fill("E2E user");
+        await page.locator('input[name="password"]').fill(password);
+        await page.locator('input[name="confirm"]').fill(password);
         await page
             .getByRole("button", { name: "Create account", exact: true })
             .click();

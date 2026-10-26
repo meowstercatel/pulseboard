@@ -1,43 +1,50 @@
 ---
 import AuthLayout from "../layouts/AuthLayout.astro";
 import OAuthButtons from "../components/OAuthButtons.astro";
+import Field from "../components/Field.astro";
 ---
 
 <AuthLayout title="Create account">
-    <form id="register-form">
-        <cds-text-input
+    <form id="register-form" method="post" novalidate>
+        <Field
+            id="register-email"
             label="Email"
             name="email"
             type="email"
-            autocomplete="email"
-        ></cds-text-input>
-        <cds-text-input
+            autocomplete="username"
+        />
+        <!-- a display name: you log in with the email, so it isn't "username" -->
+        <Field
+            id="register-username"
             label="Username (optional)"
             name="username"
-            autocomplete="username"
-        ></cds-text-input>
-        <cds-text-input
+            autocomplete="nickname"
+        />
+        <Field
+            id="register-password"
             label="Password"
             name="password"
             type="password"
-            show-password-visibility-toggle
             autocomplete="new-password"
-            helper-text="At least 8 characters"
-        ></cds-text-input>
-        <cds-text-input
+            helper="At least 8 characters"
+            strength
+        />
+        <Field
+            id="register-confirm"
             label="Repeat password"
             name="confirm"
             type="password"
-            show-password-visibility-toggle
             autocomplete="new-password"
-        ></cds-text-input>
+        />
         <cds-inline-notification
             kind="error"
             title="Couldn't register"
             hide-close-button
             hidden
         ></cds-inline-notification>
-        <cds-button>Create account</cds-button>
+        <button class="button" type="submit">
+            Create account
+        </button>
     </form>
     <div id="sent" hidden>
         <p>

@@ -59,8 +59,8 @@ test("unverified login stays restricted; replaced and used links recover clearly
             headers: { origin: baseURL! },
         });
         await page.goto("/login");
-        await page.locator('cds-text-input[name="email"] input').fill(email);
-        const field = page.locator('cds-text-input[name="password"]');
+        await page.locator('input[name="email"]').fill(email);
+        const field = page.locator('.field:has(input[name="password"])');
         await field.locator("input").fill(password);
         await field
             .getByRole("button", { name: "Show password", exact: true })
@@ -162,8 +162,8 @@ test("registration password visibility is independent and preserves values", asy
     page,
 }) => {
     await page.goto("/register");
-    const first = page.locator('cds-text-input[name="password"]');
-    const repeat = page.locator('cds-text-input[name="confirm"]');
+    const first = page.locator('.field:has(input[name="password"])');
+    const repeat = page.locator('.field:has(input[name="confirm"])');
     await first.locator("input").fill(password);
     await repeat.locator("input").fill(password);
     await first

@@ -1,23 +1,25 @@
 ---
 import AuthLayout from "../layouts/AuthLayout.astro";
 import OAuthButtons from "../components/OAuthButtons.astro";
+import Field from "../components/Field.astro";
 ---
 
 <AuthLayout title="Log in">
-    <form id="login-form">
-        <cds-text-input
+    <form id="login-form" method="post" novalidate>
+        <Field
+            id="login-email"
             label="Email"
             name="email"
             type="email"
-            autocomplete="email"
-        ></cds-text-input>
-        <cds-text-input
+            autocomplete="username"
+        />
+        <Field
+            id="login-password"
             label="Password"
             name="password"
             type="password"
-            show-password-visibility-toggle
             autocomplete="current-password"
-        ></cds-text-input>
+        />
         <p class="forgot">
             <cds-link href="/forgot-password">Forgot password?</cds-link>
         </p>
@@ -27,7 +29,9 @@ import OAuthButtons from "../components/OAuthButtons.astro";
             hide-close-button
             hidden
         ></cds-inline-notification>
-        <cds-button>Log in</cds-button>
+        <button class="button" type="submit">
+            Log in
+        </button>
     </form>
     <OAuthButtons />
     <p>

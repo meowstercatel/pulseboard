@@ -49,10 +49,8 @@ test.afterAll(async () => {
 
 async function logIn(page: Page) {
     await page.goto("/login");
-    await page
-        .locator('cds-text-input[name="email"] input')
-        .fill(account.email);
-    await page.locator('cds-text-input[name="password"] input').fill(password);
+    await page.locator('input[name="email"]').fill(account.email);
+    await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: "Log in", exact: true }).click();
     await expect(page).toHaveURL("/overview");
 }

@@ -159,13 +159,16 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
     );
     const setup = await findMail(request, "Set a password for PulseBoard");
     const link = setup.Text.match(
-        /http:\/\/127\.0\.0\.1:\d+\/reset-password\?purpose=set&token=[\w-]+/,
+        /http:\/\/127\.0\.0\.1:\d+\/reset-password\?purpose=set&token=[\w-]+#email=\S+/,
     )?.[0];
     expect(link).toBeTruthy();
     await page.goto(link!);
     await expect(page).toHaveURL("/reset-password");
-    await page.locator('cds-text-input[name="password"] input').fill(password);
-    await page.locator('cds-text-input[name="confirm"] input').fill(password);
+    await expect(
+        page.locator('#reset-form input[autocomplete="username"]'),
+    ).toHaveValue(account.email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('input[name="confirm"]').fill(password);
     await page
         .getByRole("button", { name: "Set password", exact: true })
         .click();
@@ -182,9 +185,7 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
     await expect(
         connected.getByText("Enter your current password to disconnect Google"),
     ).toBeVisible();
-    const currentPassword = connected.locator(
-        'cds-text-input[name="currentPassword"] input',
-    );
+    const currentPassword = connected.locator('input[name="currentPassword"]');
     await currentPassword.fill(password);
     await disconnect.click();
     await expect(connected.locator(".success")).toHaveText(

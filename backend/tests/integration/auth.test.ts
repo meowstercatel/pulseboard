@@ -751,6 +751,10 @@ describe("password reset", () => {
                 to: email,
                 subject: "Reset your PulseBoard password",
                 html: expect.stringContaining("/reset-password?token="),
+                // the address only after the #, for password managers
+                text: expect.stringContaining(
+                    `#email=${encodeURIComponent(email)}`,
+                ),
             }),
         );
     });
