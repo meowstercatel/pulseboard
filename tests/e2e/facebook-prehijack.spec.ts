@@ -122,6 +122,7 @@ test("the address owner's verification link removes someone else's Facebook logi
 
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page).toHaveURL("/settings");
+    await page.getByRole("link", { name: "Connected accounts" }).click();
     await expect(
         page.locator("#connected-accounts").getByRole("listitem"),
     ).toHaveCount(0);

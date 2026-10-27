@@ -132,7 +132,7 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
     await page.getByRole("button", { name: "Continue with Google" }).click();
     await expect(page).toHaveURL("/overview");
 
-    await page.goto("/settings");
+    await page.goto("/settings#connected-accounts");
     const connected = page.locator("#connected-accounts");
     const google = connected.getByRole("listitem");
     await expect(google).toHaveCount(1);
@@ -143,6 +143,7 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
         name: /^Disconnect Google/,
     });
     await expect(disconnect).toBeDisabled();
+    await page.getByRole("link", { name: "Password", exact: true }).click();
     await expect(page.locator("#password-form")).toBeHidden();
 
     // Set a password through the emailed reset link
@@ -171,9 +172,10 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
     await findMail(request, "A password was set for your PulseBoard account");
 
     // Now Google can go, and the change password form is offered
-    await page.goto("/settings");
+    await page.goto("/settings#password");
     await expect(page.locator("#password-form")).toBeVisible();
     await expect(page.locator("#set-password")).toBeHidden();
+    await page.getByRole("link", { name: "Connected accounts" }).click();
     await expect(disconnect).toBeEnabled();
     // disconnecting asks for the new password
     await disconnect.click();
@@ -194,7 +196,7 @@ test("a Google-only account sets a password, then disconnects and reconnects Goo
 
     // Connecting it again (the password is still filled in)
     await connected.getByRole("button", { name: "Connect Google" }).click();
-    await expect(page).toHaveURL("/settings");
+    await expect(page).toHaveURL("/settings#connected-accounts");
     await expect(connected.locator(".success")).toHaveText(
         "Google account connected.",
     );
