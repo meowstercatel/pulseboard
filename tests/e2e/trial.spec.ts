@@ -64,7 +64,7 @@ test("a trial user sees the days left in the header and settings", async ({
             "Free trial, 3 days left (ends ",
         );
         await expect(page.locator("#plan-link")).toHaveText("Choose a plan");
-        await expect(page.locator("#back-link")).toHaveAttribute(
+        await expect(page.locator("#brand")).toHaveAttribute(
             "href",
             "/overview",
         );
@@ -112,10 +112,7 @@ test("an ended trial sends the user to the plans with a clear notice", async ({
         await expect(page.locator("#plan-status")).toHaveText(
             "Your free trial has ended.",
         );
-        await expect(page.locator("#back-link")).toHaveAttribute(
-            "href",
-            "/buy",
-        );
+        await expect(page.locator("#brand")).toHaveAttribute("href", "/buy");
     } finally {
         await account.cleanup();
     }

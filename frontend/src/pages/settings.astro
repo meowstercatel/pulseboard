@@ -2,368 +2,442 @@
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
 import Field from "../components/Field.astro";
+import AppHeader from "../components/AppHeader.astro";
 import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
 ---
 
 <HtmlTemplate title="Account settings · PulseBoard" requiresAuth>
     <main>
-        <header>
-            <a class="brand" id="brand" href="/overview">
-                PulseBoard
-            </a>
-            <div class="account">
-                <span class="signed-in" id="signed-in"></span>
-                <cds-button id="logout" kind="ghost" size="sm">
-                    Log out
-                </cds-button>
+        <AppHeader />
+        <div class="content">
+            <div class="page-header">
+                <div>
+                    <h1>Account settings</h1>
+                    <p class="meta">Manage your profile and sign-in details.</p>
+                    <p class="meta" id="signed-in"></p>
+                </div>
             </div>
-        </header>
-        <cds-link class="back" id="back-link" href="/overview">
-            ← Back to dashboard
-        </cds-link>
+            <p id="loading" role="status">
+                Loading your account…
+            </p>
+            <noscript>Enable JavaScript to manage your account.</noscript>
 
-        <div class="intro">
-            <h1>Account settings</h1>
-            <p>Manage your profile and sign-in details.</p>
-        </div>
-        <p id="loading" role="status">
-            Loading your account…
-        </p>
-        <noscript>Enable JavaScript to manage your account.</noscript>
-
-        <div id="settings" hidden>
-            <section aria-labelledby="plan-heading">
-                <h2 id="plan-heading">Plan</h2>
-                <p class="description" id="plan-status"></p>
-                <cds-link href="/buy" id="plan-link">
-                    Choose a plan
-                </cds-link>
-            </section>
-
-            <section aria-labelledby="profile-heading">
-                <h2 id="profile-heading">Profile</h2>
-                <p class="description">Your email address is used to log in.</p>
-                <form id="profile-form" method="post" novalidate>
-                    <!-- a display name: the email is what you log in with -->
-                    <Field
-                        id="profile-username"
-                        label="Username (optional)"
-                        name="username"
-                        autocomplete="nickname"
-                    />
-                    <Field
-                        id="profile-email"
-                        label="Email"
-                        name="email"
-                        type="email"
-                        autocomplete="username"
-                        required
-                    />
-                    <Field
-                        id="profile-current-password"
-                        label="Current password"
-                        name="currentPassword"
-                        type="password"
-                        autocomplete="current-password"
-                        helper="Required only when changing your email address."
-                    />
-                    <cds-inline-notification
-                        kind="error"
-                        title="Couldn't save profile"
-                        hide-close-button
-                        hidden
-                    ></cds-inline-notification>
-                    <p
-                        class="success"
-                        id="profile-success"
-                        role="status"
-                        aria-live="polite"
-                    ></p>
-                    <button class="button" type="submit" disabled>
-                        Save profile
-                    </button>
-                </form>
-            </section>
-
-            <section aria-labelledby="password-heading">
-                <h2 id="password-heading">Password</h2>
-                <p class="description" id="password-description">
-                    Choose a new password to keep your account secure.
-                </p>
-                <div id="set-password" hidden>
-                    <p class="description">
-                        You log in with Google or Facebook. Add a password to
-                        also log in with your email address, and to be able to
-                        change it. We'll email you a link to choose one.
-                    </p>
-                    <cds-inline-notification
-                        kind="error"
-                        title="Couldn't send the link"
-                        hide-close-button
-                        hidden
-                    ></cds-inline-notification>
-                    <p class="success" role="status" aria-live="polite"></p>
-                    <cds-button id="send-setup" type="button">
-                        Email me a link to set a password
-                    </cds-button>
-                </div>
-                <form id="password-form" method="post" novalidate>
-                    <!-- tells password managers which login to update -->
-                    <input
-                        id="password-username"
-                        name="email"
-                        type="email"
-                        autocomplete="username"
-                        data-account-email
-                        hidden
-                    />
-                    <Field
-                        id="password-current"
-                        label="Current password"
-                        name="currentPassword"
-                        type="password"
-                        autocomplete="current-password"
-                        required
-                    />
-                    <Field
-                        id="password-new"
-                        label="New password"
-                        name="newPassword"
-                        type="password"
-                        autocomplete="new-password"
-                        helper={`${MIN_PASSWORD}–${MAX_PASSWORD} characters.`}
-                        required
-                        strength
-                    />
-                    <Field
-                        id="password-confirm"
-                        label="Confirm new password"
-                        name="confirm"
-                        type="password"
-                        autocomplete="new-password"
-                        required
-                    />
-                    <cds-inline-notification
-                        kind="error"
-                        title="Couldn't change password"
-                        hide-close-button
-                        hidden
-                    ></cds-inline-notification>
-                    <p
-                        class="success"
-                        id="password-success"
-                        role="status"
-                        aria-live="polite"
-                    ></p>
-                    <p class="hint">
-                        Changing your password signs you out on other devices.
-                    </p>
-                    <button class="button" type="submit" disabled>
-                        Change password
-                    </button>
-                </form>
-            </section>
-            <section id="sessions" aria-labelledby="sessions-heading">
-                <h2 id="sessions-heading">Where you're signed in</h2>
-                <p class="description">
-                    Sign out any device you don't recognize, then change your
-                    password.
-                </p>
-                <ul class="sessions" aria-label="Signed-in devices"></ul>
-                <cds-inline-notification
-                    kind="error"
-                    title="Couldn't update sessions"
-                    hide-close-button
-                    hidden
-                ></cds-inline-notification>
-                <p class="success" role="status" aria-live="polite"></p>
-                <cds-button
-                    id="revoke-others"
-                    type="button"
-                    kind="tertiary"
-                    disabled
-                >
-                    Log out everywhere else
-                </cds-button>
-            </section>
-
-            <section
-                id="connected-accounts"
-                aria-labelledby="connected-heading"
-            >
-                <h2 id="connected-heading">Connected accounts</h2>
-                <p class="description">
-                    Google and Facebook accounts you can log in with. Connecting
-                    or disconnecting one emails you, and disconnecting signs out
-                    your other devices.
-                </p>
-                <ul class="accounts" aria-label="Connected accounts"></ul>
-                <cds-inline-notification
-                    kind="error"
-                    title="Couldn't update connected accounts"
-                    hide-close-button
-                    hidden
-                ></cds-inline-notification>
-                <p class="success" role="status" aria-live="polite"></p>
-                <Field
-                    id="connected-current-password"
-                    label="Current password"
-                    name="currentPassword"
-                    type="password"
-                    autocomplete="current-password"
-                    helper="Required to connect or disconnect an account."
-                    hidden
-                />
-                <div class="connect" hidden>
-                    <div class="connect-buttons"></div>
-                </div>
-            </section>
-
-            <section class="danger" aria-labelledby="delete-heading">
-                <h2 id="delete-heading">Delete account</h2>
-                <p class="description">
-                    Permanently delete your account, saved datasets, and
-                    metrics. You will lose license access and be signed out on
-                    every device. This cannot be undone.
-                </p>
-                <cds-button id="open-delete" type="button" kind="danger">
-                    Delete my account
-                </cds-button>
-                <dialog
-                    id="delete-confirmation"
-                    aria-labelledby="delete-modal-heading"
-                    aria-describedby="delete-modal-description"
-                >
-                    <header class="modal-header">
-                        <h2 id="delete-modal-heading">Delete your account?</h2>
-                        <button
-                            id="close-delete"
-                            type="button"
-                            aria-label="Close account deletion dialog"
-                        >
-                            ×
-                        </button>
-                    </header>
-                    <p id="delete-modal-description" class="description">
-                        Your account, saved datasets, and metrics will be
-                        permanently deleted. You will lose license access and be
-                        signed out on every device. This cannot be undone.
-                    </p>
-                    <form id="delete-form" method="post" novalidate>
-                        <Field
-                            id="delete-confirmation-text"
-                            label='Type "delete my account" to confirm'
-                            name="confirmation"
-                            autocomplete="off"
-                            spellcheck={false}
-                            required
-                        />
-                        <input
-                            id="delete-username"
-                            name="email"
-                            type="email"
-                            autocomplete="username"
-                            data-account-email
+            <div id="settings" hidden>
+                <nav class="settings-nav" aria-label="Settings sections">
+                    <ul>
+                        <li>
+                            <a href="#profile" data-panel-link>
+                                Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#password" data-panel-link>
+                                Password
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#connected-accounts" data-panel-link>
+                                Connected accounts
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#sessions" data-panel-link>
+                                Devices
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#plan" data-panel-link>
+                                Plan
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#delete-account" data-panel-link>
+                                Delete account
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <div class="panels">
+                    <section
+                        class="panel"
+                        data-panel
+                        id="profile"
+                        aria-labelledby="profile-heading"
+                    >
+                        <h2 id="profile-heading">Profile</h2>
+                        <p class="description">
+                            Your email address is used to log in.
+                        </p>
+                        <form id="profile-form" method="post" novalidate>
+                            <!-- a display name: the email is what you log in with -->
+                            <Field
+                                id="profile-username"
+                                label="Username (optional)"
+                                name="username"
+                                autocomplete="nickname"
+                            />
+                            <Field
+                                id="profile-email"
+                                label="Email"
+                                name="email"
+                                type="email"
+                                autocomplete="username"
+                                required
+                            />
+                            <Field
+                                id="profile-current-password"
+                                label="Current password"
+                                name="currentPassword"
+                                type="password"
+                                autocomplete="current-password"
+                                helper="Needed to change your email address."
+                                hidden
+                            />
+                            <cds-inline-notification
+                                kind="error"
+                                title="Couldn't save profile"
+                                hide-close-button
+                                hidden
+                            ></cds-inline-notification>
+                            <p
+                                class="success"
+                                id="profile-success"
+                                role="status"
+                                aria-live="polite"
+                            ></p>
+                            <button class="button" type="submit" disabled>
+                                Save profile
+                            </button>
+                        </form>
+                    </section>
+                    <section
+                        class="panel"
+                        data-panel
+                        id="password"
+                        aria-labelledby="password-heading"
+                    >
+                        <h2 id="password-heading">Password</h2>
+                        <p class="description" id="password-description">
+                            Changing your password signs you out on other
+                            devices.
+                        </p>
+                        <div id="set-password" hidden>
+                            <p class="description">
+                                You log in with Google or Facebook. To also log
+                                in with your email, we'll email you a link to
+                                set a password.
+                            </p>
+                            <cds-inline-notification
+                                kind="error"
+                                title="Couldn't send the link"
+                                hide-close-button
+                                hidden
+                            ></cds-inline-notification>
+                            <p
+                                class="success"
+                                role="status"
+                                aria-live="polite"
+                            ></p>
+                            <cds-button id="send-setup" type="button">
+                                Email me a link to set a password
+                            </cds-button>
+                        </div>
+                        <form id="password-form" method="post" novalidate>
+                            <!-- tells password managers which login to update -->
+                            <input
+                                id="password-username"
+                                name="email"
+                                type="email"
+                                autocomplete="username"
+                                data-account-email
+                                hidden
+                            />
+                            <Field
+                                id="password-current"
+                                label="Current password"
+                                name="currentPassword"
+                                type="password"
+                                autocomplete="current-password"
+                                required
+                            />
+                            <Field
+                                id="password-new"
+                                label="New password"
+                                name="newPassword"
+                                type="password"
+                                autocomplete="new-password"
+                                helper={`${MIN_PASSWORD}–${MAX_PASSWORD} characters.`}
+                                required
+                                strength
+                            />
+                            <Field
+                                id="password-confirm"
+                                label="Confirm new password"
+                                name="confirm"
+                                type="password"
+                                autocomplete="new-password"
+                                required
+                            />
+                            <cds-inline-notification
+                                kind="error"
+                                title="Couldn't change password"
+                                hide-close-button
+                                hidden
+                            ></cds-inline-notification>
+                            <p
+                                class="success"
+                                id="password-success"
+                                role="status"
+                                aria-live="polite"
+                            ></p>
+                            <button class="button" type="submit" disabled>
+                                Change password
+                            </button>
+                        </form>
+                    </section>
+                    <section
+                        class="panel"
+                        data-panel
+                        id="connected-accounts"
+                        aria-labelledby="connected-heading"
+                    >
+                        <h2 id="connected-heading">Connected accounts</h2>
+                        <p class="description">
+                            Google and Facebook accounts you can log in with.
+                        </p>
+                        <ul
+                            class="accounts"
+                            aria-label="Connected accounts"
+                        ></ul>
+                        <cds-inline-notification
+                            kind="error"
+                            title="Couldn't update connected accounts"
+                            hide-close-button
                             hidden
-                        />
+                        ></cds-inline-notification>
+                        <p class="success" role="status" aria-live="polite"></p>
                         <Field
-                            id="delete-current-password"
+                            id="connected-current-password"
                             label="Current password"
                             name="currentPassword"
                             type="password"
                             autocomplete="current-password"
-                            helper="If you only sign in with Google or Facebook, leave this empty and sign in again first."
+                            helper="Required to connect or disconnect an account."
+                            hidden
                         />
+                        <div class="connect" hidden>
+                            <div class="connect-buttons"></div>
+                        </div>
+                    </section>
+                    <section
+                        class="panel"
+                        data-panel
+                        id="sessions"
+                        aria-labelledby="sessions-heading"
+                    >
+                        <h2 id="sessions-heading">Devices</h2>
+                        <p class="description">
+                            Sign out any device you don't recognize, then change
+                            your password.
+                        </p>
+                        <ul
+                            class="sessions"
+                            aria-label="Signed-in devices"
+                        ></ul>
                         <cds-inline-notification
                             kind="error"
-                            title="Couldn't delete account"
+                            title="Couldn't update sessions"
                             hide-close-button
                             hidden
                         ></cds-inline-notification>
-                        <div class="modal-actions">
-                            <button id="cancel-delete" type="button">
-                                Cancel
-                            </button>
-                            <button
-                                class="button button-danger"
-                                type="submit"
-                                disabled
+                        <p class="success" role="status" aria-live="polite"></p>
+                        <cds-button
+                            id="revoke-others"
+                            type="button"
+                            kind="tertiary"
+                            disabled
+                        >
+                            Log out everywhere else
+                        </cds-button>
+                    </section>
+                    <section
+                        class="panel"
+                        data-panel
+                        id="plan"
+                        aria-labelledby="plan-heading"
+                    >
+                        <h2 id="plan-heading">Plan</h2>
+                        <p class="description" id="plan-status"></p>
+                        <cds-link href="/buy" id="plan-link">
+                            Choose a plan
+                        </cds-link>
+                    </section>
+                    <section
+                        class="panel danger"
+                        data-panel
+                        id="delete-account"
+                        aria-labelledby="delete-heading"
+                    >
+                        <h2 id="delete-heading">Delete account</h2>
+                        <p class="description">
+                            Permanently deletes your account, datasets and
+                            metrics, and signs you out everywhere. This can't be
+                            undone.
+                        </p>
+                        <cds-button
+                            id="open-delete"
+                            type="button"
+                            kind="danger"
+                        >
+                            Delete my account
+                        </cds-button>
+                        <dialog
+                            id="delete-confirmation"
+                            aria-labelledby="delete-modal-heading"
+                            aria-describedby="delete-modal-description"
+                        >
+                            <header class="modal-header">
+                                <h2 id="delete-modal-heading">
+                                    Delete your account?
+                                </h2>
+                                <button
+                                    id="close-delete"
+                                    type="button"
+                                    aria-label="Close account deletion dialog"
+                                >
+                                    ×
+                                </button>
+                            </header>
+                            <p
+                                id="delete-modal-description"
+                                class="description"
                             >
-                                Permanently delete account
-                            </button>
-                        </div>
-                    </form>
-                </dialog>
-            </section>
+                                Your account, saved datasets, and metrics will
+                                be permanently deleted. You will lose license
+                                access and be signed out on every device. This
+                                cannot be undone.
+                            </p>
+                            <form id="delete-form" method="post" novalidate>
+                                <Field
+                                    id="delete-confirmation-text"
+                                    label='Type "delete my account" to confirm'
+                                    name="confirmation"
+                                    autocomplete="off"
+                                    spellcheck={false}
+                                    required
+                                />
+                                <input
+                                    id="delete-username"
+                                    name="email"
+                                    type="email"
+                                    autocomplete="username"
+                                    data-account-email
+                                    hidden
+                                />
+                                <Field
+                                    id="delete-current-password"
+                                    label="Current password"
+                                    name="currentPassword"
+                                    type="password"
+                                    autocomplete="current-password"
+                                    helper="If you only sign in with Google or Facebook, leave this empty and sign in again first."
+                                />
+                                <cds-inline-notification
+                                    kind="error"
+                                    title="Couldn't delete account"
+                                    hide-close-button
+                                    hidden
+                                ></cds-inline-notification>
+                                <div class="modal-actions">
+                                    <button id="cancel-delete" type="button">
+                                        Cancel
+                                    </button>
+                                    <button
+                                        class="button button-danger"
+                                        type="submit"
+                                        disabled
+                                    >
+                                        Permanently delete account
+                                    </button>
+                                </div>
+                            </form>
+                        </dialog>
+                    </section>
+                </div>
+            </div>
         </div>
     </main>
 </HtmlTemplate>
 
 <style>
     main {
-        box-sizing: border-box;
         width: 100%;
-        max-width: 640px;
-        margin: 0 auto;
-        padding: 1.5rem 1rem 3rem;
     }
-    header,
-    .account {
+    .content {
         display: flex;
-        align-items: center;
+        flex-direction: column;
         gap: 1rem;
-        flex-wrap: wrap;
+        padding: 5rem 2rem 2rem;
     }
-    header {
+    .page-header {
+        display: flex;
         justify-content: space-between;
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
-    }
-    .brand {
-        color: var(--cds-text-primary, #161616);
-        font-size: 1.25rem;
-        font-weight: 600;
-        text-decoration: none;
-    }
-    .signed-in {
-        color: var(--cds-text-secondary, #525252);
-        font-size: 0.875rem;
-        overflow-wrap: anywhere;
-    }
-    .signed-in:empty {
-        display: none;
-    }
-    .back {
-        display: inline-block;
-        margin-top: 1.5rem;
-        font-size: 0.875rem;
-    }
-    a:focus-visible {
-        outline: 2px solid var(--cds-focus, #0f62fe);
-        outline-offset: 4px;
-    }
-    .intro {
-        margin: 1rem 0 2rem;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 0.75rem;
     }
     h1 {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
+        margin: 0;
     }
     h2 {
         font-size: 1.25rem;
         margin-bottom: 0.5rem;
     }
-    .intro p,
-    .description,
-    .hint {
+    #signed-in {
+        overflow-wrap: anywhere;
+    }
+    #signed-in:empty {
+        display: none;
+    }
+    .meta,
+    .description {
         color: var(--cds-text-secondary, #525252);
         font-size: 0.875rem;
         line-height: 1.5;
     }
+    /* one panel at a time, picked from the list on the left */
     #settings {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
+        display: grid;
+        grid-template-columns: 14rem minmax(0, 40rem);
+        align-items: start;
+        gap: 2rem;
+    }
+    .settings-nav ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    .settings-nav a {
+        display: block;
+        padding: 0.75rem 1rem;
+        border-left: 3px solid transparent;
+        color: var(--cds-text-secondary, #525252);
+        font-size: 0.875rem;
+        text-decoration: none;
+    }
+    .settings-nav a:hover {
+        background: var(--cds-layer-hover-01, #e8e8e8);
+        color: var(--cds-text-primary, #161616);
+    }
+    .settings-nav a[aria-current="true"] {
+        border-left-color: var(--cds-border-interactive, #0f62fe);
+        background: var(--cds-layer-selected-01, #e0e0e0);
+        color: var(--cds-text-primary, #161616);
+        font-weight: 600;
+    }
+    .settings-nav a:focus-visible {
+        outline: 2px solid var(--cds-focus, #0f62fe);
+        outline-offset: -2px;
     }
     section {
         padding: 1.5rem;
@@ -487,7 +561,7 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         flex-wrap: wrap;
         gap: 0.5rem;
     }
-    #connected-accounts > .field {
+    #connected-accounts > :global(.field) {
         margin-bottom: 1rem;
     }
     #connected-accounts .success,
@@ -521,11 +595,11 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         background: rgba(22, 22, 22, 0.6);
     }
     .modal-header {
+        display: flex;
         align-items: flex-start;
-        flex-wrap: nowrap;
-        padding: 0;
+        justify-content: space-between;
+        gap: 1rem;
         margin-bottom: 1rem;
-        border: 0;
     }
     .modal-actions {
         display: flex;
@@ -559,6 +633,35 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         outline: 2px solid var(--cds-focus, #0f62fe);
         outline-offset: 2px;
     }
+    /* the list becomes a row of tabs above the panel */
+    @media (max-width: 42rem) {
+        #settings {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1rem;
+        }
+        .settings-nav {
+            overflow-x: auto;
+            border-bottom: 1px solid var(--cds-border-subtle, #e0e0e0);
+        }
+        .settings-nav ul {
+            display: flex;
+        }
+        .settings-nav a {
+            padding: 0.75rem 1rem;
+            border-left: 0;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+        .settings-nav a[aria-current="true"] {
+            border-bottom-color: var(--cds-border-interactive, #0f62fe);
+            background: none;
+        }
+    }
+    @media (max-width: 600px) {
+        .content {
+            padding: 4.5rem 1rem 2rem;
+        }
+    }
     @media (max-width: 400px) {
         section {
             padding: 1rem;
@@ -575,11 +678,10 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         changePassword,
         deleteAccount,
         hasAccess,
-        logout,
         requireUser,
         updateProfile,
     } from "../lib/auth";
-    import { planSummary } from "../lib/plan";
+    import { planSummary, showTrialBadge } from "../lib/plan";
     import { bindForm } from "../lib/form";
     import { clearField } from "../lib/passwordField";
     import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
@@ -609,6 +711,65 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
             });
     };
     let savedEmail = "";
+    const showSignedIn = (email: string) => {
+        document.getElementById("signed-in")!.textContent =
+            `Signed in as ${email}`;
+    };
+    // the current password is only asked for once the email is changed
+    const emailPassword = input(profileForm, "currentPassword");
+    const showEmailPassword = () => {
+        const changed =
+            input(profileForm, "email").value.trim().toLowerCase() !==
+            savedEmail;
+        if (!changed && emailPassword.value) clearField(emailPassword);
+        emailPassword.closest<HTMLElement>(".field")!.hidden = !changed;
+    };
+
+    // One section at a time. The URL hash names it, so links to a section
+    // and the back button work.
+    const panels = [...document.querySelectorAll<HTMLElement>("[data-panel]")];
+    const panelLinks = [
+        ...document.querySelectorAll<HTMLAnchorElement>("[data-panel-link]"),
+    ];
+    let defaultPanel = "profile";
+    const showPanel = () => {
+        if (deleteDialog.open) {
+            // a deletion in progress keeps its dialog and panel
+            if (deleting) {
+                history.replaceState(null, "", "#delete-account");
+                return;
+            }
+            deleteDialog.close();
+        }
+        const id = location.hash.slice(1) || defaultPanel;
+        const current =
+            panels.find((panel) => panel.id === id) ??
+            panels.find((panel) => panel.id === defaultPanel)!;
+        for (const panel of panels) panel.hidden = panel !== current;
+        for (const link of panelLinks) {
+            if (link.hash === `#${current.id}`)
+                link.setAttribute("aria-current", "true");
+            else link.removeAttribute("aria-current");
+        }
+    };
+    for (const link of panelLinks) {
+        link.addEventListener("click", (event) => {
+            if (
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+            )
+                return;
+            event.preventDefault();
+            // without the jump to the anchor
+            if (location.hash !== link.hash)
+                history.pushState(null, "", link.hash);
+            showPanel();
+        });
+    }
+    window.addEventListener("hashchange", showPanel);
     const deleteForm = document.getElementById(
         "delete-form",
     ) as HTMLFormElement;
@@ -663,7 +824,7 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
     const linked = linkResult(new URLSearchParams(location.search));
     if (linked) {
         connected.showResult(linked);
-        history.replaceState(null, "", "/settings");
+        history.replaceState(null, "", "/settings#connected-accounts");
     }
 
     const sendSetup = setPassword.querySelector<
@@ -688,9 +849,9 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         }
     });
 
-    document.getElementById("logout")!.addEventListener("click", logout);
     profileForm.addEventListener("input", () => {
         profileSuccess.textContent = "";
+        showEmailPassword();
     });
     passwordForm.addEventListener("input", () => {
         passwordSuccess.textContent = "";
@@ -702,17 +863,23 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         showAccountEmail(user.email);
         input(profileForm, "username").value = user.username ?? "";
         input(profileForm, "email").value = user.email;
-        document.getElementById("signed-in")!.textContent = user.email;
+        showSignedIn(user.email);
         const plan = planSummary(user);
         document.getElementById("plan-status")!.textContent = plan.text;
         document.getElementById("plan-link")!.textContent = plan.action;
-        // without a license or trial the dashboard would only send them on to /buy
+        showTrialBadge(user);
+        // without a license or trial the dashboard would only send them on to
+        // /buy, and the plan is what they came for
         if (!hasAccess(user)) {
-            const back = document.getElementById("back-link")!;
-            back.setAttribute("href", "/buy");
-            back.textContent = "← Back to plans";
+            defaultPanel = "plan";
             document.getElementById("brand")!.setAttribute("href", "/buy");
+            document
+                .querySelectorAll<HTMLElement>("[data-dashboard-link]")
+                .forEach((link) => {
+                    link.hidden = true;
+                });
         }
+        showPanel();
         document.getElementById("loading")!.hidden = true;
         document.getElementById("settings")!.hidden = false;
         sessions.load();
@@ -740,10 +907,10 @@ import { MAX_PASSWORD, MIN_PASSWORD } from "../lib/passwordStrength";
         if ("error" in result) return result.error;
         savedEmail = result.user.email;
         showAccountEmail(result.user.email);
-        document.getElementById("signed-in")!.textContent = result.user.email;
+        showSignedIn(result.user.email);
         input(profileForm, "username").value = result.user.username ?? "";
         input(profileForm, "email").value = result.user.email;
-        clearField(input(profileForm, "currentPassword"));
+        showEmailPassword();
         // a new email signs out other devices
         sessions.load();
         profileSuccess.textContent = result.user.emailVerified
