@@ -73,7 +73,7 @@ test("lists devices and signs them out one by one or all at once", async ({
 }) => {
     const laptop = await otherDevice(browser);
     await logIn(page);
-    await page.goto("/settings");
+    await page.goto("/settings#sessions");
 
     const section = page.locator("#sessions");
     const devices = section.getByRole("listitem");
@@ -113,7 +113,7 @@ test("lists devices and signs them out one by one or all at once", async ({
 
     // this device is still signed in
     await page.reload();
-    await expect(page).toHaveURL("/settings");
+    await expect(page).toHaveURL("/settings#sessions");
     await expect(devices).toHaveCount(1);
 
     for (const device of [laptop, first, second]) await device.context.close();

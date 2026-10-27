@@ -1,0 +1,98 @@
+---
+// The signed-in app's top bar. Below 1056px Carbon hides the header nav, so
+// the same links are repeated in a side nav that the menu button opens.
+import TrialBadge from "./TrialBadge.astro";
+
+// data-dataset-link: keeps the selected ?dataset= (lib/dashboardControls)
+// data-dashboard-link: pages that need a license or trial
+const pages = [
+    { href: "/overview", label: "Overview", dataset: true },
+    { href: "/history", label: "History", dataset: true },
+    { href: "/forecast", label: "Forecast", dataset: true },
+    { href: "/datasets", label: "Datasets", dataset: false },
+];
+const dataset = (on: boolean) => (on ? "" : undefined);
+---
+
+<cds-header aria-label="PulseBoard">
+    <cds-header-menu-button
+        button-label-active="Close menu"
+        button-label-inactive="Open menu"
+    ></cds-header-menu-button>
+    <cds-header-name id="brand" href="/overview">
+        PulseBoard
+    </cds-header-name>
+    <cds-header-nav menu-bar-label="PulseBoard">
+        {pages.map((page) => (
+            <cds-header-nav-item
+                href={page.href}
+                data-dataset-link={dataset(page.dataset)}
+                data-dashboard-link
+            >
+                {page.label}
+            </cds-header-nav-item>
+        ))}
+        <cds-header-menu menu-label="Account" trigger-content="Account">
+            <cds-header-menu-item href="/settings">
+                Settings
+            </cds-header-menu-item>
+            <cds-header-menu-item href="/buy">License</cds-header-menu-item>
+            <cds-header-menu-item href="javascript:void 0" data-logout>
+                Log out
+            </cds-header-menu-item>
+        </cds-header-menu>
+    </cds-header-nav>
+    <cds-header-global-bar>
+        <TrialBadge />
+    </cds-header-global-bar>
+    <cds-side-nav
+        aria-label="PulseBoard"
+        collapse-mode="responsive"
+        is-not-persistent
+    >
+        <cds-side-nav-items>
+            <cds-header-side-nav-items has-divider>
+                {pages.map((page) => (
+                    <cds-side-nav-link
+                        href={page.href}
+                        data-dataset-link={dataset(page.dataset)}
+                        data-dashboard-link
+                    >
+                        {page.label}
+                    </cds-side-nav-link>
+                ))}
+            </cds-header-side-nav-items>
+            <cds-side-nav-link href="/settings">Settings</cds-side-nav-link>
+            <cds-side-nav-link href="/buy">License</cds-side-nav-link>
+            <cds-side-nav-link href="javascript:void 0" data-logout>
+                Log out
+            </cds-side-nav-link>
+        </cds-side-nav-items>
+    </cds-side-nav>
+</cds-header>
+
+<style>
+    /* Carbon's host styles would show hidden links anyway */
+    [hidden] {
+        display: none !important;
+    }
+</style>
+
+<script>
+    // only the shell parts in use, not the switcher
+    import "@carbon/web-components/es/components/ui-shell/header.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu-button.js";
+    import "@carbon/web-components/es/components/ui-shell/header-name.js";
+    import "@carbon/web-components/es/components/ui-shell/header-nav.js";
+    import "@carbon/web-components/es/components/ui-shell/header-nav-item.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu.js";
+    import "@carbon/web-components/es/components/ui-shell/header-menu-item.js";
+    import "@carbon/web-components/es/components/ui-shell/side-nav.js";
+    import "@carbon/web-components/es/components/ui-shell/side-nav-items.js";
+    import "@carbon/web-components/es/components/ui-shell/header-side-nav-items.js";
+    import "@carbon/web-components/es/components/ui-shell/side-nav-link.js";
+    import { logout } from "../lib/auth";
+    document
+        .querySelectorAll("[data-logout]")
+        .forEach((link) => link.addEventListener("click", logout));
+</script>

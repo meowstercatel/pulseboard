@@ -1,44 +1,14 @@
 ---
 import "../styles/carbon.scss";
 import HtmlTemplate from "../layouts/HtmlTemplate.astro";
-import TrialBadge from "../components/TrialBadge.astro";
+import AppHeader from "../components/AppHeader.astro";
 import DashboardControls from "../components/DashboardControls.astro";
 import { metricFields } from "../lib/dashboard";
 ---
 
 <HtmlTemplate title="Overview · PulseBoard" requiresAuth>
     <main>
-        <cds-header aria-label="PulseBoard">
-            <cds-header-name href="/overview">PulseBoard</cds-header-name>
-            <cds-header-nav menu-bar-label="PulseBoard">
-                <cds-header-nav-item href="/overview" data-dataset-link>
-                    Overview
-                </cds-header-nav-item>
-                <cds-header-nav-item href="/history" data-dataset-link>
-                    History
-                </cds-header-nav-item>
-                <cds-header-nav-item href="/forecast" data-dataset-link>
-                    Forecast
-                </cds-header-nav-item>
-                <cds-header-nav-item href="/datasets">
-                    Datasets
-                </cds-header-nav-item>
-                <cds-header-menu menu-label="Account" trigger-content="Account">
-                    <cds-header-menu-item href="/settings">
-                        Settings
-                    </cds-header-menu-item>
-                    <cds-header-menu-item href="/buy">
-                        License
-                    </cds-header-menu-item>
-                    <cds-header-menu-item href="javascript:void 0" id="logout">
-                        Log out
-                    </cds-header-menu-item>
-                </cds-header-menu>
-            </cds-header-nav>
-            <cds-header-global-bar>
-                <TrialBadge />
-            </cds-header-global-bar>
-        </cds-header>
+        <AppHeader />
         <section class="content">
             <div class="page-header">
                 <div>
@@ -321,20 +291,12 @@ import { metricFields } from "../lib/dashboard";
     }
 </style>
 <script>
-    // only the header parts in use, not the side nav and switcher
-    import "@carbon/web-components/es/components/ui-shell/header.js";
-    import "@carbon/web-components/es/components/ui-shell/header-name.js";
-    import "@carbon/web-components/es/components/ui-shell/header-nav.js";
-    import "@carbon/web-components/es/components/ui-shell/header-nav-item.js";
-    import "@carbon/web-components/es/components/ui-shell/header-menu.js";
-    import "@carbon/web-components/es/components/ui-shell/header-menu-item.js";
     import "@carbon/web-components/es/components/tile/index.js";
     import "@carbon/web-components/es/components/link/index.js";
     import "@carbon/web-components/es/components/button/index.js";
-    import { logout, requireLicense } from "../lib/auth";
+    import { requireLicense } from "../lib/auth";
     import { showTrialBadge } from "../lib/plan";
     import { initDashboard } from "../lib/dashboard";
-    document.getElementById("logout")?.addEventListener("click", logout);
     requireLicense().then((user) => {
         if (!user) return;
         showTrialBadge(user);
